@@ -4,6 +4,7 @@ import { useState } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { AppSettings } from "@/lib/types";
+import { Trash2, CheckCircle, UploadCloud } from "lucide-react";
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Partial<AppSettings>>({
@@ -36,7 +37,7 @@ export default function AdminSettingsPage() {
                     value={email}
                     readOnly
                   />
-                  <button className={styles.removeBtn}>🗑️</button>
+                  <button className={styles.removeBtn}><Trash2 size={16} /></button>
                 </div>
               ))}
               <div className={styles.emailRow}>
@@ -65,7 +66,7 @@ export default function AdminSettingsPage() {
             </div>
             <div className={styles.testConnection}>
               <button className="btn btn-secondary">Uji Koneksi GAS</button>
-              <span className={styles.statusOk}>✅ Terhubung</span>
+              <span className={styles.statusOk}><CheckCircle size={16} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Terhubung</span>
             </div>
           </div>
           
@@ -74,7 +75,7 @@ export default function AdminSettingsPage() {
             <p className={styles.sectionDesc}>Upload file Excel/CSV untuk mendaftarkan email mahasiswa/karyawan yang diizinkan menggunakan Kode Mitra tertentu.</p>
             
             <div className={styles.uploadBox}>
-              <span className={styles.uploadIcon}>📁</span>
+              <span className={styles.uploadIcon}><UploadCloud size={32} style={{ color: 'var(--color-primary)' }} /></span>
               <h4>Tarik dan lepas file Excel di sini</h4>
               <p>atau</p>
               <button className="btn btn-secondary">Pilih File</button>

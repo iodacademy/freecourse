@@ -4,6 +4,7 @@ import { useState } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { CertificateVerification } from "@/lib/types";
+import { Eye, XCircle, CheckCircle } from "lucide-react";
 
 // Dummy data
 const DUMMY_CERTS: Partial<CertificateVerification>[] = [
@@ -73,9 +74,9 @@ export default function AdminCertificatesPage() {
                     )}
                   </td>
                   <td className={styles.actionsCell}>
-                    <button className={styles.iconBtn} title="Lihat">👁️</button>
+                    <button className={styles.iconBtn} title="Lihat"><Eye size={16} /></button>
                     <button className={styles.iconBtn} title={cert.isValid ? "Cabut Sertifikat" : "Pulihkan"}>
-                      {cert.isValid ? "🚫" : "✅"}
+                      {cert.isValid ? <XCircle size={16} /> : <CheckCircle size={16} />}
                     </button>
                   </td>
                 </tr>

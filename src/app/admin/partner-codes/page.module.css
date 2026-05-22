@@ -319,7 +319,7 @@
   border-radius: var(--radius-xl);
   max-width: 480px;
   width: 100%;
-  max-height: calc(100vh - 32px);
+  max-height: 85dvh;
   display: flex;
   flex-direction: column;
   animation: slideUp 200ms ease;

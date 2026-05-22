@@ -6,6 +6,7 @@ import Link from "next/link";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import styles from "./page.module.css";
+import { CheckCircle, AlertTriangle } from "lucide-react";
 
 interface CertData {
   certId: string;
@@ -101,7 +102,7 @@ export default function VerifyPage() {
         {certData.isValid ? (
           <div className={styles.validState}>
             <div className={styles.validBadge}>
-              <span className={styles.validIcon}>✅</span>
+              <span className={styles.validIcon}><CheckCircle size={64} style={{ display: 'inline-block' }} /></span>
               <span className={styles.validText}>SERTIFIKAT VALID</span>
             </div>
 
@@ -135,7 +136,7 @@ export default function VerifyPage() {
           </div>
         ) : (
           <div className={styles.invalidState}>
-            <span className={styles.invalidIcon}>⚠️</span>
+            <span className={styles.invalidIcon}><AlertTriangle size={64} style={{ display: 'inline-block' }} /></span>
             <h2>Sertifikat Tidak Valid</h2>
             <p>
               Sertifikat dengan ID <code>{certData.certId}</code> telah dicabut

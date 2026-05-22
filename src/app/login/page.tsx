@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import GoogleButton from "@/components/GoogleButton";
 import styles from "./page.module.css";
+import { AlertTriangle } from "lucide-react";
 import { Suspense } from "react";
 
 function LoginContent() {
@@ -71,8 +72,8 @@ function LoginContent() {
         </div>
 
         {error && (
-          <div className="alert alert-error">
-            <span>⚠️</span>
+          <div className={styles.error}>
+            <span><AlertTriangle size={18} /></span>
             <span>{error}</span>
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import styles from "./LMSPlayer.module.css";
+import { PartyPopper, GraduationCap } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────
 export interface QuizQuestion {
@@ -290,8 +291,9 @@ export default function LMSPlayer({
 
     if (screen === "done") {
       return (
-        <div className={styles.doneCard}>
-          <div className={styles.doneEmoji}>🎉</div>
+        <div className={styles.doneScreen}>
+          <div className={styles.doneEmoji}><PartyPopper size={48} style={{ color: 'var(--color-primary)', margin: '0 auto' }} /></div>
+          <h3>Modul Selesai</h3>
           <div className={styles.doneName}>Terima Kasih!</div>
           <div className={styles.doneDesc}>
             Survei kamu telah berhasil dikirim.<br />
@@ -437,8 +439,9 @@ export default function LMSPlayer({
             className={styles.btnRed}
             onClick={surveyEnabled ? showSurvey : proceedNext}
             disabled={!passed}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            {isLastStep && !surveyEnabled ? "Klaim Sertifikat 🎓" : "Materi Selanjutnya →"}
+            {isLastStep && !surveyEnabled ? <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><GraduationCap size={16} /> Klaim Sertifikat</span> : "Materi Selanjutnya →"}
           </button>
         </>
       );
@@ -452,8 +455,8 @@ export default function LMSPlayer({
 
     if (screen === "done") {
       return (
-        <button className={styles.btnRed} onClick={proceedNext}>
-          {isLastStep ? "Klaim Sertifikat 🎓" : "Materi Selanjutnya →"}
+        <button className={styles.btnRed} onClick={proceedNext} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {isLastStep ? <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><GraduationCap size={16} /> Klaim Sertifikat</span> : "Materi Selanjutnya →"}
         </button>
       );
     }

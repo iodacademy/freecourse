@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./LandingTemplate.module.css";
+import { Star, GraduationCap, Handshake, Calendar, ChevronRight } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -107,11 +108,7 @@ const EYEBROW: Record<LandingType, string> = {
 };
 
 // ─── Chevron Icon ─────────────────────────────────────────────────────────────
-const ChevronRight = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 18l6-6-6-6" />
-  </svg>
-);
+// (Using lucide-react ChevronRight instead)
 
 const LockIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -191,9 +188,9 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
   const eyebrow = EYEBROW[type];
 
   const defaultTitle =
-    type === "workshop" ? "Selamat! Kamu Terpilih untuk Workshop Gratis 🎓" :
-      type === "beasiswa" ? "Selamat! Kamu Lolos Seleksi Beasiswa 🌟" :
-        "Selamat Datang, Kaum Muda! 🤝";
+    type === "workshop" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat! Kamu Terpilih untuk Workshop Gratis <GraduationCap size={32} /></span> :
+      type === "beasiswa" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat! Kamu Lolos Seleksi Beasiswa <Star size={32} /></span> :
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat Datang, Kaum Muda! <Handshake size={32} /></span>;
 
   const defaultSubtitle = "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!";
 
@@ -292,7 +289,7 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
           {type === "workshop" ? (
             <div className={styles.workshopBanner}>
               <div className={styles.wbLeft}>
-                <div className={styles.wbBadge}>📅 WORKSHOP EKSKLUSIF</div>
+                <div className={styles.wbBadge}><span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Calendar size={16} /> WORKSHOP EKSKLUSIF</span></div>
                 <h2 className={styles.wbTitle}>{workshopData?.title || "Judul Workshop Akan Tampil Di Sini"}</h2>
                 <div className={styles.wbInfoList}>
                   <div className={styles.wbInfoItem}>
@@ -347,7 +344,9 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
             </div>
           ) : (
             <>
-              <h1 dangerouslySetInnerHTML={{ __html: heroTitle || defaultTitle }} />
+              <h1 className={styles.heroTitle}>
+                {heroTitle ? <span dangerouslySetInnerHTML={{ __html: heroTitle }} /> : defaultTitle}
+              </h1>
               <p className={styles.heroSub} dangerouslySetInnerHTML={{ __html: heroSubtitle || defaultSubtitle }} />
             </>
           )}
@@ -377,7 +376,7 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
               const isInteractive = status === "active" || status === "done";
               
               let ctaText = "Terkunci";
-              let Icon = LockIcon;
+              let Icon: any = LockIcon;
               if (status === "done") { 
                 ctaText = "Selesai"; 
                 Icon = () => <span style={{fontSize: "14px", fontWeight: "bold"}}>✓</span>; 

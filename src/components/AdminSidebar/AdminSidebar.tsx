@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings } from "lucide-react";
 import styles from "./AdminSidebar.module.css";
 
 const menuItems = [
-  { href: "/admin", label: "Beranda", icon: "🏠" },
-  { href: "/admin/events", label: "Event / Channel", icon: "📅" },
-  { href: "/admin/courses", label: "Kursus & Materi", icon: "📖" },
-  { href: "/admin/certificates", label: "Sertifikat", icon: "🎓" },
-  { href: "/admin/bonus-courses", label: "Kursus Tambahan", icon: "📚" },
-  { href: "/admin/students", label: "Siswa & Laporan", icon: "👥" },
-  { href: "/admin/partner-codes", label: "Kode Mitra", icon: "🏷️" },
-  { href: "/admin/settings", label: "Pengaturan", icon: "⚙️" },
+  { href: "/admin", label: "Beranda", icon: <Home size={18} /> },
+  { href: "/admin/events", label: "Event / Channel", icon: <Calendar size={18} /> },
+  { href: "/admin/courses", label: "Kursus & Materi", icon: <BookOpen size={18} /> },
+  { href: "/admin/certificates", label: "Sertifikat", icon: <GraduationCap size={18} /> },
+  { href: "/admin/bonus-courses", label: "Kursus Tambahan", icon: <Library size={18} /> },
+  { href: "/admin/students", label: "Siswa & Laporan", icon: <Users size={18} /> },
+  { href: "/admin/partner-codes", label: "Kode Mitra", icon: <Tag size={18} /> },
+  { href: "/admin/settings", label: "Pengaturan", icon: <Settings size={18} /> },
 ];
 
 export default function AdminSidebar() {

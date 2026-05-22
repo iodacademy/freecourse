@@ -6,6 +6,7 @@ import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { CourseStep } from "@/lib/types";
+import { Video, FileText, ClipboardList, MousePointer2 } from "lucide-react";
 
 // Dummy data
 const DUMMY_STEPS: CourseStep[] = [
@@ -106,9 +107,9 @@ export default function CourseEditorPage() {
                   <div className={styles.stepInfo}>
                     <h4 className={styles.stepTitle}>{step.title}</h4>
                     <div className={styles.stepBadges}>
-                      {step.video.youtubeId && <span className={styles.badgeVideo}>🎥 Video</span>}
-                      {step.companionType === "assessment" && <span className={styles.badgeAssessment}>📝 Assessment</span>}
-                      {step.companionType === "survey" && <span className={styles.badgeSurvey}>📋 Survei</span>}
+                      {step.video.youtubeId && <span className={styles.badgeVideo}><Video size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> Video</span>}
+                      {step.companionType === "assessment" && <span className={styles.badgeAssessment}><FileText size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> Assessment</span>}
+                      {step.companionType === "survey" && <span className={styles.badgeSurvey}><ClipboardList size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> Survei</span>}
                     </div>
                   </div>
                   
@@ -121,7 +122,7 @@ export default function CourseEditorPage() {
           {/* Right Column: Editor (Placeholder for now) */}
           <div className={styles.editorPanel}>
             <div className={styles.emptyEditor}>
-              <span className={styles.emptyIcon}>👈</span>
+              <span className={styles.emptyIcon}><MousePointer2 size={48} style={{ color: 'var(--color-gray-400)' }} /></span>
               <h3>Pilih Materi untuk Diedit</h3>
               <p>Klik tombol Edit pada daftar materi di sebelah kiri.</p>
             </div>

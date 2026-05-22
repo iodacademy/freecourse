@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
+import { AlertTriangle } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -63,8 +64,8 @@ export default function AdminLoginPage() {
           </div>
 
           {error && (
-            <div className={styles.error}>
-              ⚠️ {error}
+            <div className={styles.errorBanner}>
+              <AlertTriangle size={18} /> {error}
             </div>
           )}
 

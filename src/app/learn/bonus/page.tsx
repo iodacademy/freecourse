@@ -4,6 +4,7 @@ import { useState } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
+import { Users, BookOpen, PenTool, BarChart2, ClipboardList } from "lucide-react";
 
 // Data dummy — nanti dari Firestore (bonusCourseTopics collection)
 const DUMMY_TOPICS = [
@@ -12,28 +13,28 @@ const DUMMY_TOPICS = [
     name: "Legal & Hukum Bisnis",
     description: "Pelajari dasar hukum bisnis, kontrak, dan perlindungan konsumen.",
     classCode: "BLG81",
-    icon: "⚖️",
+    icon: <BookOpen size={32} style={{ color: 'var(--color-primary)' }} />,
   },
   {
     id: "hr",
     name: "Human Resource Management",
     description: "Kelola SDM dengan efektif: rekrutmen, pelatihan, dan retensi karyawan.",
     classCode: "BHR30",
-    icon: "👥",
+    icon: <Users size={32} style={{ color: 'var(--color-primary)' }} />,
   },
   {
     id: "digital",
     name: "Digital Marketing",
     description: "Strategi pemasaran digital: SEO, social media, dan content marketing.",
     classCode: "BDM45",
-    icon: "📱",
+    icon: <PenTool size={32} style={{ color: 'var(--color-primary)' }} />,
   },
   {
     id: "finance",
     name: "Akuntansi & Keuangan",
     description: "Dasar pembukuan, laporan keuangan, dan analisis bisnis.",
     classCode: "BAK22",
-    icon: "📊",
+    icon: <BarChart2 size={32} style={{ color: 'var(--color-primary)' }} />,
   },
 ];
 
@@ -65,7 +66,7 @@ export default function BonusCoursePage() {
           {!confirmed ? (
             <>
               <div className={styles.header}>
-                <span className={styles.headerIcon}>🎁</span>
+                <span className={styles.headerIcon}><ClipboardList size={48} /></span>
                 <h1>Pilih Kursus Tambahan</h1>
                 <p>
                   Selamat! Sebagai pemegang sertifikat, kamu berhak memilih
@@ -88,7 +89,9 @@ export default function BonusCoursePage() {
                     <h3 className={styles.topicName}>{topic.name}</h3>
                     <p className={styles.topicDesc}>{topic.description}</p>
                     {selectedTopic === topic.id && (
-                      <span className={styles.selectedCheck}>✓ Dipilih</span>
+                      <div className={styles.iconCircle}>
+                        <ClipboardList size={32} style={{ color: 'var(--color-primary)' }} />
+                      </div>
                     )}
                   </button>
                 ))}

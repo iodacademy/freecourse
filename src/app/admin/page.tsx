@@ -3,13 +3,14 @@
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Link from "next/link";
 import styles from "./page.module.css";
+import { Users, GraduationCap, Calendar, Tag, BookOpen } from "lucide-react";
 
 // Data dummy dashboard
 const STATS = [
-  { label: "Total Siswa", value: "1,245", icon: "👥", trend: "+12%" },
-  { label: "Sertifikat Diterbitkan", value: "856", icon: "🎓", trend: "+8%" },
-  { label: "Workshop Mendatang", value: "3", icon: "📅", trend: "0%" },
-  { label: "Kode Mitra Aktif", value: "24", icon: "🏷️", trend: "+5%" },
+  { label: "Total Siswa", value: "1,245", icon: <Users size={20} />, trend: "+12%" },
+  { label: "Sertifikat Diterbitkan", value: "856", icon: <GraduationCap size={20} />, trend: "+8%" },
+  { label: "Workshop Mendatang", value: "3", icon: <Calendar size={20} />, trend: "0%" },
+  { label: "Kode Mitra Aktif", value: "24", icon: <Tag size={20} />, trend: "+5%" },
 ];
 
 const RECENT_ACTIVITY = [
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
             </div>
             <div className={styles.quickLinks}>
               <Link href="/admin/courses" className={styles.quickLink}>
-                <span className={styles.quickLinkIcon}>📖</span>
+                <span className={styles.quickLinkIcon}><BookOpen size={24} /></span>
                 <div>
                   <h4>Edit Materi Kursus</h4>
                   <p>Update video, soal, atau survei</p>
@@ -90,7 +91,7 @@ export default function AdminDashboard() {
                 <span className={styles.quickLinkArrow}>→</span>
               </Link>
               <Link href="/admin/partner-codes" className={styles.quickLink}>
-                <span className={styles.quickLinkIcon}>🏷️</span>
+                <span className={styles.quickLinkIcon}><Tag size={24} /></span>
                 <div>
                   <h4>Kelola Kode Mitra</h4>
                   <p>Tambah atau nonaktifkan kode</p>
@@ -98,7 +99,7 @@ export default function AdminDashboard() {
                 <span className={styles.quickLinkArrow}>→</span>
               </Link>
               <Link href="/admin/students" className={styles.quickLink}>
-                <span className={styles.quickLinkIcon}>👥</span>
+                <span className={styles.quickLinkIcon}><Users size={24} /></span>
                 <div>
                   <h4>Data Siswa</h4>
                   <p>Lihat progress dan export data</p>

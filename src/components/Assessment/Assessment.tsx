@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AssessmentQuestion } from "@/lib/types";
 import styles from "./Assessment.module.css";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 interface AssessmentProps {
   questions: AssessmentQuestion[];
@@ -119,12 +120,12 @@ export default function Assessment({
           <div className={styles.scoreInfo}>
             {passed ? (
               <>
-                <span className={styles.scoreStatus}>✅ LULUS</span>
+                <span className={styles.scoreStatus}><CheckCircle2 size={16} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> LULUS</span>
                 <p>Selamat! Kamu sudah mencapai KKM. Klik Next untuk lanjut.</p>
               </>
             ) : (
               <>
-                <span className={styles.scoreStatusFail}>❌ BELUM LULUS</span>
+                <span className={styles.scoreStatusFail}><XCircle size={16} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> BELUM LULUS</span>
                 <p>Nilai belum mencapai KKM ({kkm}). Lihat hint di bawah dan coba lagi!</p>
               </>
             )}
@@ -152,7 +153,7 @@ export default function Assessment({
             >
               <div className={styles.questionHeader}>
                 <span className={styles.questionNum}>
-                  {hasResult ? (isCorrect ? "✅" : "❌") : `${idx + 1}.`}
+                  {hasResult ? (isCorrect ? <CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} /> : <XCircle size={16} style={{ color: 'var(--color-error)' }} />) : `${idx + 1}.`}
                 </span>
                 <p className={styles.questionText}>{question.text}</p>
               </div>

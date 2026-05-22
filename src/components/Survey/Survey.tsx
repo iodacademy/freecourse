@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { SurveyQuestion } from "@/lib/types";
 import styles from "./Survey.module.css";
+import { ClipboardList, CheckCircle2 } from "lucide-react";
 
 interface SurveyProps {
   questions: SurveyQuestion[];
@@ -44,12 +45,12 @@ export default function Survey({
     return (
       <div className={styles.wrapper}>
         <div className={styles.header}>
-          <h3 className={styles.title}>📋 Survei</h3>
+          <h3 className={styles.title}><ClipboardList size={20} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Survei</h3>
         </div>
         <div className={styles.successMessage}>
-          <span className={styles.successEmoji}>🙏</span>
+          <span className={styles.successEmoji}><CheckCircle2 size={48} style={{ color: 'var(--color-success)' }} /></span>
           <h4>Terima Kasih!</h4>
-          <p>Respons kamu sudah kami terima. Klik Next untuk lanjut.</p>
+          <p>Tanggapan survei kamu telah disimpan.</p>
         </div>
       </div>
     );
@@ -58,7 +59,7 @@ export default function Survey({
   return (
     <div className={styles.wrapper}>
       <div className={styles.header}>
-        <h3 className={styles.title}>📋 Survei</h3>
+        <h3 className={styles.title}><ClipboardList size={20} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Survei</h3>
         <span className={styles.metaItem}>
           {questions.length} Pertanyaan
         </span>

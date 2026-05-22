@@ -6,6 +6,7 @@ import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
+import { ClipboardList, GraduationCap } from "lucide-react";
 
 export default function CertificatePage() {
   const { profile } = useAuth();
@@ -37,7 +38,9 @@ export default function CertificatePage() {
           {!isAllCompleted ? (
             /* Belum selesai semua — tampilkan progress */
             <div className={styles.incompleteCard}>
-              <span className={styles.incompleteIcon}>📋</span>
+              <div className={styles.iconCircle}>
+                <span className={styles.incompleteIcon}><ClipboardList size={32} style={{ color: 'var(--color-primary)' }} /></span>
+              </div>
               <h2>Belum Bisa Klaim Sertifikat</h2>
               <p>
                 Kamu perlu menyelesaikan semua materi terlebih dahulu.
@@ -104,7 +107,7 @@ export default function CertificatePage() {
                     Membuat Sertifikat...
                   </>
                 ) : (
-                  "🎓 Klaim Sertifikat Sekarang"
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><GraduationCap size={20} /> Klaim Sertifikat Sekarang</span>
                 )}
               </button>
 

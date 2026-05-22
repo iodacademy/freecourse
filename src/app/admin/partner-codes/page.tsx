@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
+import { AlertTriangle, Copy, Check } from "lucide-react";
 
 interface PartnerCode {
   id: string;
@@ -131,10 +132,10 @@ export default function AdminPartnerCodesPage() {
   };
 
   // Copy link
-  const copyLink = (code: string) => {
-    const link = `${window.location.origin}/partner/${code}`;
+  const copyLink = (pc: PartnerCode) => {
+    const link = `${window.location.origin}/partner/${pc.code}`;
     navigator.clipboard.writeText(link);
-    setCopied(code);
+    setCopied(pc.code);
     setTimeout(() => setCopied(null), 2000);
   };
 
@@ -167,7 +168,7 @@ export default function AdminPartnerCodesPage() {
 
         {error && (
           <div className={styles.errorBanner}>
-            ⚠️ {error}
+            <AlertTriangle size={18} /> {error}
             <button onClick={() => setError("")} className={styles.errorClose}>×</button>
           </div>
         )}
@@ -214,10 +215,14 @@ export default function AdminPartnerCodesPage() {
                           <span className={styles.linkText}>{partnerLink}</span>
                           <button
                             className={`${styles.copyBtn} ${copied === pc.code ? styles.copyBtnDone : ""}`}
-                            onClick={() => copyLink(pc.code)}
-                            title="Salin Link"
+                            onClick={() => copyLink(pc)}
+                            title="Salin Link Pendaftaran"
                           >
-                            {copied === pc.code ? "✓ Tersalin" : "📋 Salin"}
+                            {copied === pc.code ? (
+                              <><Check size={14} /> Tersalin</>
+                            ) : (
+                              <><Copy size={14} /> Salin</>
+                            )}
                           </button>
                         </div>
                       </td>

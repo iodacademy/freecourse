@@ -4,6 +4,7 @@ import { useState } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { BonusCourseTopic } from "@/lib/types";
+import { Pencil, CheckCircle, XCircle } from "lucide-react";
 
 // Dummy data
 const DUMMY_BONUS: Partial<BonusCourseTopic>[] = [
@@ -59,9 +60,9 @@ export default function AdminBonusCoursesPage() {
                 <code className={styles.codeValue}>{topic.classCode}</code>
               </div>
               <div className={styles.cardActions}>
-                <button className="btn btn-secondary w-full">✏️ Edit Topik</button>
-                <button className="btn btn-secondary" title={topic.status === "active" ? "Nonaktifkan" : "Aktifkan"}>
-                  {topic.status === "active" ? "🚫" : "✅"}
+                <button className="btn btn-secondary w-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Pencil size={16} /> Edit Topik</button>
+                <button className="btn btn-secondary" title={topic.status === "active" ? "Nonaktifkan" : "Aktifkan"} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {topic.status === "active" ? <XCircle size={16} /> : <CheckCircle size={16} />}
                 </button>
               </div>
             </div>

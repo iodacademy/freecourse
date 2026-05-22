@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
+import { AlertTriangle, Copy, Check, School, Target, Mic } from "lucide-react";
 
 interface EventData {
   id: string;
   name: string;
-  description: string;
-  channelType: "b2b_campus" | "b2c_ads" | "b2c_workshop";
+  description: string | null;
+  channelType: string;
   status: "active" | "draft" | "ended";
+  courseId: string | null;
   startDate: string | null;
   endDate: string | null;
   campusName: string | null;
@@ -19,9 +21,9 @@ interface EventData {
 }
 
 const CHANNEL_LABELS: Record<string, string> = {
-  b2b_campus: "🏫 Kemitraan (B2B)",
-  b2c_ads: "🎯 Beasiswa / Ads",
-  b2c_workshop: "🎤 Workshop",
+  b2b_campus: "Kemitraan (B2B)",
+  b2c_ads: "Beasiswa / Ads",
+  b2c_workshop: "Workshop",
 };
 
 const CHANNEL_PATHS: Record<string, string> = {
@@ -234,23 +236,24 @@ export default function AdminEventsPage() {
 
         {error && (
           <div className={styles.errorBanner}>
-            ⚠️ {error}
+            <AlertTriangle size={18} /> {error}
             <button onClick={() => setError("")} className={styles.errorClose}>×</button>
           </div>
         )}
 
         <div className={styles.filters}>
           {[
-            { key: "all", label: "Semua Event" },
-            { key: "b2b_campus", label: "🏫 Kemitraan" },
-            { key: "b2c_ads", label: "🎯 Beasiswa/Ads" },
-            { key: "b2c_workshop", label: "🎤 Workshop" },
+            { key: "all", label: "Semua Event", icon: null },
+            { key: "b2b_campus", label: "Kemitraan", icon: <School size={16} /> },
+            { key: "b2c_ads", label: "Beasiswa/Ads", icon: <Target size={16} /> },
+            { key: "b2c_workshop", label: "Workshop", icon: <Mic size={16} /> },
           ].map((f) => (
             <button
               key={f.key}
               className={`${styles.filterBtn} ${filter === f.key ? styles.active : ""}`}
               onClick={() => setFilter(f.key)}
             >
+              {f.icon && <span style={{ marginRight: '6px', display: 'inline-flex', verticalAlign: 'middle' }}>{f.icon}</span>}
               {f.label}
             </button>
           ))}
@@ -296,18 +299,23 @@ export default function AdminEventsPage() {
                         )}
                       </td>
                       <td>
-                        <span className={styles.channelBadge}>
+                        <div className={styles.channelBadge}>
                           {CHANNEL_LABELS[evt.channelType] || evt.channelType}
-                        </span>
+                        </div>
                       </td>
                       <td>
                         <div className={styles.linkCell}>
                           <span className={styles.linkText}>{link}</span>
                           <button
-                            className={`${styles.copyBtn} ${copied === evt.id ? styles.copyBtnDone : ""}`}
+                            className={styles.copyBtn}
                             onClick={() => copyLink(evt)}
+                            title="Salin Link Pendaftaran"
                           >
-                            {copied === evt.id ? "✓ Tersalin" : "📋 Salin"}
+                            {copied === evt.id ? (
+                              <><Check size={14} /> Tersalin</>
+                            ) : (
+                              <><Copy size={14} /> Salin</>
+                            )}
                           </button>
                         </div>
                       </td>
@@ -385,9 +393,9 @@ export default function AdminEventsPage() {
                     onChange={(e) => setForm({ ...form, channelType: e.target.value })}
                     disabled={!!editing}
                   >
-                    <option value="b2c_ads">🎯 Beasiswa / Ads (Channel 2)</option>
-                    <option value="b2c_workshop">🎤 Workshop (Channel 3)</option>
-                    <option value="b2b_campus">🏫 Kemitraan / B2B (Channel 1)</option>
+                    <option value="b2c_ads">Beasiswa / Ads (Channel 2)</option>
+                    <option value="b2c_workshop">Workshop (Channel 3)</option>
+                    <option value="b2b_campus">Kemitraan / B2B (Channel 1)</option>
                   </select>
                 </div>
 

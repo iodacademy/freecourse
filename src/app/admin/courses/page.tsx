@@ -5,6 +5,7 @@ import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { Course } from "@/lib/types";
+import { Star, BookOpen, Pencil, Settings } from "lucide-react";
 
 const DUMMY_COURSES: Partial<Course>[] = [
   {
@@ -55,20 +56,20 @@ export default function AdminCoursesPage() {
                   {course.status === "published" ? "Publik" : "Draft"}
                 </span>
                 {course.isMainCourse && (
-                  <span className={styles.mainBadge}>🌟 Utama</span>
+                  <span className={styles.mainBadge}><Star size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Utama</span>
                 )}
               </div>
               <h3 className={styles.courseTitle}>{course.title}</h3>
               <p className={styles.courseMeta}>
-                <span>📚 {course.totalSteps} Modul/Materi</span>
+                <span><BookOpen size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> {course.totalSteps} Modul/Materi</span>
                 <span>Terakhir diupdate: {course.updatedAt?.toLocaleDateString("id-ID")}</span>
               </p>
               <div className={styles.cardActions}>
-                <Link href={`/admin/courses/${course.id}`} className="btn btn-secondary w-full">
-                  ✏️ Edit Materi
+                <Link href={`/admin/courses/${course.id}`} className="btn btn-secondary w-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <Pencil size={16} /> Edit Materi
                 </Link>
-                <button className="btn btn-secondary" title="Pengaturan Kursus">
-                  ⚙️
+                <button className="btn btn-secondary" title="Pengaturan Kursus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Settings size={16} />
                 </button>
               </div>
             </div>
