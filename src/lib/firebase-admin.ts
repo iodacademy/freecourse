@@ -12,7 +12,12 @@ let adminDb: Firestore;
 
 function getAdminApp(): App {
   if (getApps().length === 0) {
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+    // Handle multiple possible formats of the private key
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
+    // Replace literal \n (from env var) with actual newlines
+    privateKey = privateKey.replace(/\\n/g, "\n");
+    // Also handle double-escaped \\n
+    privateKey = privateKey.replace(/\\\\n/g, "\n");
     app = initializeApp({
       credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID!,
