@@ -263,22 +263,44 @@
   white-space: nowrap;
 }
 
-.iconBtn {
-  background: none;
-  border: none;
-  font-size: var(--font-size-lg);
-  padding: var(--space-1);
-  margin-left: var(--space-2);
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-700);
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity var(--transition-fast);
+  margin-left: 6px;
+  transition: all 150ms;
 }
 
-.iconBtn:hover {
-  opacity: 1;
+.actionBtn svg {
+  width: 14px;
+  height: 14px;
 }
 
-/* ─── Modal ─── */
+.actionBtn:hover {
+  background: var(--color-gray-50);
+  border-color: var(--color-gray-300);
+  color: var(--color-gray-900);
+}
+
+.dangerBtn {
+  color: #dc2626;
+}
+
+.dangerBtn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* ─── Create / Edit Modal ─── */
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -288,15 +310,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
   animation: fadeIn 150ms ease;
 }
 
 .modal {
   background: var(--color-white);
   border-radius: var(--radius-xl);
-  max-width: 520px;
+  max-width: 480px;
   width: 100%;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
   animation: slideUp 200ms ease;
   overflow: hidden;
 }
@@ -305,8 +330,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-6);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-gray-100);
+  flex-shrink: 0;
 }
 
 .modalHeader h2 {
@@ -330,7 +356,9 @@
 }
 
 .modalBody {
-  padding: var(--space-6);
+  padding: var(--space-5);
+  overflow-y: auto;
+  flex: 1;
 }
 
 /* Form */

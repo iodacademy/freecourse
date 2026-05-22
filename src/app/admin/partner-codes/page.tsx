@@ -179,7 +179,9 @@ export default function AdminPartnerCodesPage() {
           </div>
         ) : codes.length === 0 ? (
           <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>🏷️</div>
+            <div className={styles.emptyIcon}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gray-400)' }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+            </div>
             <h3>Belum Ada Kode Mitra</h3>
             <p>Klik tombol &quot;+ Buat Kode Baru&quot; untuk membuat kode mitra pertama.</p>
           </div>
@@ -242,11 +244,21 @@ export default function AdminPartnerCodesPage() {
                         )}
                       </td>
                       <td className={styles.actionsCell}>
-                        <button className={styles.iconBtn} onClick={() => openEdit(pc)} title="Edit">✏️</button>
-                        <button className={styles.iconBtn} onClick={() => toggleStatus(pc)} title={isActive ? "Nonaktifkan" : "Aktifkan"}>
-                          {isActive ? "🚫" : "✅"}
+                        <button className={styles.actionBtn} onClick={() => openEdit(pc)} title="Edit">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          Edit
                         </button>
-                        <button className={styles.iconBtn} onClick={() => handleDelete(pc)} title="Hapus">🗑️</button>
+                        <button className={styles.actionBtn} onClick={() => toggleStatus(pc)} title={isActive ? "Nonaktifkan" : "Aktifkan"}>
+                          {isActive ? (
+                            <><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Nonaktifkan</>
+                          ) : (
+                            <><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Aktifkan</>
+                          )}
+                        </button>
+                        <button className={`${styles.actionBtn} ${styles.dangerBtn}`} onClick={() => handleDelete(pc)} title="Hapus">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          Hapus
+                        </button>
                       </td>
                     </tr>
                   );
