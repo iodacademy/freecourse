@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isLoggedIn() { return request.auth != null; }
+    function isOwner(uid) { return request.auth.uid == uid; }
+    function isAdmin() {
+      return isLoggedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Users: baca diri sendiri, admin baca semua
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Courses: semua yang login bisa baca, hanya admin bisa tulis
+    match /courses/{id} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    // CourseSteps: sama seperti courses
+    match /courseSteps/{id} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    // Enrollments: baca/tulis milik sendiri, admin baca semua
+    match /enrollments/{id} {
+      allow read: if isLoggedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow write: if isLoggedIn() && (
+        request.resource.data.userId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // Events: login bisa baca, admin bisa tulis
+    match /events/{id} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    // Partner Codes: login bisa baca (untuk validasi), admin bisa tulis
+    match /partnerCodes/{id} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    // Bonus Course Topics: login bisa baca, admin bisa tulis
+    match /bonusCourseTopics/{id} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    // Certificate Verifications: PUBLIC (tidak perlu login untuk memverifikasi QR)
+    match /certificateVerifications/{certId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // App Settings: login bisa baca, admin bisa tulis
+    match /appSettings/{doc} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

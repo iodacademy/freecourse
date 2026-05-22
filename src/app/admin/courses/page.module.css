@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════
+   Admin Courses Page
+   ═══════════════════════════════════════════ */
+
+.page {
+  animation: fadeIn 0.3s ease;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--space-1);
+}
+
+.subtitle {
+  color: var(--color-gray-500);
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+}
+
+.courseCard {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  border: 1px solid var(--color-gray-200);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-normal);
+}
+
+.courseCard:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-200);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.statusBadge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+}
+
+.published {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.draft {
+  background: var(--color-gray-100);
+  color: var(--color-gray-600);
+}
+
+.mainBadge {
+  background: rgba(255, 193, 7, 0.2);
+  color: #b38b00;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.courseTitle {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-3);
+  line-height: var(--line-height-tight);
+}
+
+.courseMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--space-6);
+  flex-grow: 1;
+}
+
+.cardActions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: auto;
+}

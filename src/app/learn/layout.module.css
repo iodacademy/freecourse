@@ -1,0 +1,262 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;   /* prevent global horizontal scroll */
+  background: var(--color-gray-100);
+}
+
+.topbar {
+  background: var(--color-white);
+  border-bottom: 1.5px solid var(--color-gray-200);
+  padding: 11px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbarLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbarLogoMark {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbarLogoMark svg {
+  width: 18px;
+  height: 18px;
+  fill: white;
+}
+
+.topbarLogo h1 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-secondary);
+  margin: 0;
+}
+
+.topbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 5px;
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: 40px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.profBtn:hover {
+  border-color: var(--color-gray-200);
+  background: var(--color-gray-100);
+}
+
+.profAv {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-primary-pastel);
+  flex-shrink: 0;
+}
+
+.profAvInitial {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profNm {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-secondary);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profChev {
+  width: 13px;
+  height: 13px;
+  stroke: var(--color-gray-500);
+  flex-shrink: 0;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: var(--radius-sm, 8px);
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-error);
+  transition: all 0.15s;
+}
+
+.logoutBtn:hover {
+  background: var(--color-error-50);
+  border-color: #FCA5A5;
+}
+
+.logoutBtn svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--color-error);
+}
+
+.layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;   /* allow flex child to shrink below content height */
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .container {
+    height: auto;
+    overflow-x: hidden; /* kill horizontal scroll */
+    overflow-y: auto;
+  }
+  .layout {
+    height: auto;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .profNm {
+    display: none;
+  }
+  .logoutBtn span {
+    display: none; /* hide text, just show icon on tiny screens */
+  }
+}
+
+/* ── Logout Modal ── */
+.modalBg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.15s ease;
+}
+
+.modalBox {
+  background: white;
+  border-radius: 12px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: scaleIn 0.18s ease;
+}
+
+.modalIco {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #FEF2F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.modalIco svg {
+  width: 24px;
+  height: 24px;
+  stroke: #DC2626;
+}
+
+.modalTitle {
+  font-size: 17px;
+  font-weight: 800;
+  color: #000;
+  margin-bottom: 6px;
+}
+
+.modalDesc {
+  font-size: 13px;
+  color: #737373;
+  line-height: 1.6;
+  margin-bottom: 22px;
+}
+
+.modalBtns {
+  display: flex;
+  gap: 10px;
+}
+
+.mCancel {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1.5px solid #E5E5E5;
+  background: white;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mCancel:hover { background: #F7F7F7; }
+
+.mConfirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: #CC0000;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mConfirm:hover { background: #990000; }
+.mConfirm:disabled { background: #FCA5A5; cursor: not-allowed; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0.93); } to { transform: scale(1); } }
+

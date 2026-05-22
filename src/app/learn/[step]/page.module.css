@@ -1,0 +1,67 @@
+/* Step Page — thin wrapper, LMSPlayer owns the layout */
+
+.wrapper {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Locked State */
+.lockedWrapper {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.lockedCard {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E5E5E5;
+  padding: 48px 32px;
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+}
+
+.lockedIcon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.lockedCard h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #000;
+}
+
+.lockedCard p {
+  color: #737373;
+  font-size: 14px;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.backBtn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  background: #CC0000;
+  color: white;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.backBtn:hover { background: #990000; }
+
+@media (max-width: 860px) {
+  .wrapper {
+    height: auto;
+    overflow: visible;
+  }
+}

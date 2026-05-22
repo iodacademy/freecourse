@@ -1,0 +1,136 @@
+/* ═══════════════════════════════════════════
+   Admin Settings Page
+   ═══════════════════════════════════════════ */
+
+.page {
+  animation: fadeIn 0.3s ease;
+  max-width: 800px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--space-1);
+}
+
+.subtitle {
+  color: var(--color-gray-500);
+  margin: 0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.section {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  border: 1px solid var(--color-gray-200);
+  box-shadow: var(--shadow-sm);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-2);
+}
+
+.sectionDesc {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--space-6);
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-700);
+}
+
+.emailRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: var(--font-size-lg);
+  padding: var(--space-2);
+  transition: opacity var(--transition-fast);
+}
+
+.removeBtn:hover {
+  opacity: 1;
+}
+
+.testConnection {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.statusOk {
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+/* Upload Box */
+.uploadBox {
+  border: 2px dashed var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  background: var(--color-gray-50);
+  transition: all var(--transition-fast);
+}
+
+.uploadBox:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
+}
+
+.uploadIcon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.uploadBox h4 {
+  margin-bottom: var(--space-2);
+  color: var(--color-gray-900);
+}
+
+.uploadBox p {
+  color: var(--color-gray-500);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-4);
+}
+
+.uploadHint {
+  margin-top: var(--space-4);
+  margin-bottom: 0 !important;
+  font-size: var(--font-size-xs) !important;
+  color: var(--color-gray-400) !important;
+}
