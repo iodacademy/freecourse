@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 // Rute API yang tidak butuh Authorization header
 const PUBLIC_API_ROUTES = [
   '/api/auth/verify',
+  '/api/auth/admin-login',
   '/api/partner-codes/validate',
 ];
 
