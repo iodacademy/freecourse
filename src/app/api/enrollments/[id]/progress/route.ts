@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const doc = await ref.get();
 
     if (!doc.exists) return json({ error: "Enrollment not found" }, 404);
-    if (doc.data()?.userId !== decoded.uid) {
+    if (doc.data()?.email !== decoded.email) {
       return json({ error: "Forbidden" }, 403);
     }
 

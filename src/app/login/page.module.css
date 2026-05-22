@@ -70,7 +70,7 @@
 }
 
 .title {
-  font-size: 28px;
+  font-size: var(--font-size-3xl);
   font-weight: 800;
   color: #1a1a1a;
   margin-bottom: 12px;
@@ -79,7 +79,7 @@
 }
 
 .subtitle {
-  font-size: 15px;
+  font-size: var(--font-size-base);
   color: #666;
   line-height: 1.5;
   margin: 0 auto;
@@ -97,7 +97,7 @@
   align-items: center;
   text-align: center;
   color: #999;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   margin: 16px 0 8px;
 }
 
@@ -116,7 +116,7 @@
   border: 1px dashed #d1d5db;
   color: #4b5563;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   padding: 12px;
   border-radius: 12px;
   cursor: pointer;
@@ -137,6 +137,6 @@
     border-radius: 20px;
   }
   .title {
-    font-size: 24px;
+    font-size: var(--font-size-2xl);
   }
 }

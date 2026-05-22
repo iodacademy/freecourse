@@ -1,7 +1,7 @@
 /**
  * POST /api/enrollments/auto-enroll
  * Enroll siswa ke kursus utama. Dipanggil otomatis setelah user baru dibuat.
- * Juga bisa dipanggil manual jika perlu.
+ * Doc ID = email user (tanpa @/dot encoding).
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
@@ -14,6 +14,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const db = getAdminDb();
 
+    const email = decoded.email;
+    if (!email) return json({ error: "Email tidak tersedia" }, 400);
+
     // Cari kursus utama jika courseId tidak diberikan
     let courseId = body.courseId;
     if (!courseId) {
@@ -23,7 +26,8 @@ export async function POST(req: NextRequest) {
 
     if (!courseId) return json({ error: "Kursus utama belum diset" }, 404);
 
-    const enrollId = `${decoded.uid}_${courseId}`;
+    // Doc ID = email
+    const enrollId = email;
     const enrollRef = db.collection("enrollments").doc(enrollId);
     const existEnroll = await enrollRef.get();
 
@@ -31,9 +35,15 @@ export async function POST(req: NextRequest) {
       return json({ message: "Sudah terdaftar", enrollment: { id: enrollId, ...existEnroll.data() } });
     }
 
+    // Ambil nama dari users collection
+    const userDoc = await db.collection("users").doc(decoded.uid).get();
+    const displayName = userDoc.data()?.displayName || decoded.name || "";
+
     const data = {
       id: enrollId,
       userId: decoded.uid,
+      email,
+      displayName,
       courseId,
       eventId: body.eventId ?? null,
       channelSource: body.channelSource ?? null,

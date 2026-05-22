@@ -39,6 +39,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     for (const k of allowed) {
       if (body[k] !== undefined) update[k] = body[k];
     }
+    if (update.partnerCode !== undefined) {
+      update.partnerCodeLower = typeof update.partnerCode === "string" ? update.partnerCode.toLowerCase() : null;
+    }
 
     await ref.update(update);
     const updated = await ref.get();

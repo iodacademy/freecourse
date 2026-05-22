@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       // Channel 1
       campusName: body.campusName ?? null,
       partnerCode: body.partnerCode ?? null,
+      partnerCodeLower: body.partnerCode ? body.partnerCode.toLowerCase() : null,
       bulkImportedEmails: body.bulkImportedEmails ?? [],
       // Channel 2
       landingPageConfig: body.landingPageConfig ?? null,

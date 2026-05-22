@@ -88,7 +88,7 @@ function ProfileContent() {
     
     // Pre-fill kode mitra dari URL (kalau dari /partner/KAMPUS-X)
     if (isKemitraan && urlEventId && !partnerCode) {
-      setPartnerCode(urlEventId.toUpperCase());
+      setPartnerCode(urlEventId);
     }
   }, [profile]);
 

@@ -42,7 +42,7 @@
 }
 
 .topbarLogo h1 {
-  font-size: 16px;
+  font-size: var(--font-size-base);
   font-weight: 700;
   color: var(--color-secondary);
   margin: 0;
@@ -94,7 +94,7 @@
 }
 
 .profNm {
-  font-size: 12.5px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-secondary);
   max-width: 110px;
@@ -120,7 +120,7 @@
   background: white;
   cursor: pointer;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-error);
   transition: all 0.15s;
@@ -206,14 +206,14 @@
 }
 
 .modalTitle {
-  font-size: 17px;
+  font-size: var(--font-size-lg);
   font-weight: 800;
   color: #000;
   margin-bottom: 6px;
 }
 
 .modalDesc {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: #737373;
   line-height: 1.6;
   margin-bottom: 22px;
@@ -231,7 +231,7 @@
   border: 1.5px solid #E5E5E5;
   background: white;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: #000;
   cursor: pointer;
@@ -247,7 +247,7 @@
   border: none;
   background: #CC0000;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: white;
   cursor: pointer;

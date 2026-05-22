@@ -19,28 +19,57 @@ export async function verifyToken(
 
 /** Ambil token dari request, verifikasi, throw Response jika gagal */
 export async function requireAuth(req: Request): Promise<DecodedIdToken> {
-  const decoded = await verifyToken(req.headers.get("Authorization"));
-  if (!decoded) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
     throw new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: { "Content-Type": "application/json" } }
     );
   }
-  return decoded;
+
+  const decoded = await verifyToken(authHeader);
+  if (decoded) return decoded;
+
+  // Fallback: Cek apakah token ini adalah kode admin
+  const token = authHeader.slice(7);
+  const { getAdminDb } = await import("./firebase-admin");
+  const adminDocs = await getAdminDb().collection("admin").where("code", "==", token).get();
+  
+  if (!adminDocs.empty) {
+    return { uid: "admin", role: adminDocs.docs[0].data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
+  }
+
+  throw new Response(
+    JSON.stringify({ error: "Unauthorized" }),
+    { status: 401, headers: { "Content-Type": "application/json" } }
+  );
 }
 
 /** Sama seperti requireAuth, tapi juga cek role admin di Firestore */
 export async function requireAdmin(req: Request): Promise<DecodedIdToken> {
-  const decoded = await requireAuth(req);
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  
+  const token = authHeader.slice(7);
   const { getAdminDb } = await import("./firebase-admin");
-  const userDoc = await getAdminDb().collection("users").doc(decoded.uid).get();
-  if (!userDoc.exists || userDoc.data()?.role !== "admin") {
+  const db = getAdminDb();
+
+  const adminDocs = await db.collection("admin").where("code", "==", token).get();
+  
+  if (adminDocs.empty) {
     throw new Response(
       JSON.stringify({ error: "Forbidden: Admin only" }),
       { status: 403, headers: { "Content-Type": "application/json" } }
     );
   }
-  return decoded;
+
+  // Mengembalikan mock DecodedIdToken agar API tidak error (uid="admin")
+  return { uid: "admin", role: adminDocs.docs[0].data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
 }
 
 /** Helper: return JSON response */

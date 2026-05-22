@@ -11,7 +11,6 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   signInWithPopup,
-  signInAnonymously,
   signOut,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
@@ -114,35 +113,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Login admin via access code (anonymous auth)
+  // Login admin via access code (no Firebase Auth)
   async function loginAsAdmin(accessCode: string) {
-    if (!auth) {
-      setError("Firebase belum dikonfigurasi.");
-      return;
-    }
     try {
       setError(null);
       
-      // 1. Sign in anonymously
-      const result = await signInAnonymously(auth);
-      const token = await result.user.getIdToken();
-
-      // 2. Verify access code with backend
       const res = await fetch("/api/auth/admin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: token, accessCode }),
+        body: JSON.stringify({ accessCode }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        // Code salah — sign out anonymous user
-        await signOut(auth);
         throw new Error(data.error || "Kode akses salah");
       }
 
-      // 3. Set profile as admin
-      setProfile({ ...data.user, profileCompleted: true, role: "admin" } as UserProfile);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("admin_code", accessCode);
+      }
+
+      const mockUser = { uid: "admin", getIdToken: async () => accessCode } as any;
+      setUser(mockUser);
+      setProfile(data.user as UserProfile);
     } catch (err: unknown) {
       const e = err as { message?: string };
       console.error("Admin login error:", err);
@@ -155,7 +148,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function logout() {
     if (!auth) return;
     try {
-      await signOut(auth);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("admin_code");
+      }
+      if (auth && auth.currentUser) {
+        await signOut(auth);
+      }
+      setUser(null);
       setProfile(null);
     } catch (err) {
       console.error("Logout error:", err);
@@ -189,46 +188,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen auth state changes
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        // Jika anonymous user (admin), cek Firestore
-        if (firebaseUser.isAnonymous) {
+    // Cek admin mode dulu
+    if (typeof window !== "undefined") {
+      const adminCode = localStorage.getItem("admin_code");
+      if (adminCode) {
+        const verifyAdmin = async () => {
           try {
-            const token = await firebaseUser.getIdToken();
-            const res = await fetch(`/api/users/${firebaseUser.uid}`, {
-              headers: { "Authorization": `Bearer ${token}` }
+            const res = await fetch("/api/auth/admin-login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ accessCode: adminCode }),
             });
             if (res.ok) {
               const data = await res.json();
-              if (data.role === "admin") {
-                setProfile(data as UserProfile);
-              } else {
-                // Anonymous tapi bukan admin — sign out
-                setProfile(null);
-              }
+              const mockUser = { uid: "admin", getIdToken: async () => adminCode } as any;
+              setUser(mockUser);
+              setProfile(data.user);
+              setLoading(false);
+              return; // Stop here if admin is valid
             } else {
-              setProfile(null);
+              localStorage.removeItem("admin_code");
             }
           } catch {
+            localStorage.removeItem("admin_code");
+          }
+        };
+        verifyAdmin().then(() => {
+          // If admin fails, we should fall back to Firebase listener
+          setupFirebaseListener();
+        });
+        return; // wait for verification
+      }
+    }
+
+    setupFirebaseListener();
+
+    function setupFirebaseListener() {
+      if (!auth) {
+        setLoading(false);
+        return;
+      }
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (typeof window !== "undefined" && localStorage.getItem("admin_code")) {
+          return; // Ignore if admin code was set in the meantime
+        }
+        setUser(firebaseUser);
+        if (firebaseUser) {
+          if (!firebaseUser.isAnonymous) {
+            await fetchOrCreateProfile(firebaseUser);
+          } else {
+            // Kita sudah tidak pakai anonymous auth, sign out
+            await signOut(auth!);
             setProfile(null);
           }
         } else {
-          // Google SSO user — fetch normal
-          await fetchOrCreateProfile(firebaseUser);
+          setProfile(null);
         }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        setLoading(false);
+      });
+      return unsubscribe;
+    }
   }, []);
 
   const value: AuthContextType = {

@@ -16,12 +16,15 @@ export async function GET(req: NextRequest) {
     const userDoc = await db.collection("users").doc(decoded.uid).get();
     const isAdmin = userDoc.data()?.role === "admin";
 
-    let query = db.collection("enrollments").orderBy("createdAt", "desc") as FirebaseFirestore.Query;
+    let query = db.collection("enrollments") as FirebaseFirestore.Query;
 
     if (!isAdmin) {
-      // Siswa hanya lihat enrollments sendiri
-      query = query.where("userId", "==", decoded.uid);
+      // Siswa hanya lihat enrollments sendiri (by email)
+      const email = decoded.email;
+      if (!email) return json([], 200);
+      query = query.where("email", "==", email);
     } else {
+      query = query.orderBy("createdAt", "desc");
       // Admin bisa filter
       const userId = searchParams.get("userId");
       const courseId = searchParams.get("courseId");

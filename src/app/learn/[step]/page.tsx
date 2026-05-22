@@ -1,90 +1,12 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LMSPlayer from "@/components/LMSPlayer";
 import type { QuizQuestion, LMSScreen } from "@/components/LMSPlayer";
+import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
-
-// ═══ DATA DUMMY — akan diganti data dari Firestore/Admin Panel ═══
-interface StepMeta {
-  stepNumber: number;
-  title: string;
-  status: "locked" | "current" | "completed";
-}
-
-const DUMMY_STEPS: StepMeta[] = [
-  { stepNumber: 1, title: "Apa Itu Literasi Finansial?", status: "completed" },
-  { stepNumber: 2, title: "Mengenal Jenis Pendapatan", status: "current" },
-  { stepNumber: 3, title: "Cara Mengatur Anggaran", status: "locked" },
-  { stepNumber: 4, title: "Menabung vs Investasi", status: "locked" },
-  { stepNumber: 5, title: "Pentingnya Dana Darurat", status: "locked" },
-  { stepNumber: 6, title: "Mengenal Produk Perbankan", status: "locked" },
-  { stepNumber: 7, title: "Manajemen Utang yang Sehat", status: "locked" },
-  { stepNumber: 8, title: "Perencanaan Keuangan Jangka Panjang", status: "locked" },
-  { stepNumber: 9, title: "Survei Akhir", status: "locked" },
-  { stepNumber: 10, title: "Klaim Sertifikat", status: "locked" },
-];
-
-const DUMMY_QUESTIONS: QuizQuestion[] = [
-  {
-    id: "q1",
-    text: "Apa yang dimaksud dengan pendapatan pasif?",
-    options: [
-      { id: "a", text: "Pendapatan yang didapat dari bekerja full-time" },
-      { id: "b", text: "Pendapatan yang didapat tanpa bekerja aktif secara rutin" },
-      { id: "c", text: "Pendapatan dari menjual barang" },
-      { id: "d", text: "Pendapatan dari pinjaman bank" },
-    ],
-    correctAnswer: "b",
-    feedbackCorrect: "Luar biasa! Pendapatan pasif adalah penghasilan yang kamu terima secara otomatis tanpa harus bekerja aktif setiap hari.",
-    feedbackWrong: "Wah, sayang sekali! Pendapatan pasif artinya penghasilan yang didapat secara otomatis, misalnya dari sewa properti atau dividen saham.",
-    explanation: "Ciri khas pendapatan pasif adalah kamu tidak perlu bekerja setiap hari untuk mendapatkannya — contoh: bunga deposito, sewa, atau royalti.",
-  },
-  {
-    id: "q2",
-    text: "Mana yang termasuk contoh pendapatan portofolio?",
-    options: [
-      { id: "a", text: "Gaji bulanan dari perusahaan" },
-      { id: "b", text: "Uang saku dari orang tua" },
-      { id: "c", text: "Capital gain dari penjualan saham" },
-      { id: "d", text: "Upah lembur" },
-    ],
-    correctAnswer: "c",
-    feedbackCorrect: "Benar sekali! Capital gain dari saham adalah pendapatan portofolio karena berasal dari investasi aset.",
-    feedbackWrong: "Belum tepat. Pendapatan portofolio berasal dari investasi, seperti capital gain, dividen, atau bunga deposito.",
-    explanation: "Pendapatan portofolio berasal dari ASET yang kamu miliki, bukan dari tenaga yang kamu keluarkan.",
-  },
-  {
-    id: "q3",
-    text: "Mengapa penting memiliki lebih dari satu sumber pendapatan?",
-    options: [
-      { id: "a", text: "Agar terlihat sukses" },
-      { id: "b", text: "Untuk mengurangi risiko jika satu sumber hilang" },
-      { id: "c", text: "Karena satu pekerjaan saja membosankan" },
-      { id: "d", text: "Supaya bisa pamer di media sosial" },
-    ],
-    correctAnswer: "b",
-    feedbackCorrect: "Tepat! Diversifikasi pendapatan adalah salah satu prinsip dasar literasi finansial.",
-    feedbackWrong: "Alasan utamanya adalah manajemen risiko — jika satu sumber hilang, masih ada sumber lain sebagai penopang.",
-    explanation: "Jika kamu hanya punya satu sumber pendapatan dan tiba-tiba kehilangan pekerjaan, kamu akan kesulitan. Itulah mengapa diversifikasi penting.",
-  },
-  {
-    id: "q4",
-    text: "Apa yang sebaiknya dilakukan dengan pendapatan sisa setelah kebutuhan pokok terpenuhi?",
-    options: [
-      { id: "a", text: "Dihabiskan untuk hiburan" },
-      { id: "b", text: "Disimpan dan diinvestasikan secara berkala" },
-      { id: "c", text: "Diberikan semua kepada keluarga" },
-      { id: "d", text: "Disimpan di bawah bantal agar aman" },
-    ],
-    correctAnswer: "b",
-    feedbackCorrect: "Luar biasa! Menabung dan berinvestasi secara rutin adalah kunci kebebasan finansial jangka panjang.",
-    feedbackWrong: "Belum tepat. Pendapatan sisa sebaiknya dikelola dengan bijak — disimpan dan diinvestasikan agar uang bekerja untuk kamu.",
-    explanation: "Prinsip 'bayar diri sendiri dulu' mengajarkan kita untuk menyisihkan sebagian pendapatan untuk tabungan dan investasi sebelum konsumsi.",
-  },
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────
 function clamp(val: number, min: number, max: number) {
@@ -101,20 +23,75 @@ export default function StepPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, profile } = useAuth();
 
   const stepNumber = parseInt(params.step as string, 10) || 1;
-  const stepId = `step-${stepNumber}`;
 
-  const currentStepMeta = DUMMY_STEPS.find((s) => s.stepNumber === stepNumber);
-  const isLastStep = stepNumber >= DUMMY_STEPS.length;
-  const canAccess = currentStepMeta && currentStepMeta.status !== "locked";
-  const totalQ = DUMMY_QUESTIONS.length;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [courseData, setCourseData] = useState<any>(null);
+  const [enrollment, setEnrollment] = useState<any>(null);
+
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [certName, setCertName] = useState("");
+  const [claiming, setClaiming] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setCertName(profile.profileData?.namaLengkap || profile.displayName || "");
+    }
+  }, [profile]);
 
   // ── Read initial state from URL ──
-  const initialScreen = parseScreen(searchParams.get("s"));
-  const initialQIdx = clamp(parseInt(searchParams.get("q") || "0", 10), 0, totalQ - 1);
-  const initialRevIdx = clamp(parseInt(searchParams.get("rev") || "0", 10), 0, totalQ - 1);
-  const initialSurvSec = clamp(parseInt(searchParams.get("sec") || "0", 10), 0, 2);
+  const rawScreen = searchParams.get("s");
+  const initialScreen = rawScreen && VALID_SCREENS.includes(rawScreen as LMSScreen) 
+    ? (rawScreen as LMSScreen) 
+    : undefined;
+  const initialQIdx = Math.max(parseInt(searchParams.get("q") || "0", 10), 0);
+  const initialRevIdx = Math.max(parseInt(searchParams.get("rev") || "0", 10), 0);
+  const initialSurvSec = Math.max(parseInt(searchParams.get("sec") || "0", 10), 0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadData = async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const headers = { Authorization: `Bearer ${idToken}` };
+
+        // Load Course
+        const cRes = await fetch("/api/courses/main", { headers, cache: 'no-store' });
+        if (!cRes.ok) throw new Error("Gagal memuat materi");
+        const cData = await cRes.json();
+        setCourseData(cData);
+
+        // Load Enrollment
+        const eRes = await fetch("/api/enrollments", { headers, cache: 'no-store' });
+        if (!eRes.ok) throw new Error("Gagal memuat progress belajar");
+        const eData = await eRes.json();
+        let mainEn = eData.find((e: any) => e.courseId === "course-main");
+        
+        if (!mainEn) {
+          const enrollRes = await fetch("/api/enrollments/auto-enroll", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ courseId: "course-main" })
+          });
+          if (!enrollRes.ok) throw new Error("Kamu belum terdaftar di kelas ini.");
+          const enrollData = await enrollRes.json();
+          mainEn = enrollData.enrollment;
+        }
+
+        if (!mainEn) throw new Error("Gagal mendaftar kelas.");
+        setEnrollment(mainEn);
+        setLoading(false);
+      } catch (e: any) {
+        setError(e.message);
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [user]);
 
   // ── URL update callback ──
   const handleStateChange = useCallback(
@@ -129,13 +106,34 @@ export default function StepPage() {
     [router, stepNumber]
   );
 
-  function handleProceedToNext() {
-    if (!isLastStep) {
-      router.push(`/learn/${stepNumber + 1}`);
-    } else {
-      router.push("/learn/certificate");
-    }
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh", width: "100%" }}>
+          <div className="spinner spinner-lg" />
+        </div>
+      </ProtectedRoute>
+    );
   }
+
+  if (error || !courseData) {
+    return (
+      <ProtectedRoute>
+        <div style={{ textAlign: "center", padding: "40px", width: "100%" }}>
+          <h2 style={{ color: "var(--color-red-600)" }}>Error</h2>
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()} style={{ padding: "8px 16px", marginTop: "10px" }}>Coba Lagi</button>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  const steps = courseData.steps || [];
+  const activeStep = steps[stepNumber - 1];
+  const isLastStep = stepNumber >= steps.length;
+  
+  // Can access if stepNumber <= currentStep
+  const canAccess = stepNumber <= (enrollment?.currentStep || 1);
 
   if (!canAccess) {
     return (
@@ -154,24 +152,155 @@ export default function StepPage() {
     );
   }
 
+  if (!activeStep) {
+    return (
+      <ProtectedRoute>
+        <div style={{ textAlign: "center", padding: "40px", width: "100%" }}>
+          <h2>Materi Tidak Ditemukan</h2>
+          <button onClick={() => router.push("/learn")} style={{ padding: "8px 16px", marginTop: "10px" }}>Kembali</button>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+
+
+  async function handleProceedToNext(results?: { assessment?: any; survey?: any; }) {
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollment.id}/progress`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          stepId: activeStep.id,
+          assessmentResult: results?.assessment,
+          surveyResult: results?.survey,
+          isCompleted: true,
+          nextStepNumber: isLastStep ? stepNumber : stepNumber + 1
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Gagal menyimpan progress");
+      }
+
+      if (!isLastStep) {
+        router.push(`/learn/${stepNumber + 1}`);
+      } else {
+        setShowNameModal(true);
+      }
+    } catch (e: any) {
+      console.error("Failed to save progress", e);
+      alert("Gagal menyimpan progress: " + (e.message || "Coba ulangi."));
+    }
+  }
+
+  async function handleClaimCert() {
+    if (!certName.trim()) return alert("Nama tidak boleh kosong");
+    setClaiming(true);
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollment.id}/claim-cert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ customName: certName })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Gagal klaim sertifikat");
+      }
+
+      router.push("/learn/certificate");
+    } catch (e: any) {
+      console.error("Failed to claim cert", e);
+      alert("Gagal klaim sertifikat: " + (e.message || "Coba ulangi."));
+      setClaiming(false);
+    }
+  }
+
+  const questions = (activeStep.hasAssessment && activeStep.assessment?.questions) || [];
+  const surveyQuestions = (activeStep.hasSurvey && activeStep.survey?.questions) || [];
+  const kkm = activeStep.assessment?.kkm || 70;
+
+  // Use progress from Firestore for initial answers
+  const currentStepProgress = enrollment?.stepProgress?.[activeStep.id] || {};
+  const initialAnswers = currentStepProgress.assessmentResult?.answers || {};
+  const initialSurveyAnswers = currentStepProgress.surveyResult || {};
+
   return (
     <ProtectedRoute>
       <div className={styles.wrapper}>
         <LMSPlayer
-          youtubeId="dQw4w9WgXcQ"
-          questions={DUMMY_QUESTIONS}
-          kkm={70}
-          surveyEnabled={true}
+          youtubeId={activeStep.video?.youtubeId || ""}
+          questions={questions}
+          kkm={kkm}
+          surveyEnabled={activeStep.hasSurvey && surveyQuestions.length > 0}
+          surveyQuestions={surveyQuestions}
           onProceedToNext={handleProceedToNext}
           isLastStep={isLastStep}
-          stepId={stepId}
+          stepId={`step-${activeStep.id}`}
+          stepNumber={stepNumber}
+          totalSteps={steps.length}
+          stepTitle={activeStep.title}
           initialScreen={initialScreen}
-          initialQIdx={initialQIdx}
-          initialRevIdx={initialRevIdx}
-          initialSurvSec={initialSurvSec}
+          initialQIdx={clamp(initialQIdx, 0, Math.max(0, questions.length - 1))}
+          initialRevIdx={clamp(initialRevIdx, 0, Math.max(0, questions.length - 1))}
+          initialSurvSec={clamp(initialSurvSec, 0, Math.max(0, surveyQuestions.length - 1))}
           onStateChange={handleStateChange}
+          initialAnswers={initialAnswers}
+          initialSurveyAnswers={initialSurveyAnswers}
         />
       </div>
+
+      {showNameModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}>
+          <div style={{
+            background: 'white', padding: '30px', borderRadius: '12px',
+            width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+          }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>Konfirmasi Nama Sertifikat</h2>
+            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>
+              Silakan periksa nama yang akan dicetak pada sertifikat. Anda dapat mengubahnya atau menambahkan gelar jika perlu.
+            </p>
+            <input 
+              type="text" 
+              value={certName}
+              onChange={e => setCertName(e.target.value)}
+              style={{
+                width: '100%', padding: '12px', border: '1.5px solid #E5E5E5',
+                borderRadius: '8px', marginBottom: '20px', fontSize: '16px'
+              }}
+              placeholder="Masukkan nama lengkap"
+            />
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={handleClaimCert}
+                disabled={claiming}
+                style={{
+                  padding: '10px 20px', background: '#CC0000', color: 'white',
+                  border: 'none', borderRadius: '8px', cursor: claiming ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                {claiming ? "Memproses..." : "Klaim Sertifikat"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

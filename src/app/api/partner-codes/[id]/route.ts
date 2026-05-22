@@ -1,42 +1,99 @@
 /**
- * PATCH  /api/partner-codes/[id]  — edit kode mitra (admin)
- * DELETE /api/partner-codes/[id]  — hapus kode mitra (admin)
+ * GET /api/partner-codes/[id]
+ * Ambil data detail event B2B + daftar peserta lengkap dengan status tracking.
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
-import { FieldValue } from "firebase-admin/firestore";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function PATCH(req: NextRequest, { params }: Ctx) {
+export async function GET(req: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(req);
     const { id } = await params;
-    const body = await req.json();
     const db = getAdminDb();
-    const ref = db.collection("partnerCodes").doc(id);
 
-    const allowed = ["partnerName","eventId","courseId","status","quota"];
-    const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
-    for (const k of allowed) {
-      if (body[k] !== undefined) update[k] = body[k];
+    // 1. Ambil data event
+    const eventDoc = await db.collection("events").doc(id).get();
+    if (!eventDoc.exists) return json({ error: "Event not found" }, 404);
+    const eventData = eventDoc.data() as any;
+
+    // 2. Ambil semua user yang pakai partnerCode ini
+    let userDocs: any[] = [];
+    if (eventData.partnerCode) {
+      const usersSnap = await db.collection("users")
+        .where("partnerCode", "==", eventData.partnerCode)
+        .get();
+      userDocs = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
     }
 
-    await ref.update(update);
-    const updated = await ref.get();
-    return json({ id: updated.id, ...updated.data() });
-  } catch (e) {
-    return handleError(e);
-  }
-}
+    // 3. Ambil semua enrollments untuk event ini
+    const enrollmentsSnap = await db.collection("enrollments")
+      .where("eventId", "==", id)
+      .get();
 
-export async function DELETE(req: NextRequest, { params }: Ctx) {
-  try {
-    await requireAdmin(req);
-    const { id } = await params;
-    await getAdminDb().collection("partnerCodes").doc(id).delete();
-    return json({ success: true });
+    const enrollmentMap: Record<string, any> = {};
+    enrollmentsSnap.docs.forEach(d => {
+      const data = d.data();
+      enrollmentMap[data.userId] = { id: d.id, ...data };
+    });
+
+    // 4. Gabungkan data user + enrollment
+    const participants = userDocs.map(user => {
+      const enrollment = enrollmentMap[user.uid] || null;
+      let assessmentPassed = false;
+      let surveySubmitted = false;
+      let certificateClaimed = false;
+
+      if (enrollment) {
+        certificateClaimed = !!(enrollment.status === "certified" || enrollment.certificateClaimed);
+        if (enrollment.stepProgress) {
+          Object.values(enrollment.stepProgress).forEach((sp: any) => {
+            if (sp.assessmentResult?.passed) assessmentPassed = true;
+            if (sp.surveyResult?.submitted) surveySubmitted = true;
+          });
+        }
+      }
+
+      return {
+        uid: user.uid,
+        namaLengkap: user.profileData?.namaLengkap || user.displayName || "-",
+        email: user.email || "-",
+        nomorWA: user.profileData?.nomorWA || "-",
+        profileCompleted: !!user.profileCompleted,
+        assessmentPassed,
+        surveySubmitted,
+        certificateClaimed,
+        createdAt: user.createdAt,
+      };
+    });
+
+    // Sort: yang paling baru daftar di atas
+    participants.sort((a, b) => {
+      const tA = a.createdAt?.toMillis?.() || 0;
+      const tB = b.createdAt?.toMillis?.() || 0;
+      return tB - tA;
+    });
+
+    return json({
+      event: {
+        id: eventDoc.id,
+        name: eventData.name,
+        campusName: eventData.campusName,
+        partnerCode: eventData.partnerCode,
+        status: eventData.status,
+        startDate: eventData.startDate,
+        endDate: eventData.endDate,
+      },
+      participants,
+      stats: {
+        registered: participants.length,
+        assessed: participants.filter(p => p.assessmentPassed).length,
+        surveyed: participants.filter(p => p.surveySubmitted).length,
+        certified: participants.filter(p => p.certificateClaimed).length,
+      }
+    });
   } catch (e) {
     return handleError(e);
   }

@@ -1,4 +1,5 @@
 import AdminSidebar from "@/components/AdminSidebar";
+import AdminMobileNav from "@/components/AdminMobileNav";
 import styles from "./layout.module.css";
 
 export const metadata = {
@@ -13,6 +14,7 @@ export default function AdminLayout({
   return (
     <div className={styles.adminLayout}>
       <AdminSidebar />
+      <AdminMobileNav />
       <main className={styles.mainContent}>{children}</main>
     </div>
   );

@@ -15,20 +15,31 @@ export interface QuizQuestion {
   explanation?: string;
 }
 
-export type LMSScreen = "quiz" | "review" | "survey" | "done";
+export interface SurveyQuestion {
+  id: string;
+  type: "shortText" | "multipleChoice" | "scale" | "starRating";
+  text: string;
+  options?: string[];
+  required?: boolean;
+  minLabel?: string;
+  maxLabel?: string;
+}
+
+export type LMSScreen = "quiz" | "review" | "survey";
 
 export interface LMSPlayerProps {
   youtubeId: string;
   questions: QuizQuestion[];
   kkm: number;
   surveyEnabled?: boolean;
+  surveyQuestions?: SurveyQuestion[];
   onPass?: (score: number) => void;
   onComplete?: () => void;
   stepNumber?: number;
   totalSteps?: number;
   stepTitle?: string;
   isLastStep?: boolean;
-  onProceedToNext?: () => void;
+  onProceedToNext?: (results?: { assessment?: any; survey?: any; }) => void;
   // ── URL routing ──
   stepId: string;                   // unique key for sessionStorage, e.g. "step-2"
   initialScreen?: LMSScreen;
@@ -36,6 +47,8 @@ export interface LMSPlayerProps {
   initialRevIdx?: number;
   initialSurvSec?: number;
   onStateChange?: (screen: LMSScreen, qIdx: number, revIdx: number, survSec: number) => void;
+  initialAnswers?: Record<string, string>;
+  initialSurveyAnswers?: Record<string, any>;
 }
 
 // ─── Sub-renders ─────────────────────────────────
@@ -93,46 +106,49 @@ export default function LMSPlayer({
   questions,
   kkm,
   surveyEnabled = true,
+  surveyQuestions = [],
   onPass,
   onComplete,
   isLastStep,
   onProceedToNext,
   stepId,
-  initialScreen = "quiz",
+  initialScreen,
   initialQIdx = 0,
   initialRevIdx = 0,
   initialSurvSec = 0,
   onStateChange,
+  initialAnswers = {},
+  initialSurveyAnswers = {},
 }: LMSPlayerProps) {
-  const [screen, setScreen] = useState<LMSScreen>(initialScreen);
+  const hasAssessment = questions.length > 0;
+  const hasSurvey = surveyEnabled && surveyQuestions.length > 0;
+
+  // Determine starting screen based on what's available
+  const defaultScreen: LMSScreen = hasAssessment ? "quiz" : hasSurvey ? "survey" : "quiz";
+  const [screen, setScreen] = useState<LMSScreen>(initialScreen || defaultScreen);
   const [qIdx, setQIdx] = useState(initialQIdx);
   const [revIdx, setRevIdx] = useState(initialRevIdx);
   const [survSec, setSurvSec] = useState(initialSurvSec);
-  const [stars, setStars] = useState(0);
-  const [emoji, setEmoji] = useState<number | null>(null);
-  const [t1, setT1] = useState("");
-  const [t2, setT2] = useState("");
+
+  // Survey answers stored by question id
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>(initialSurveyAnswers);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Load answers from sessionStorage (persists across refresh) ──
-  const [answers, setAnswers] = useState<Record<string, string>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const raw = sessionStorage.getItem(`lms-answers-${stepId}`);
-        if (raw) return JSON.parse(raw) as Record<string, string>;
-      } catch {}
-    }
-    return {};
-  });
+  const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
 
-  // ── Save answers whenever they change ──
+  // Sync initial props to state when they arrive/change
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        sessionStorage.setItem(`lms-answers-${stepId}`, JSON.stringify(answers));
-      } catch {}
+    if (Object.keys(initialAnswers).length > 0) {
+      setAnswers(initialAnswers);
     }
-  }, [answers, stepId]);
+  }, [initialAnswers]);
+
+  useEffect(() => {
+    if (Object.keys(initialSurveyAnswers).length > 0) {
+      setSurveyAnswers(initialSurveyAnswers);
+    }
+  }, [initialSurveyAnswers]);
 
   // ── Scroll right panel to top on relevant changes ──
   useEffect(() => {
@@ -142,6 +158,9 @@ export default function LMSPlayer({
   const currentQ = questions[qIdx];
   const isFirstQ = qIdx === 0;
   const isLastQ = qIdx === questions.length - 1;
+
+  const currentSurv = surveyQuestions?.[survSec];
+  const isLastSurv = surveyQuestions && survSec === surveyQuestions.length - 1;
 
   // ── Score calc ──
   const correctCount = questions.filter((q) => answers[q.id] === q.correctAnswer).length;
@@ -187,9 +206,6 @@ export default function LMSPlayer({
     setQIdx(0);
     setScreen("quiz");
     nav("quiz", 0, 0, survSec);
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem(`lms-answers-${stepId}`);
-    }
   }
 
   function jumpRev(i: number) {
@@ -209,97 +225,29 @@ export default function LMSPlayer({
   }
 
   function sendSurvey() {
-    setScreen("done");
-    nav("done", qIdx, revIdx, survSec);
-    onComplete?.();
+    proceedNext();
   }
 
   function proceedNext() {
-    onProceedToNext?.();
+    const assessmentData = hasAssessment ? { score, passed, answers } : undefined;
+    const surveyData = hasSurvey ? surveyAnswers : undefined;
+    onProceedToNext?.({ assessment: assessmentData, survey: surveyData });
   }
 
   // ══════════════════════════════════
   // LEFT COLUMN
   // ══════════════════════════════════
+  // ── Min correct answers calc ──
+  const minCorrect = Math.ceil((kkm / 100) * questions.length);
+
   function renderLeft() {
-    if (screen === "quiz") {
-      return <VideoEmbed youtubeId={youtubeId} />;
-    }
-
-    if (screen === "review") {
-      const q = questions[revIdx];
-      if (!q) return null;
-      const ua = answers[q.id];
-      const right = ua === q.correctAnswer;
-      const chosenOpt = q.options.find((o) => o.id === ua);
+    // Quiz, Survey, Review: always show video
+    if (screen === "quiz" || screen === "survey" || screen === "review") {
       return (
-        <div className={styles.reviewCard}>
-          <div className={styles.reviewTag}>REVIEW JAWABAN</div>
-          <div className={styles.reviewQ}>{q.text}</div>
-          <div className={`${styles.ansBox} ${right ? styles.ansOk : styles.ansErr}`}>
-            Jawaban Kamu: {ua ? `${ua.toUpperCase()}. ${chosenOpt?.text ?? ""}` : "— Tidak dijawab"}
-          </div>
-          <div className={styles.fbBox}>
-            <div className={`${styles.fbTitle} ${right ? styles.fbOk : styles.fbErr}`}>
-              Feedback &amp; Review Materi
-            </div>
-            <div className={styles.fbBody}>{right ? q.feedbackCorrect : q.feedbackWrong}</div>
-            <div className={styles.fbKey}>Kunci Jawaban: {q.correctAnswer.toUpperCase()}</div>
-            {q.explanation && <div className={styles.fbExp}>{q.explanation}</div>}
-          </div>
-        </div>
-      );
-    }
-
-    if (screen === "survey") {
-      if (survSec === 0) {
-        return (
-          <div className={styles.surveyCard}>
-            <div className={styles.survTag}>KEPUASAN PENGGUNA</div>
-            <div className={styles.survQ}>Seberapa puas kamu dengan materi pembelajaran ini? Berikan rating bintang kamu.</div>
-            <div className={styles.stars}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} className={styles.starBtn} onClick={() => setStars(n)} style={{ color: n <= stars ? "#F59E0B" : "#E5E5E5" }}>★</button>
-              ))}
-            </div>
-            <div className={styles.emojiLbl}>Pilih ekspresi yang paling menggambarkan perasaan kamu:</div>
-            <div className={styles.emojiRow}>
-              {["😍", "😊", "😐", "😢"].map((e, i) => (
-                <button key={i} className={`${styles.emBtn} ${emoji === i ? styles.emPicked : ""}`} onClick={() => setEmoji(i)}>{e}</button>
-              ))}
-            </div>
-          </div>
-        );
-      }
-      if (survSec === 1) {
-        return (
-          <div className={styles.surveyCard}>
-            <div className={styles.survTag}>KESAN &amp; PESAN</div>
-            <div className={styles.survQ}>Apa kesan dan pesan kamu setelah mengikuti materi ini?</div>
-            <textarea className={styles.survTextarea} placeholder="Tuliskan kesan dan pesan kamu di sini..." value={t1} onChange={(e) => setT1(e.target.value)} />
-          </div>
-        );
-      }
-      return (
-        <div className={styles.surveyCard}>
-          <div className={styles.survTag}>SARAN</div>
-          <div className={styles.survQ}>Adakah saran untuk perbaikan materi atau penyampaian ke depannya?</div>
-          <textarea className={styles.survTextarea} placeholder="Tuliskan saran kamu di sini..." value={t2} onChange={(e) => setT2(e.target.value)} />
-        </div>
-      );
-    }
-
-    if (screen === "done") {
-      return (
-        <div className={styles.doneScreen}>
-          <div className={styles.doneEmoji}><PartyPopper size={48} style={{ color: 'var(--color-primary)', margin: '0 auto' }} /></div>
-          <h3>Modul Selesai</h3>
-          <div className={styles.doneName}>Terima Kasih!</div>
-          <div className={styles.doneDesc}>
-            Survei kamu telah berhasil dikirim.<br />
-            Semoga pembelajaran ini bermanfaat dan dapat diterapkan dalam kehidupan sehari-hari.
-          </div>
-        </div>
+        <>
+          <div className={styles.videoLabel}>Selamat Menonton Video!</div>
+          <VideoEmbed youtubeId={youtubeId} />
+        </>
       );
     }
 
@@ -310,49 +258,54 @@ export default function LMSPlayer({
   // RIGHT PANEL — title
   // ══════════════════════════════════
   function panelTitle() {
-    if (screen === "survey" || screen === "done") return "SURVEI";
-    return "POST-TEST";
+    if (screen === "survey") return "SURVEY";
+    if (screen === "quiz" || screen === "review") return "UJI PEMAHAMAN";
+    // Fallback based on what's available
+    if (hasSurvey && !hasAssessment) return "SURVEY";
+    return "UJI PEMAHAMAN";
   }
 
   // ══════════════════════════════════
   // RIGHT PANEL — scroll content
   // ══════════════════════════════════
   function renderRight() {
-    // ── QUIZ ──
+    // ── QUIZ: ALL questions, no blue box ──
     if (screen === "quiz") {
-      if (!currentQ) return null;
-      const sel = answers[currentQ.id];
       return (
         <>
-          <div className={styles.qCard}>
-            <div className={styles.qNum}>Soal {qIdx + 1} dari {questions.length}</div>
-            <div className={styles.qText}>{currentQ.text}</div>
-          </div>
-          <div className={styles.optionList}>
-            {currentQ.options.map((opt) => (
-              <div
-                key={opt.id}
-                className={`${styles.option} ${sel === opt.id ? styles.optSel : ""}`}
-                onClick={() => pickAnswer(opt.id)}
-              >
-                <div className={`${styles.optBadge} ${sel === opt.id ? styles.optBadgeSel : ""}`}>
-                  {opt.id.toUpperCase()}
+          {questions.map((q, i) => {
+            const sel = answers[q.id];
+            return (
+              <div key={q.id} className={styles.quizBlock}>
+                <div className={styles.qNum}>Soal {i + 1} dari {questions.length}</div>
+                <div className={styles.qText}>{q.text}</div>
+                <div className={styles.optionList}>
+                  {q.options.map((opt) => (
+                    <div
+                      key={opt.id}
+                      className={`${styles.option} ${sel === opt.id ? styles.optSel : ""}`}
+                      onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: opt.id }))}
+                    >
+                      <div className={`${styles.optBadge} ${sel === opt.id ? styles.optBadgeSel : ""}`}>
+                        {opt.id.toUpperCase()}
+                      </div>
+                      <div className={styles.optText}>{opt.text}</div>
+                    </div>
+                  ))}
                 </div>
-                <div className={styles.optText}>{opt.text}</div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </>
       );
     }
 
-    // ── REVIEW: donut + stats + soal nav ──
+    // ── REVIEW: donut + stats + ALL feedback scrollable ──
     if (screen === "review") {
       return (
         <>
           <DonutChart score={score} pass={passed} />
 
-          {/* Compact 2-col stat grid */}
           <div className={styles.statGrid}>
             <div className={styles.statCard}>
               <div className={styles.statLbl}>Jawaban Benar</div>
@@ -366,45 +319,124 @@ export default function LMSPlayer({
             </div>
           </div>
 
-          {/* Compact numbered soal squares */}
-          <div className={styles.navDivider}>Review per Soal</div>
-          <div className={styles.soalGrid}>
-            {questions.map((q, i) => (
-              <div
-                key={q.id}
-                className={`${styles.soalSquare} ${i === revIdx ? styles.soalSquareActive : styles.soalSquareInactive}`}
-                onClick={() => jumpRev(i)}
-                title={`Soal ${i + 1}`}
-              >
-                {i + 1}
+          <div className={styles.navDivider}>Review Semua Soal</div>
+
+          {questions.map((q, i) => {
+            const ua = answers[q.id];
+            const isRight = ua === q.correctAnswer;
+            const chosenOpt = q.options.find((o) => o.id === ua);
+            return (
+              <div key={q.id} className={styles.reviewCard} style={{ marginTop: i === 0 ? 0 : 12 }}>
+                <div className={styles.reviewTag}>SOAL {i + 1}</div>
+                <div className={styles.reviewQ}>{q.text}</div>
+                <div className={`${styles.ansBox} ${isRight ? styles.ansOk : styles.ansErr}`}>
+                  Jawaban Kamu: {ua ? `${ua.toUpperCase()}. ${chosenOpt?.text ?? ""}` : "— Tidak dijawab"}
+                </div>
+                <div className={styles.fbBox}>
+                  <div className={`${styles.fbTitle} ${isRight ? styles.fbOk : styles.fbErr}`}>
+                    Feedback &amp; Review Materi
+                  </div>
+                  <div className={styles.fbBody}>{isRight ? q.feedbackCorrect : q.feedbackWrong}</div>
+                  <div className={styles.fbKey}>Kunci Jawaban: {q.correctAnswer.toUpperCase()}</div>
+                  {q.explanation && <div className={styles.fbExp}>{q.explanation}</div>}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </>
       );
     }
 
-    // ── SURVEY: tab nav (same visual as soal nav) ──
-    if (screen === "survey" || screen === "done") {
-      const sections = ["Rating", "Kesan Pesan", "Saran"];
+    // ── SURVEY: ALL questions, no card box ──
+    if (screen === "survey") {
+      if (!surveyQuestions || surveyQuestions.length === 0) {
+        return (
+          <div className={styles.survQ}>Survei tidak tersedia.</div>
+        );
+      }
       return (
         <>
-          <div className={styles.navDivider}>Bagian Survei</div>
-          {sections.map((s, i) => (
-            <div
-              key={i}
-              className={`${styles.navItem} ${survSec === i && screen === "survey" ? styles.navActive : styles.navInactive}`}
-              onClick={() => screen === "survey" && changeSurvSec(i)}
-              style={{ cursor: screen === "done" ? "default" : "pointer" }}
-            >
-              {screen === "done" ? "✓ " : ""}{s}
-            </div>
-          ))}
-          {screen === "done" && (
-            <div className={styles.doneNote}>
-              Semua bagian survei telah selesai.
-            </div>
-          )}
+          {surveyQuestions.map((sq, i) => {
+            const survAns = surveyAnswers[sq.id] || "";
+            return (
+              <div key={sq.id || i} className={styles.quizBlock}>
+                <div className={styles.survTag}>PERTANYAAN {i + 1} / {surveyQuestions.length}</div>
+                <div className={styles.survQ}>{sq.text}</div>
+
+                {sq.type === "shortText" && (
+                  <textarea
+                    className={styles.survTextarea}
+                    placeholder="Tuliskan jawaban kamu di sini..."
+                    value={survAns}
+                    onChange={(e) => setSurveyAnswers(p => ({ ...p, [sq.id]: e.target.value }))}
+                  />
+                )}
+
+                {sq.type === "multipleChoice" && (
+                  <div className={styles.optionList}>
+                    {(sq.options || []).map((opt, j) => (
+                      <div
+                        key={j}
+                        className={`${styles.option} ${survAns === opt ? styles.optSel : ""}`}
+                        onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: opt }))}
+                      >
+                        <div className={`${styles.optBadge} ${survAns === opt ? styles.optBadgeSel : ""}`}>
+                          {String.fromCharCode(65 + j)}
+                        </div>
+                        <div className={styles.optText}>{opt}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {sq.type === "scale" && (
+                  <div>
+                    <div className={styles.emojiRow}>
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <button
+                          key={n}
+                          className={`${styles.emBtn} ${survAns === n ? styles.emPicked : ""}`}
+                          onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: n }))}
+                          style={{ width: '40px', height: '40px', fontSize: '14px' }}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    {(sq.minLabel || sq.maxLabel) && (
+                      <div className={styles.scaleLabels}>
+                        <span>{sq.minLabel}</span>
+                        <span>{sq.maxLabel}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {sq.type === "starRating" && (
+                  <div>
+                    <div className={styles.stars}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          className={styles.starBtn}
+                          onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: n }))}
+                          style={{ color: n <= (survAns as number || 0) ? "#F59E0B" : "#E5E5E5" }}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    {(sq.minLabel || sq.maxLabel) && (
+                      <div className={styles.scaleLabels}>
+                        <span>{sq.minLabel}</span>
+                        <span>{sq.maxLabel}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </>
       );
     }
@@ -415,19 +447,25 @@ export default function LMSPlayer({
   // ══════════════════════════════════
   // FOOTER
   // ══════════════════════════════════
+  const allQuizAnswered = questions.length > 0 && questions.every((q) => answers[q.id]);
+
+  // Survey: hanya cek pertanyaan yang required
+  const allRequiredSurveyAnswered = (() => {
+    if (!surveyQuestions || surveyQuestions.length === 0) return true;
+    return surveyQuestions
+      .filter((sq) => sq.required !== false) // default required = true
+      .every((sq) => {
+        const ans = surveyAnswers[sq.id];
+        return ans !== undefined && ans !== "" && ans !== null;
+      });
+  })();
+
   function renderFooter() {
     if (screen === "quiz") {
       return (
-        <>
-          {!isFirstQ && (
-            <button className={styles.btnDark} onClick={goPrev}>← Soal Sblm.</button>
-          )}
-          {isLastQ ? (
-            <button className={styles.btnRed} onClick={submitQuiz}>Kirim Jawaban</button>
-          ) : (
-            <button className={styles.btnRed} onClick={goNext}>Soal Slnjt. →</button>
-          )}
-        </>
+        <button className={styles.btnRed} onClick={submitQuiz} disabled={!allQuizAnswered}>
+          Kirim Jawaban
+        </button>
       );
     }
 
@@ -437,11 +475,15 @@ export default function LMSPlayer({
           <button className={styles.btnDark} onClick={retry}>Kerjakan Ulang</button>
           <button
             className={styles.btnRed}
-            onClick={surveyEnabled ? showSurvey : proceedNext}
+            onClick={hasSurvey ? showSurvey : proceedNext}
             disabled={!passed}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            {isLastStep && !surveyEnabled ? <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><GraduationCap size={16} /> Klaim Sertifikat</span> : "Materi Selanjutnya →"}
+            {hasSurvey 
+              ? "Isi Survei →" 
+              : isLastStep 
+                ? "Klaim Sertifikat" 
+                : "Materi Selanjutnya →"}
           </button>
         </>
       );
@@ -449,14 +491,10 @@ export default function LMSPlayer({
 
     if (screen === "survey") {
       return (
-        <button className={styles.btnRed} onClick={sendSurvey}>Kirim Survei</button>
-      );
-    }
-
-    if (screen === "done") {
-      return (
-        <button className={styles.btnRed} onClick={proceedNext} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isLastStep ? <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><GraduationCap size={16} /> Klaim Sertifikat</span> : "Materi Selanjutnya →"}
+        <button className={styles.btnRed} onClick={sendSurvey} disabled={!allRequiredSurveyAnswered}>
+          {isLastStep 
+            ? "Kirim Survey dan Klaim Sertifikat"
+            : "Kirim Survey & Lanjutkan →"}
         </button>
       );
     }
@@ -464,22 +502,37 @@ export default function LMSPlayer({
     return null;
   }
 
+  const noVideo = !youtubeId;
+  const noRightPanel = !hasAssessment && !hasSurvey;
+
   return (
-    <div className={styles.layout}>
-      <div className={styles.leftCol}>
-        {renderLeft()}
+    <div className={`${styles.layout} ${(noVideo || noRightPanel) ? styles.layoutNoVideo : ""}`}>
+      <div className={noRightPanel ? styles.leftColFull : (noVideo ? undefined : styles.leftCol)} style={noRightPanel ? undefined : undefined}>
+        {!noVideo && renderLeft()}
       </div>
-      <div className={styles.rightCol}>
-        <div className={styles.sHead}>
-          <h2>{panelTitle()}</h2>
+      {!noRightPanel && (
+        <div className={`${styles.rightCol} ${noVideo ? styles.rightColFull : ""}`}>
+          <div className={styles.sHead}>
+            <h2>{panelTitle()}</h2>
+            {screen === "quiz" && hasAssessment && (
+              <p className={styles.sHeadDesc}>
+                Anda harus benar minimal <strong>{minCorrect} soal</strong> untuk bisa dapat sertifikat!
+              </p>
+            )}
+            {screen === "survey" && (
+              <p className={styles.sHeadDesc}>
+                Setelah mengisi survey, Anda akan mendapatkan sertifikat.
+              </p>
+            )}
+          </div>
+          <div className={styles.sScroll} ref={scrollRef}>
+            {renderRight()}
+          </div>
+          <div className={styles.sFoot}>
+            {renderFooter()}
+          </div>
         </div>
-        <div className={styles.sScroll} ref={scrollRef}>
-          {renderRight()}
-        </div>
-        <div className={styles.sFoot}>
-          {renderFooter()}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

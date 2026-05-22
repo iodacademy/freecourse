@@ -6,10 +6,14 @@
   padding: var(--space-10) 0 var(--space-20);
   min-height: calc(100vh - var(--header-height));
   background: linear-gradient(160deg, var(--color-gray-50) 0%, var(--color-primary-50) 100%);
+  width: 100%;
+  overflow-y: auto;
 }
 
 .content {
   max-width: 640px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 /* ─── Incomplete ─── */

@@ -3,49 +3,71 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
-
-// ═══ DATA DUMMY untuk development ═══
-// Nanti akan diganti dengan data dari Firestore
-interface StepNavItem {
-  stepNumber: number;
-  title: string;
-  status: "locked" | "current" | "completed";
-  hasAssessment: boolean;
-  assessmentPassed?: boolean;
-}
-
-const DUMMY_STEPS: StepNavItem[] = [
-  { stepNumber: 1, title: "Apa Itu Literasi Finansial?", status: "completed", hasAssessment: true, assessmentPassed: true },
-  { stepNumber: 2, title: "Mengenal Jenis Pendapatan", status: "current", hasAssessment: true, assessmentPassed: false },
-  { stepNumber: 3, title: "Cara Mengatur Anggaran", status: "locked", hasAssessment: true },
-  { stepNumber: 4, title: "Menabung vs Investasi", status: "locked", hasAssessment: true },
-  { stepNumber: 5, title: "Pentingnya Dana Darurat", status: "locked", hasAssessment: true },
-  { stepNumber: 6, title: "Mengenal Produk Perbankan", status: "locked", hasAssessment: false },
-  { stepNumber: 7, title: "Manajemen Utang yang Sehat", status: "locked", hasAssessment: true },
-  { stepNumber: 8, title: "Perencanaan Keuangan Jangka Panjang", status: "locked", hasAssessment: true },
-  { stepNumber: 9, title: "Survei Akhir", status: "locked", hasAssessment: false },
-  { stepNumber: 10, title: "Klaim Sertifikat", status: "locked", hasAssessment: false },
-];
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LearnPage() {
   const router = useRouter();
-  const [steps] = useState<StepNavItem[]>(DUMMY_STEPS);
+  const { user } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
-  // Cari step pertama yang belum selesai
   useEffect(() => {
-    const currentStep = steps.find((s) => s.status === "current");
-    const firstIncomplete = steps.find((s) => s.status !== "completed");
-    const target = currentStep || firstIncomplete || steps[0];
-    router.replace(`/learn/${target.stepNumber}`);
-  }, [steps, router]);
+    if (!user) return;
+
+    const init = async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch("/api/enrollments", {
+          headers: { Authorization: `Bearer ${idToken}` },
+          cache: 'no-store',
+        });
+        
+        if (!res.ok) throw new Error("Gagal memuat data enrollment");
+        
+        const data = await res.json();
+        let mainEnrollment = data.find((e: any) => e.courseId === "course-main");
+
+        if (!mainEnrollment) {
+          const enrollRes = await fetch("/api/enrollments/auto-enroll", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ courseId: "course-main" })
+          });
+          if (enrollRes.ok) {
+            const enrollData = await enrollRes.json();
+            mainEnrollment = enrollData.enrollment;
+          }
+        }
+
+        if (mainEnrollment) {
+          const targetStep = mainEnrollment.currentStep || 1;
+          router.replace(`/learn/${targetStep}`);
+        } else {
+          // If no enrollment, start at step 1
+          router.replace(`/learn/1`);
+        }
+      } catch (e: any) {
+        console.error(e);
+        setError(e.message);
+      }
+    };
+
+    init();
+  }, [user, router]);
 
   return (
     <ProtectedRoute>
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", minHeight: "60vh" }}>
-        <div className="loading-overlay">
-          <div className="spinner spinner-lg" />
-          <p style={{ marginTop: "16px", color: "var(--color-gray-500)", fontWeight: 600 }}>Mengarahkan ke materi...</p>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", width: "100%", height: "100%", minHeight: "60vh" }}>
+        {error ? (
+          <div style={{ color: "red", textAlign: "center" }}>
+            <p>{error}</p>
+            <button onClick={() => window.location.reload()} style={{ marginTop: 10, padding: "8px 16px", borderRadius: "4px", border: "1px solid #ccc" }}>Coba Lagi</button>
+          </div>
+        ) : (
+          <div className="loading-overlay">
+            <div className="spinner spinner-lg" />
+            <p style={{ marginTop: "16px", color: "var(--color-gray-500)", fontWeight: 600 }}>Mengarahkan ke materi...</p>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );

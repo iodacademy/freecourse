@@ -169,10 +169,18 @@ export default function AdminEventsPage() {
     }
   };
 
+  // Get link for event
+  const getEventLink = (evt: EventData) => {
+    if (evt.channelType === "b2b_campus" && evt.partnerCode) {
+      return `/partner/${evt.partnerCode.toLowerCase()}`;
+    }
+    const basePath = CHANNEL_PATHS[evt.channelType] || "/beasiswa";
+    return `${basePath}/${evt.id}`;
+  };
+
   // Copy link
   const copyLink = (evt: EventData) => {
-    const basePath = CHANNEL_PATHS[evt.channelType] || "/beasiswa";
-    const link = `${window.location.origin}${basePath}/${evt.id}`;
+    const link = `${window.location.origin}${getEventLink(evt)}`;
     navigator.clipboard.writeText(link);
     setCopied(evt.id);
     setTimeout(() => setCopied(null), 2000);
@@ -215,12 +223,6 @@ export default function AdminEventsPage() {
   const closeModal = () => {
     setShowModal(false);
     setEditing(null);
-  };
-
-  // Get link for event
-  const getEventLink = (evt: EventData) => {
-    const basePath = CHANNEL_PATHS[evt.channelType] || "/beasiswa";
-    return `${basePath}/${evt.id}`;
   };
 
   return (

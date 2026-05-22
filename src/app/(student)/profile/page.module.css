@@ -24,13 +24,13 @@
 }
 
 .logoSep {
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   color: #ccc;
   font-weight: 300;
 }
 
 .regSubtitle {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   color: #737373;
   margin: 0;
 }
@@ -52,14 +52,14 @@
 }
 
 .cardHead h2 {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: 800;
   margin: 0 0 6px;
   color: #fff;
 }
 
 .cardHead p {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
 }
@@ -70,7 +70,7 @@
 
 /* ─── Required note ─── */
 .reqNote {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: #999;
   margin-bottom: 22px;
 }
@@ -87,7 +87,7 @@
 
 .fieldLabel {
   display: block;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: #333;
   margin-bottom: 7px;
@@ -98,7 +98,7 @@
   padding: 11px 14px;
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-family: inherit;
   color: #333;
   background: #fff;
@@ -117,7 +117,7 @@
 }
 
 .fieldHint {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: #999;
   margin-top: 5px;
 }
@@ -179,7 +179,7 @@
 }
 
 .radioLabel {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: #333;
 }
@@ -206,14 +206,14 @@
 }
 
 .gmailEmail {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: #333;
   word-break: break-all;
 }
 
 .gmailBadge {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: #22c55e;
   font-weight: 600;
 }
@@ -233,7 +233,7 @@
 }
 
 .dividerText {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   color: #999;
   text-transform: uppercase;
@@ -318,7 +318,7 @@
 }
 
 .chkLabel {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: #333;
 }
@@ -328,7 +328,7 @@
   padding: 9px 12px;
   border: 1.5px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-family: inherit;
   color: #333;
   background: #fff;
@@ -347,7 +347,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: #ef4444;
   font-weight: 600;
   margin-top: 6px;
@@ -355,7 +355,7 @@
 
 .errMsg::before {
   content: "⚠";
-  font-size: 13px;
+  font-size: var(--font-size-sm);
 }
 
 /* ─── Submit Button ─── */
@@ -367,7 +367,7 @@
   background: #CC0000;
   color: #fff;
   font-family: inherit;
-  font-size: 15px;
+  font-size: var(--font-size-base);
   font-weight: 700;
   cursor: pointer;
   display: flex;

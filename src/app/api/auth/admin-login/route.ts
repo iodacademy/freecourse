@@ -1,71 +1,43 @@
 /**
  * POST /api/auth/admin-login
- * Admin login via access code + Firebase Anonymous Auth.
+ * Admin login via code (no Firebase Auth).
  * 
  * Flow:
- * 1. Client signs in anonymously (Firebase Auth)
- * 2. Client sends idToken + accessCode to this endpoint
- * 3. We verify the code against env ADMIN_ACCESS_CODE
- * 4. If valid, set role "admin" on the anonymous user doc in Firestore
- * 5. Return admin profile
+ * 1. Client sends accessCode to this endpoint
+ * 2. We verify the code against the `admin` collection in Firestore
+ * 3. If valid, return admin profile and code
  */
 import { NextRequest } from "next/server";
-import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
+import { getAdminDb } from "@/lib/firebase-admin";
 import { json, handleError } from "@/lib/api-helpers";
-import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
   try {
-    const { idToken, accessCode } = await req.json();
+    const { accessCode } = await req.json();
 
-    if (!idToken || !accessCode) {
-      return json({ error: "idToken dan accessCode wajib diisi" }, 400);
+    if (!accessCode) {
+      return json({ error: "Kode akses wajib diisi" }, 400);
     }
 
-    // 1. Verify access code
-    const validCode = process.env.ADMIN_ACCESS_CODE;
-    if (!validCode || accessCode !== validCode) {
+    const db = getAdminDb();
+    const adminDocs = await db.collection("admin").where("code", "==", accessCode).get();
+
+    if (adminDocs.empty) {
       return json({ error: "Kode akses salah" }, 401);
     }
 
-    // 2. Verify the Firebase ID token (anonymous auth)
-    const decoded = await getAdminAuth().verifyIdToken(idToken);
-    const { uid } = decoded;
-    const db = getAdminDb();
+    const adminData = adminDocs.docs[0].data();
 
-    // 3. Create/update user doc with admin role
-    const userRef = db.collection("users").doc(uid);
-    const userDoc = await userRef.get();
+    // Default return payload
+    const user = {
+      uid: "admin",
+      role: adminData.role || "admin",
+      email: "admin@ioda.id",
+      displayName: "Admin IODA",
+      profileCompleted: true
+    };
 
-    if (!userDoc.exists) {
-      // New admin user
-      const adminData = {
-        uid,
-        email: "admin@ioda.id",
-        emailUsername: "admin",
-        displayName: "Admin IODA",
-        photoURL: null,
-        role: "admin",
-        profileCompleted: true,
-        profileData: { namaLengkap: "Admin IODA" },
-        channelSource: null,
-        eventId: null,
-        partnerCode: null,
-        utmData: null,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      };
-      await userRef.set(adminData);
-      return json({ status: "new", user: adminData });
-    } else {
-      // Existing doc — just update role to admin
-      await userRef.update({
-        role: "admin",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      const updated = await userRef.get();
-      return json({ status: "existing", user: updated.data() });
-    }
+    return json({ status: "success", user });
   } catch (e) {
     return handleError(e);
   }

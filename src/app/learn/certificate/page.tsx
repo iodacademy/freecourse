@@ -168,12 +168,14 @@ export default function CertificatePage() {
                 <a href="#" className="btn btn-primary btn-lg w-full">
                   📥 Download Sertifikat (PDF)
                 </a>
-                <button
-                  className="btn btn-secondary w-full"
-                  onClick={() => router.push("/learn/bonus")}
-                >
-                  📚 Pilih Kursus Tambahan (Gratis!)
-                </button>
+                {profile?.channelSource === "beasiswa" && (
+                  <button
+                    className="btn btn-secondary w-full"
+                    onClick={() => router.push("/learn/bonus")}
+                  >
+                    📚 Pilih Kursus Tambahan (Gratis!)
+                  </button>
+                )}
               </div>
             </div>
           )}

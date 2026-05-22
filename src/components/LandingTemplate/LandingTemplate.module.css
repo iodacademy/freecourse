@@ -35,7 +35,7 @@
   gap: 14px;
 }
 .logoSep {
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   color: #ccc;
   font-weight: 300;
 }
@@ -47,7 +47,7 @@
   background: #000;
   color: #fff;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -103,7 +103,7 @@
   display: inline-block;
   background: #CC0000;
   color: #fff;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   letter-spacing: 0.1em;
   padding: 6px 12px;
@@ -151,7 +151,7 @@
 }
 
 .wbInfoLabel {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   color: #888;
   letter-spacing: 0.08em;
@@ -159,7 +159,7 @@
 }
 
 .wbInfoVal {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 800;
   color: #222;
 }
@@ -225,7 +225,7 @@
 }
 
 .speakerLabel {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   color: #CC0000;
   letter-spacing: 0.05em;
@@ -233,14 +233,14 @@
 }
 
 .speakerName {
-  font-size: 16px;
+  font-size: var(--font-size-base);
   font-weight: 800;
   color: #000;
   margin-bottom: 2px;
 }
 
 .speakerTitle {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: #777;
   line-height: 1.4;
 }
@@ -273,7 +273,7 @@
   padding: 6px 14px;
   border: 1.5px solid #e5e5e5;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: #333;
   background: #fff;
@@ -297,7 +297,7 @@
 /* ─── Stages Heading ─── */
 .stagesHeading {
   text-align: center;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -380,7 +380,7 @@
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   transition: background 220ms, color 220ms;
 }
 .stageActive .stageNum {
@@ -394,7 +394,7 @@
 
 .stageBody { flex: 1; min-width: 0; }
 .stageLabel {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -412,7 +412,7 @@
   margin-bottom: 3px;
 }
 .stageSub {
-  font-size: 12.5px;
+  font-size: var(--font-size-xs);
   color: #737373;
   line-height: 1.5;
 }
@@ -427,7 +427,7 @@
   border-radius: 999px;
   background: #f0f0f0;
   color: #737373;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   white-space: nowrap;
   transition: background 220ms, color 220ms;
@@ -484,7 +484,7 @@
   padding: 11px 18px;
   border-radius: 999px;
   border: 2px solid #000;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   text-decoration: none;
   box-shadow: 0 4px 20px rgba(0,0,0,0.12);
@@ -529,19 +529,19 @@
   border-bottom: 1.5px solid #f0f0f0;
 }
 .modalLogoSep {
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   color: #ccc;
   font-weight: 300;
 }
 .modalTitle {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: 800;
   color: #000;
   margin-bottom: 14px;
   letter-spacing: -0.01em;
 }
 .modalDesc {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   color: #555;
   line-height: 1.65;
   text-align: left;
@@ -564,13 +564,13 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: #000;
 }
 .modalBenefitIcon {
   color: #CC0000;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   flex-shrink: 0;
   line-height: 1.4;
 }
@@ -587,7 +587,7 @@
   border: 1.5px solid #e5e5e5;
   background: #fff;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: #333;
   cursor: pointer;
@@ -602,7 +602,7 @@
   background: #CC0000;
   color: #fff;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
   display: flex;

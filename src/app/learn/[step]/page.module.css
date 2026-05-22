@@ -2,6 +2,7 @@
 
 .wrapper {
   height: 100%;
+  width: 100%;
   overflow: hidden;
   display: flex;
 }
@@ -9,6 +10,7 @@
 /* Locked State */
 .lockedWrapper {
   height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -31,7 +33,7 @@
 }
 
 .lockedCard h2 {
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   font-weight: 800;
   margin-bottom: 8px;
   color: #000;
@@ -39,7 +41,7 @@
 
 .lockedCard p {
   color: #737373;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   margin-bottom: 24px;
   line-height: 1.6;
 }
@@ -51,7 +53,7 @@
   background: #CC0000;
   color: white;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s;
@@ -63,5 +65,9 @@
   .wrapper {
     height: auto;
     overflow: visible;
+  }
+  .lockedWrapper {
+    height: auto;
+    min-height: 60vh;
   }
 }

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!enrollDoc.exists) return json({ error: "Enrollment not found" }, 404);
     
     const enrollData = enrollDoc.data()!;
-    if (enrollData.userId !== decoded.uid) return json({ error: "Forbidden" }, 403);
+    if (enrollData.email !== decoded.email) return json({ error: "Forbidden" }, 403);
     if (enrollData.certificateClaimed) return json({ message: "Sertifikat sudah diklaim sebelumnya" });
 
     // Cek syarat kelulusan
@@ -35,23 +35,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     let isEligible = true;
     for (const step of requiredSteps) {
-      const progress = stepProgress[step.id];
-      if (!progress?.completed) {
-        isEligible = false;
-        break;
-      }
-      
-      // Jika ada assessment, cek apakah lulus
-      if (step.companionType === "assessment" && step.assessment?.kkm) {
-        if (!progress.assessmentResult?.passed) {
+      if (step.hasAssessment && step.assessment?.kkm) {
+        const progress = stepProgress[step.id];
+        const score = progress?.assessmentResult?.score;
+        if (!progress || typeof score !== "number" || score < step.assessment.kkm) {
           isEligible = false;
           break;
         }
       }
       
-      // Jika ada survey, cek apakah submitted
-      if (step.companionType === "survey" && step.survey) {
-        if (!progress.surveyResult?.submitted) {
+      if (step.hasSurvey && step.survey) {
+        const progress = stepProgress[step.id];
+        if (!progress || !progress.surveyResult) {
           isEligible = false;
           break;
         }
@@ -67,13 +62,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
     const certId = `CERT-${year}-${randomHex}`;
 
+    let reqBody: any = {};
+    try { reqBody = await req.json(); } catch(e) {}
+    
     // Get user and course info for verification record
     const [userDoc, courseDoc] = await Promise.all([
       db.collection("users").doc(enrollData.userId).get(),
       db.collection("courses").doc(enrollData.courseId).get()
     ]);
     
-    const userName = userDoc.data()?.displayName || "Peserta";
+    const userName = reqBody.customName || userDoc.data()?.displayName || "Peserta";
     const courseName = courseDoc.data()?.title || "Kursus";
     const issuerName = courseDoc.data()?.certificateConfig?.issuerName || "IODA Academy";
 

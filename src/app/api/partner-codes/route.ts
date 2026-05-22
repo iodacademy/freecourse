@@ -1,53 +1,94 @@
 /**
- * GET  /api/partner-codes  — list kode mitra (admin)
- * POST /api/partner-codes  — buat kode mitra baru (admin)
+ * GET  /api/partner-codes  — list Tracking Mitra (admin)
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
-import { FieldValue } from "firebase-admin/firestore";
 
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
-    const snap = await getAdminDb().collection("partnerCodes")
-      .orderBy("createdAt", "desc").get();
-    return json(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  } catch (e) {
-    return handleError(e);
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    await requireAdmin(req);
-    const body = await req.json();
-    if (!body.code || !body.partnerName) {
-      return json({ error: "code dan partnerName wajib diisi" }, 400);
-    }
-
     const db = getAdminDb();
-    // Cek duplikat kode
-    const existing = await db.collection("partnerCodes")
-      .where("code", "==", body.code).get();
-    if (!existing.empty) {
-      return json({ error: "Kode Mitra sudah digunakan" }, 409);
-    }
+    
+    // 1. Ambil semua event B2B
+    const eventsSnap = await db.collection("events")
+      .where("channelType", "==", "b2b_campus")
+      .get();
+      
+    const events = eventsSnap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || 0;
+        const timeB = b.createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
 
-    const data = {
-      code: body.code,
-      eventId: body.eventId ?? "",
-      partnerName: body.partnerName,
-      courseId: body.courseId ?? "",
-      status: "active",
-      usedBy: [],
-      usedCount: 0,
-      quota: body.quota ?? 0,
-      createdAt: FieldValue.serverTimestamp(),
-    };
+    // 2. Hitung statistik untuk masing-masing
+    const results = await Promise.all(events.map(async (ev) => {
+      let registered = 0;
+      let assessed = 0;
+      let surveyed = 0;
+      let certified = 0;
 
-    const ref = await db.collection("partnerCodes").add(data);
-    return json({ id: ref.id, ...data }, 201);
+      if (ev.partnerCode) {
+        // Cari user yang daftar pakai kode ini
+        const usersSnap = await db.collection("users")
+          .where("partnerCode", "==", ev.partnerCode)
+          .get();
+        
+        registered = usersSnap.size;
+        
+        // Ambil UID user untuk mengecek enrollments
+        const userIds = usersSnap.docs.map(u => u.id);
+
+        if (userIds.length > 0) {
+          // Bagi menjadi chunk 30 jika terlalu banyak (firestore in limit is 30)
+          // Untuk sederhana, kita query enrollments by eventId
+          const enrollmentsSnap = await db.collection("enrollments")
+            .where("eventId", "==", ev.id)
+            .get();
+            
+          enrollmentsSnap.docs.forEach(en => {
+            const data = en.data();
+            // Certified
+            if (data.status === "certified" || data.certificateClaimed) {
+              certified++;
+            }
+            // Assessed & Surveyed: kita cek di stepProgress
+            let hasPassedAssessment = false;
+            let hasSubmittedSurvey = false;
+            
+            if (data.stepProgress) {
+              Object.values(data.stepProgress).forEach((sp: any) => {
+                if (sp.assessmentResult?.passed) hasPassedAssessment = true;
+                if (sp.surveyResult?.submitted) hasSubmittedSurvey = true;
+              });
+            }
+            if (hasPassedAssessment) assessed++;
+            if (hasSubmittedSurvey) surveyed++;
+          });
+        }
+      }
+
+      return {
+        id: ev.id,
+        code: ev.partnerCode || "-",
+        partnerName: ev.campusName || ev.name,
+        eventId: ev.id,
+        courseId: ev.courseId,
+        status: ev.status,
+        quota: 0, // Not strictly used for tracking
+        createdAt: ev.createdAt,
+        stats: {
+          registered,
+          assessed,
+          surveyed,
+          certified
+        }
+      };
+    }));
+
+    return json(results);
   } catch (e) {
     return handleError(e);
   }

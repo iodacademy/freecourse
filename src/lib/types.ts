@@ -75,7 +75,8 @@ export interface CourseStep {
     url: string;
     duration: number;
   };
-  companionType: "assessment" | "survey" | "none";
+  hasAssessment: boolean;
+  hasSurvey: boolean;
   assessment?: Assessment;
   survey?: Survey;
   createdAt: Date;
@@ -106,6 +107,8 @@ export interface SurveyQuestion {
   options?: string[];
   maxStars?: number;
   required: boolean;
+  minLabel?: string;
+  maxLabel?: string;
 }
 
 export interface Survey {

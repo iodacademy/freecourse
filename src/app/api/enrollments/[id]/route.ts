@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const data = doc.data()!;
     
     // Validasi kepemilikan
-    if (data.userId !== decoded.uid) {
+    if (data.email !== decoded.email) {
       await requireAdmin(req); // throw jika bukan admin
     }
     

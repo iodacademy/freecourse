@@ -9,7 +9,7 @@ import { Star, GraduationCap, Handshake, Calendar, ChevronRight } from "lucide-r
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type LandingType = "workshop" | "beasiswa" | "kemitraan";
+export type LandingType = "workshop" | "beasiswa" | "kemitraan" | "umum";
 
 interface StageConfig {
   label: string;
@@ -99,12 +99,30 @@ const STAGES: Record<LandingType, StageConfig[]> = {
       sub: "Sertifikat resmi Plan Indonesia × DBS Foundation langsung di tanganmu.",
     },
   ],
+  umum: [
+    {
+      label: "Tahap 1",
+      title: "Daftar & Isi Data Diri",
+      sub: "Buat akun Google dan lengkapi data dirimu — cepat, mudah, gratis.",
+    },
+    {
+      label: "Tahap 2",
+      title: "Selesaikan Modul Financial Literacy",
+      sub: "Tonton video eksklusif, kerjakan post-test & isi survei penyelesaian.",
+    },
+    {
+      label: "Tahap 3",
+      title: "Klaim Sertifikat",
+      sub: "Sertifikat resmi Plan Indonesia × DBS Foundation langsung di tanganmu.",
+    },
+  ],
 };
 
 const EYEBROW: Record<LandingType, string> = {
   beasiswa: "🌟 PROGRAM BEASISWA",
   workshop: "🎓 WORKSHOP GRATIS",
   kemitraan: "🤝 MITRA KAMPUS / INSTITUSI",
+  umum: "🌟 PROGRAM LITERASI FINANSIAL",
 };
 
 // ─── Chevron Icon ─────────────────────────────────────────────────────────────
@@ -190,7 +208,8 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
   const defaultTitle =
     type === "workshop" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat! Kamu Terpilih untuk Workshop Gratis <GraduationCap size={32} /></span> :
       type === "beasiswa" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat! Kamu Lolos Seleksi Beasiswa <Star size={32} /></span> :
-        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat Datang, Kaum Muda! <Handshake size={32} /></span>;
+        type === "kemitraan" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat Datang, Kaum Muda! <Handshake size={32} /></span> :
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat Datang di YouRise! <Star size={32} /></span>;
 
   const defaultSubtitle = "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!";
 
@@ -202,7 +221,7 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
       
       if (profile?.profileCompleted) {
         // Profil sudah lengkap
-        if (type === "beasiswa") activeIdx = 1; // Tahap 2: Selesaikan Modul
+        if (type === "beasiswa" || type === "umum") activeIdx = 1; // Tahap 2: Selesaikan Modul
         else if (type === "kemitraan") activeIdx = 2; // Tahap 3: Selesaikan Modul
         else if (type === "workshop") activeIdx = 1; // Tahap 2: Ikut Webinar
       }
