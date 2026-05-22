@@ -11,32 +11,29 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   signInWithPopup,
+  signInAnonymously,
   signOut,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, googleProvider, db } from "@/lib/firebase";
+import { auth, googleProvider } from "@/lib/firebase";
 import type { UserProfile } from "@/lib/types";
 
 interface AuthContextType {
   // State
-  user: FirebaseUser | null; // Data dari Firebase Auth
-  profile: UserProfile | null; // Data dari Firestore
-  loading: boolean; // Sedang loading data user?
+  user: FirebaseUser | null;
+  profile: UserProfile | null;
+  loading: boolean;
   error: string | null;
 
   // Actions
   loginWithGoogle: () => Promise<void>;
-  loginAsDummyStudent: () => void;
-  loginAsDummyAdmin: () => void;
+  loginAsAdmin: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  // Simpan data profil setelah registrasi
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Hook untuk menggunakan auth context di komponen manapun
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
@@ -45,19 +42,18 @@ export function useAuth() {
   return context;
 }
 
-// Provider yang membungkus seluruh aplikasi
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fungsi untuk ambil/buat profil user dari API Backend
+  // Fetch/create profile from backend API
   async function fetchOrCreateProfile(firebaseUser: FirebaseUser) {
     try {
       const token = await firebaseUser.getIdToken();
       
-      // Ambil data tracking dari sessionStorage (jika ada)
+      // Ambil data tracking dari sessionStorage
       const channelSource = typeof window !== 'undefined' ? sessionStorage.getItem("channelSource") : null;
       const eventId = typeof window !== 'undefined' ? sessionStorage.getItem("eventId") : null;
       const partnerCode = typeof window !== 'undefined' ? sessionStorage.getItem("partnerCode") : null;
@@ -76,8 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!res.ok) throw new Error("Gagal verifikasi dengan server");
       
       const data = await res.json();
-      // data.user berisi profil (uid, email, displayName, photoURL, role, dsb)
-      // data.profileCompleted juga dikembalikan dari backend
       setProfile({ ...data.user, profileCompleted: data.profileCompleted } as UserProfile);
     } catch (err) {
       console.error("Error fetching profile from API:", err);
@@ -85,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Fungsi untuk refresh profil (dipanggil setelah update profil)
+  // Refresh profil
   async function refreshProfile() {
     if (!user) return;
     try {
@@ -102,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Login dengan Google SSO
+  // Login dengan Google SSO (untuk siswa)
   async function loginWithGoogle() {
     if (!auth) {
       setError("Firebase belum dikonfigurasi. Hubungi admin.");
@@ -111,16 +105,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       const result = await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged akan otomatis dipanggil
       await fetchOrCreateProfile(result.user);
     } catch (err: unknown) {
       const firebaseError = err as { code?: string; message?: string };
-      if (firebaseError.code === "auth/popup-closed-by-user") {
-        // User menutup popup — bukan error
-        return;
-      }
+      if (firebaseError.code === "auth/popup-closed-by-user") return;
       console.error("Login error:", err);
       setError("Gagal login. Silakan coba lagi.");
+    }
+  }
+
+  // Login admin via access code (anonymous auth)
+  async function loginAsAdmin(accessCode: string) {
+    if (!auth) {
+      setError("Firebase belum dikonfigurasi.");
+      return;
+    }
+    try {
+      setError(null);
+      
+      // 1. Sign in anonymously
+      const result = await signInAnonymously(auth);
+      const token = await result.user.getIdToken();
+
+      // 2. Verify access code with backend
+      const res = await fetch("/api/auth/admin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token, accessCode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        // Code salah — sign out anonymous user
+        await signOut(auth);
+        throw new Error(data.error || "Kode akses salah");
+      }
+
+      // 3. Set profile as admin
+      setProfile({ ...data.user, profileCompleted: true, role: "admin" } as UserProfile);
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      console.error("Admin login error:", err);
+      setError(e.message || "Gagal login admin.");
+      throw err;
     }
   }
 
@@ -136,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Update profil user (dipanggil setelah isi form data diri)
+  // Update profil user
   async function updateUserProfile(data: Partial<UserProfile>) {
     if (!user) throw new Error("User belum login");
     try {
@@ -160,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Listen perubahan auth state (login/logout)
+  // Listen auth state changes
   useEffect(() => {
     if (!auth) {
       setLoading(false);
@@ -169,7 +196,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        await fetchOrCreateProfile(firebaseUser);
+        // Jika anonymous user (admin), cek Firestore
+        if (firebaseUser.isAnonymous) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            const res = await fetch(`/api/users/${firebaseUser.uid}`, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.role === "admin") {
+                setProfile(data as UserProfile);
+              } else {
+                // Anonymous tapi bukan admin — sign out
+                setProfile(null);
+              }
+            } else {
+              setProfile(null);
+            }
+          } catch {
+            setProfile(null);
+          }
+        } else {
+          // Google SSO user — fetch normal
+          await fetchOrCreateProfile(firebaseUser);
+        }
       } else {
         setProfile(null);
       }
@@ -180,57 +231,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Dummy Login for Testing
-  function loginAsDummyStudent() {
-    const dummyUser = { uid: "dummy-student-123", email: "student@example.com", displayName: "Siswa Dummy", photoURL: null } as FirebaseUser;
-    setUser(dummyUser);
-    setProfile({
-      uid: dummyUser.uid,
-      email: dummyUser.email || "",
-      emailUsername: "student",
-      displayName: dummyUser.displayName || "",
-      photoURL: dummyUser.photoURL,
-      role: "student",
-      profileCompleted: true,
-      profileData: { namaLengkap: "Siswa Dummy" },
-      channelSource: "b2c_ads",
-      eventId: null,
-      partnerCode: null,
-      utmData: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-
-  function loginAsDummyAdmin() {
-    const dummyUser = { uid: "dummy-admin-456", email: "admin@ioda.id", displayName: "Admin IODA", photoURL: null } as FirebaseUser;
-    setUser(dummyUser);
-    setProfile({
-      uid: dummyUser.uid,
-      email: dummyUser.email || "",
-      emailUsername: "admin",
-      displayName: dummyUser.displayName || "",
-      photoURL: dummyUser.photoURL,
-      role: "admin",
-      profileCompleted: true,
-      profileData: { namaLengkap: "Admin IODA" },
-      channelSource: null,
-      eventId: null,
-      partnerCode: null,
-      utmData: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-
   const value: AuthContextType = {
     user,
     profile,
     loading,
     error,
     loginWithGoogle,
-    loginAsDummyStudent,
-    loginAsDummyAdmin,
+    loginAsAdmin,
     logout,
     refreshProfile,
     updateUserProfile,

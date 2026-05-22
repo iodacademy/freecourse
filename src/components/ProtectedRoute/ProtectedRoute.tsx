@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 
 /**
  * Komponen pembungkus untuk halaman yang butuh login.
- * - requireAdmin: hanya admin yang boleh akses
+ * - requireAdmin: hanya admin yang boleh akses (redirect ke /admin/login)
  * - requireProfile: redirect ke /profile jika profil belum lengkap
  */
 export default function ProtectedRoute({
@@ -26,22 +26,24 @@ export default function ProtectedRoute({
   useEffect(() => {
     if (loading) return;
 
-    // Belum login → ke login page
-    if (!user) {
-      router.push("/login");
-      return;
-    }
+    if (requireAdmin) {
+      // Admin pages: redirect ke /admin/login jika belum login atau bukan admin
+      if (!user || profile?.role !== "admin") {
+        router.push("/admin/login");
+        return;
+      }
+    } else {
+      // Student pages: redirect ke /login jika belum login
+      if (!user) {
+        router.push("/login");
+        return;
+      }
 
-    // Butuh admin tapi bukan admin → redirect ke home
-    if (requireAdmin && profile?.role !== "admin") {
-      router.push("/");
-      return;
-    }
-
-    // Butuh profil lengkap tapi belum lengkap → ke profile page
-    if (requireProfile && profile && !profile.profileCompleted) {
-      router.push("/profile");
-      return;
+      // Butuh profil lengkap tapi belum lengkap → ke profile page
+      if (requireProfile && profile && !profile.profileCompleted) {
+        router.push("/profile");
+        return;
+      }
     }
   }, [user, profile, loading, requireAdmin, requireProfile, router]);
 
@@ -55,10 +57,13 @@ export default function ProtectedRoute({
     );
   }
 
-  // Belum login atau bukan admin (saat requireAdmin)
-  if (!user) return null;
-  if (requireAdmin && profile?.role !== "admin") return null;
-  if (requireProfile && profile && !profile.profileCompleted) return null;
+  // Guard checks
+  if (requireAdmin) {
+    if (!user || profile?.role !== "admin") return null;
+  } else {
+    if (!user) return null;
+    if (requireProfile && profile && !profile.profileCompleted) return null;
+  }
 
   return <>{children}</>;
 }

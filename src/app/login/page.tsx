@@ -8,7 +8,7 @@ import styles from "./page.module.css";
 import { Suspense } from "react";
 
 function LoginContent() {
-  const { user, profile, loading, error, loginWithGoogle, loginAsDummyStudent, loginAsDummyAdmin } = useAuth();
+  const { user, profile, loading, error, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect");
@@ -79,22 +79,6 @@ function LoginContent() {
 
           <div className={styles.actions}>
             <GoogleButton onClick={loginWithGoogle} />
-            
-            <div className={styles.testDivider}>
-              Mode Testing (Bypass Firebase)
-            </div>
-            <button 
-              className={styles.testBtn} 
-              onClick={() => loginAsDummyStudent?.()}
-            >
-              👨‍🎓 Login sebagai Siswa (Dummy)
-            </button>
-            <button 
-              className={styles.testBtn} 
-              onClick={() => loginAsDummyAdmin?.()}
-            >
-              👨‍💼 Login sebagai Admin (Dummy)
-            </button>
           </div>
       </div>
     </div>
