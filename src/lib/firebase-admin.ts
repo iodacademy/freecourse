@@ -10,19 +10,29 @@ let app: App;
 let adminAuth: Auth;
 let adminDb: Firestore;
 
+function getPrivateKey(): string {
+  const raw = process.env.FIREBASE_PRIVATE_KEY || "";
+
+  // Jika base64-encoded (tidak diawali "-----")
+  if (raw && !raw.startsWith("-----")) {
+    try {
+      return Buffer.from(raw, "base64").toString("utf-8");
+    } catch {
+      // fallback ke raw
+    }
+  }
+
+  // Format biasa: ganti literal \n dengan newline asli
+  return raw.replace(/\\n/g, "\n");
+}
+
 function getAdminApp(): App {
   if (getApps().length === 0) {
-    // Handle multiple possible formats of the private key
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
-    // Replace literal \n (from env var) with actual newlines
-    privateKey = privateKey.replace(/\\n/g, "\n");
-    // Also handle double-escaped \\n
-    privateKey = privateKey.replace(/\\\\n/g, "\n");
     app = initializeApp({
       credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID!,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-        privateKey,
+        privateKey: getPrivateKey(),
       }),
     });
   } else {
