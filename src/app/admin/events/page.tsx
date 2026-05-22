@@ -185,13 +185,25 @@ export default function AdminEventsPage() {
   };
 
   const openEdit = (evt: EventData) => {
+    let formattedDate = "";
+    if (evt.startDate) {
+      try {
+        const ms = (typeof evt.startDate === 'object' && '_seconds' in (evt.startDate as any)) 
+          ? (evt.startDate as any)._seconds * 1000 
+          : evt.startDate;
+        formattedDate = new Date(ms).toISOString().split("T")[0];
+      } catch (e) {
+        console.error("Invalid date", evt.startDate);
+      }
+    }
+
     setEditing(evt);
     setForm({
       name: evt.name,
       description: evt.description || "",
       channelType: evt.channelType,
       status: evt.status,
-      startDate: evt.startDate ? new Date(evt.startDate).toISOString().split("T")[0] : "",
+      startDate: formattedDate,
       partnerCode: evt.partnerCode || "",
     });
     setError("");
