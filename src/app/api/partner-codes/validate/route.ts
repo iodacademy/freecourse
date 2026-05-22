@@ -12,7 +12,28 @@ export async function POST(req: NextRequest) {
     const { code } = await req.json();
     if (!code) return json({ error: "code required" }, 400);
 
-    const snap = await getAdminDb().collection("partnerCodes")
+    const db = getAdminDb();
+    
+    // Cek di collection events (Event B2B Kampus)
+    const eventSnap = await db.collection("events")
+      .where("partnerCode", "==", code)
+      .where("channelType", "==", "b2b_campus")
+      .where("status", "==", "active")
+      .limit(1)
+      .get();
+
+    if (!eventSnap.empty) {
+      const eventData = eventSnap.docs[0].data();
+      return json({
+        valid: true,
+        partnerName: eventData.name, // Gunakan nama event sbg nama mitra
+        eventId: eventSnap.docs[0].id,
+        courseId: eventData.courseId || "",
+      });
+    }
+
+    // Jika tidak ada, cek collection partnerCodes (legacy/manual)
+    const snap = await db.collection("partnerCodes")
       .where("code", "==", code)
       .where("status", "==", "active")
       .limit(1)
