@@ -22,7 +22,7 @@ export interface UserProfile {
   role: "student" | "admin";
   profileCompleted: boolean;
   profileData: ProfileFormData;
-  channelSource: "b2b_campus" | "b2c_ads" | "b2c_workshop" | null;
+  channelSource: "b2b_campus" | "b2c_ads" | "b2c_workshop" | "beasiswa" | null;
   eventId: string | null;
   partnerCode: string | null;
   utmData: {

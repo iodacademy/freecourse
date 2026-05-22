@@ -13,7 +13,7 @@ function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
 }
 
-const VALID_SCREENS: LMSScreen[] = ["quiz", "review", "survey", "done"];
+const VALID_SCREENS: LMSScreen[] = ["quiz", "review", "survey"];
 function parseScreen(raw: string | null, fallback: LMSScreen = "quiz"): LMSScreen {
   return VALID_SCREENS.includes(raw as LMSScreen) ? (raw as LMSScreen) : fallback;
 }
