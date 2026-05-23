@@ -13,10 +13,14 @@ interface Participant {
   email: string;
   nomorWA: string;
   profileCompleted: boolean;
-  assessmentPassed: boolean;
-  surveySubmitted: boolean;
+  progress: Record<string, boolean>;
   certificateClaimed: boolean;
   createdAt: any;
+}
+
+interface CourseStep {
+  id: string;
+  title: string;
 }
 
 interface EventDetail {
@@ -31,8 +35,7 @@ interface EventDetail {
 
 interface Stats {
   registered: number;
-  assessed: number;
-  surveyed: number;
+  inProgress: number;
   certified: number;
 }
 
@@ -43,11 +46,12 @@ export default function PartnerCodeDetailPage() {
   const id = params.id as string;
 
   const [event, setEvent] = useState<EventDetail | null>(null);
+  const [courseSteps, setCourseSteps] = useState<CourseStep[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [stats, setStats] = useState<Stats>({ registered: 0, assessed: 0, surveyed: 0, certified: 0 });
+  const [stats, setStats] = useState<Stats>({ registered: 0, inProgress: 0, certified: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState<"all" | "assessed" | "surveyed" | "certified">("all");
+  const [filter, setFilter] = useState<"all" | "inProgress" | "certified">("all");
 
   const getToken = useCallback(async () => {
     if (!user) return "";
@@ -68,6 +72,7 @@ export default function PartnerCodeDetailPage() {
       }
       const data = await res.json();
       setEvent(data.event);
+      setCourseSteps(data.courseSteps || []);
       setParticipants(data.participants);
       setStats(data.stats);
     } catch (e: any) {
@@ -80,8 +85,7 @@ export default function PartnerCodeDetailPage() {
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
   const filteredParticipants = participants.filter(p => {
-    if (filter === "assessed") return p.assessmentPassed;
-    if (filter === "surveyed") return p.surveySubmitted;
+    if (filter === "inProgress") return p.profileCompleted && !p.certificateClaimed;
     if (filter === "certified") return p.certificateClaimed;
     return true;
   });
@@ -130,17 +134,13 @@ export default function PartnerCodeDetailPage() {
                 <div className={styles.statNum}>{stats.registered}</div>
                 <div className={styles.statLabel}>Total Daftar</div>
               </button>
-              <button className={`${styles.statCard} ${filter === "assessed" ? styles.statCardActive : ""}`} onClick={() => setFilter("assessed")}>
-                <div className={styles.statNum}>{stats.assessed}</div>
-                <div className={styles.statLabel}>Assessment Selesai</div>
-              </button>
-              <button className={`${styles.statCard} ${filter === "surveyed" ? styles.statCardActive : ""}`} onClick={() => setFilter("surveyed")}>
-                <div className={styles.statNum}>{stats.surveyed}</div>
-                <div className={styles.statLabel}>Survei Diisi</div>
+              <button className={`${styles.statCard} ${filter === "inProgress" ? styles.statCardActive : ""}`} onClick={() => setFilter("inProgress")}>
+                <div className={styles.statNum}>{stats.inProgress}</div>
+                <div className={styles.statLabel}>Dalam Proses</div>
               </button>
               <button className={`${styles.statCard} ${filter === "certified" ? styles.statCardActive : ""}`} onClick={() => setFilter("certified")}>
                 <div className={styles.statNum}>{stats.certified}</div>
-                <div className={styles.statLabel}>Klaim Sertifikat</div>
+                <div className={styles.statLabel}>Selesai / Klaim Sertifikat</div>
               </button>
             </div>
 
@@ -163,9 +163,12 @@ export default function PartnerCodeDetailPage() {
                       <th>Nama Lengkap</th>
                       <th>Email</th>
                       <th>Nomor WA</th>
-                      <th style={{ textAlign: "center" }}>Profil</th>
-                      <th style={{ textAlign: "center" }}>Assessment</th>
-                      <th style={{ textAlign: "center" }}>Survei</th>
+                      <th style={{ textAlign: "center" }}>Profil Lengkap</th>
+                      {courseSteps.map(step => (
+                        <th key={step.id} style={{ textAlign: "center", maxWidth: "150px" }} title={step.title}>
+                          {step.title.length > 25 ? step.title.substring(0, 25) + "..." : step.title}
+                        </th>
+                      ))}
                       <th style={{ textAlign: "center" }}>Sertifikat</th>
                     </tr>
                   </thead>
@@ -177,8 +180,9 @@ export default function PartnerCodeDetailPage() {
                         <td className={styles.emailCell}>{p.email}</td>
                         <td>{p.nomorWA}</td>
                         <td style={{ textAlign: "center" }}><StatusIcon value={p.profileCompleted} /></td>
-                        <td style={{ textAlign: "center" }}><StatusIcon value={p.assessmentPassed} /></td>
-                        <td style={{ textAlign: "center" }}><StatusIcon value={p.surveySubmitted} /></td>
+                        {courseSteps.map(step => (
+                          <td key={step.id} style={{ textAlign: "center" }}><StatusIcon value={p.progress[step.id]} /></td>
+                        ))}
                         <td style={{ textAlign: "center" }}><StatusIcon value={p.certificateClaimed} /></td>
                       </tr>
                     ))}

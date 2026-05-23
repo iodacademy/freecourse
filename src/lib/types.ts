@@ -22,7 +22,7 @@ export interface UserProfile {
   role: "student" | "admin";
   profileCompleted: boolean;
   profileData: ProfileFormData;
-  channelSource: "b2b_campus" | "b2c_ads" | "b2c_workshop" | "beasiswa" | null;
+  channelSource: "umum" | "beasiswa" | "kemitraan" | "workshop" | null;
   eventId: string | null;
   partnerCode: string | null;
   utmData: {
@@ -77,8 +77,10 @@ export interface CourseStep {
   };
   hasAssessment: boolean;
   hasSurvey: boolean;
+  hasAdditionalMaterial?: boolean;
   assessment?: Assessment;
   survey?: Survey;
+  additionalMaterial?: AdditionalMaterial;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -97,6 +99,13 @@ export interface AssessmentQuestion {
 export interface Assessment {
   kkm: number;
   questions: AssessmentQuestion[];
+}
+
+// Materi Tambahan
+export interface AdditionalMaterial {
+  description: string;
+  linkTitle: string;
+  linkUrl: string;
 }
 
 // Survey
@@ -228,5 +237,37 @@ export interface AppSettings {
   adminEmails: string[];
   gasWebAppUrl: string;
   profileFields: ProfileField[];
+  updatedAt: Date;
+}
+
+// Dynamic Form Builder Types
+export interface DynamicFormField {
+  id: string; // internal id
+  name: string; // field key stored in profileData (e.g. 'namaLengkap')
+  label: string;
+  type: "text" | "number" | "email" | "tel" | "date" | "select" | "radio" | "checkbox" | "textarea" | "province_city";
+  required: boolean;
+  placeholder?: string;
+  options?: string[]; // for select, radio, checkbox
+  description?: string;
+  dependsOn?: string; // ID of the field this field depends on
+  dependsOnValue?: string; // Value of the dependent field that triggers this field
+  regionSource?: "auto" | "manual";
+  customRegions?: { province: string; cities: string[] }[];
+}
+
+export interface DynamicFormSection {
+  id: string;
+  title: string;
+  description?: string;
+  fields: DynamicFormField[];
+}
+
+export interface DynamicForm {
+  id: string;
+  title: string;
+  isActive: boolean;
+  sections: DynamicFormSection[];
+  createdAt: Date;
   updatedAt: Date;
 }

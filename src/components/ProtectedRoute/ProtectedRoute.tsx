@@ -39,6 +39,12 @@ export default function ProtectedRoute({
         return;
       }
 
+      // Blokir Admin: Admin tidak boleh masuk ke halaman siswa
+      if (profile?.role === "admin") {
+        router.push("/admin");
+        return;
+      }
+
       // Butuh profil lengkap tapi belum lengkap → ke profile page
       if (requireProfile && profile && !profile.profileCompleted) {
         router.push("/profile");

@@ -14,10 +14,17 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const { id } = await params;
     const db = getAdminDb();
 
-    // 1. Ambil data event
+    // 1. Ambil data event & course steps
     const eventDoc = await db.collection("events").doc(id).get();
     if (!eventDoc.exists) return json({ error: "Event not found" }, 404);
     const eventData = eventDoc.data() as any;
+
+    const courseId = eventData.courseId || "course-main";
+    const courseStepsSnap = await db.collection("courseSteps").where("courseId", "==", courseId).get();
+    const courseSteps = courseStepsSnap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    const stepMeta = courseSteps.map((s: any) => ({ id: s.id, title: s.title }));
 
     // 2. Ambil semua user yang pakai partnerCode ini
     let userDocs: any[] = [];
@@ -28,43 +35,49 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       userDocs = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
     }
 
-    // 3. Ambil semua enrollments untuk event ini
-    const enrollmentsSnap = await db.collection("enrollments")
-      .where("eventId", "==", id)
-      .get();
-
+    // 3. Ambil data enrollment untuk user-user ini (chunk by 30)
     const enrollmentMap: Record<string, any> = {};
-    enrollmentsSnap.docs.forEach(d => {
-      const data = d.data();
-      enrollmentMap[data.userId] = { id: d.id, ...data };
-    });
+    if (userDocs.length > 0) {
+      const userIds = userDocs.map(u => u.uid);
+      const chunkSize = 30;
+      for (let i = 0; i < userIds.length; i += chunkSize) {
+        const chunk = userIds.slice(i, i + chunkSize);
+        const enrollmentsSnap = await db.collection("enrollments")
+          .where("userId", "in", chunk)
+          .where("courseId", "==", courseId)
+          .get();
+        
+        enrollmentsSnap.docs.forEach(d => {
+          const data = d.data();
+          enrollmentMap[data.userId] = { id: d.id, ...data };
+        });
+      }
+    }
 
     // 4. Gabungkan data user + enrollment
     const participants = userDocs.map(user => {
       const enrollment = enrollmentMap[user.uid] || null;
-      let assessmentPassed = false;
-      let surveySubmitted = false;
       let certificateClaimed = false;
+      const progress: Record<string, boolean> = {};
 
       if (enrollment) {
         certificateClaimed = !!(enrollment.status === "certified" || enrollment.certificateClaimed);
         if (enrollment.stepProgress) {
-          Object.values(enrollment.stepProgress).forEach((sp: any) => {
-            if (sp.assessmentResult?.passed) assessmentPassed = true;
-            if (sp.surveyResult?.submitted) surveySubmitted = true;
+          stepMeta.forEach((step: any) => {
+            const sp = enrollment.stepProgress[step.id];
+            progress[step.id] = !!(sp && sp.completed);
           });
         }
       }
 
       return {
         uid: user.uid,
-        namaLengkap: user.profileData?.namaLengkap || user.displayName || "-",
+        namaLengkap: user.profileData?.nama_lengkap || user.profileData?.namaLengkap || user.displayName || "-",
         email: user.email || "-",
-        nomorWA: user.profileData?.nomorWA || "-",
+        nomorWA: user.profileData?.nomor_whatsapp || user.profileData?.nomorWA || "-",
         profileCompleted: !!user.profileCompleted,
-        assessmentPassed,
-        surveySubmitted,
         certificateClaimed,
+        progress,
         createdAt: user.createdAt,
       };
     });
@@ -86,11 +99,11 @@ export async function GET(req: NextRequest, { params }: Ctx) {
         startDate: eventData.startDate,
         endDate: eventData.endDate,
       },
+      courseSteps: stepMeta,
       participants,
       stats: {
-        registered: participants.length,
-        assessed: participants.filter(p => p.assessmentPassed).length,
-        surveyed: participants.filter(p => p.surveySubmitted).length,
+        registered: participants.filter(p => p.profileCompleted).length,
+        inProgress: participants.filter(p => p.profileCompleted && !p.certificateClaimed).length,
         certified: participants.filter(p => p.certificateClaimed).length,
       }
     });

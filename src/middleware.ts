@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Rute API yang tidak butuh Authorization header
 const PUBLIC_API_ROUTES = [
   '/api/auth/verify',
   '/api/auth/admin-login',
   '/api/partner-codes/validate',
+  '/api/forms/active',
+  '/api/events/public',   // Landing page workshop/beasiswa — tidak butuh auth
 ];
 
 export function middleware(request: NextRequest) {

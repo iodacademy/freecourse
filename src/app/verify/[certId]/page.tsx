@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import styles from "./page.module.css";
 import { CheckCircle, AlertTriangle } from "lucide-react";
 
@@ -26,33 +24,37 @@ export default function VerifyPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!certId) return;
+
     async function fetchCert() {
-      if (!db) {
-        // Fallback dummy untuk development
-        setCertData({
-          certId: certId,
-          userName: "Rohmat Ramadhan",
-          courseName: "Kursus Literasi Finansial",
-          claimedAt: new Date().toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          }),
-          issuerName: "IODA Academy",
-          isValid: true,
-        });
-        setLoading(false);
-        return;
-      }
-
       try {
-        const certRef = doc(db, "certificates", certId);
-        const certSnap = await getDoc(certRef);
+        // Gunakan public API — bypass Firestore Security Rules via Admin SDK
+        const res = await fetch(`/api/verify/${certId}`);
 
-        if (certSnap.exists()) {
-          setCertData(certSnap.data() as CertData);
-        } else {
+        if (res.status === 404) {
           setNotFound(true);
+          return;
+        }
+
+        if (!res.ok) {
+          setNotFound(true);
+          return;
+        }
+
+        const result = await res.json();
+
+        if (result.valid && result.data) {
+          setCertData({ ...result.data, isValid: true });
+        } else {
+          // Sertifikat ditemukan tapi tidak valid
+          setCertData({
+            certId,
+            userName: "",
+            courseName: "",
+            claimedAt: "",
+            issuerName: "",
+            isValid: false,
+          });
         }
       } catch {
         setNotFound(true);
@@ -60,6 +62,7 @@ export default function VerifyPage() {
         setLoading(false);
       }
     }
+
     fetchCert();
   }, [certId]);
 
@@ -81,7 +84,7 @@ export default function VerifyPage() {
       <div className={styles.wrapper}>
         <div className={styles.card}>
           <div className={styles.invalidState}>
-            <span className={styles.invalidIcon}>❌</span>
+            <span className={styles.invalidIcon}><AlertTriangle size={64} style={{ display: 'inline-block' }} /></span>
             <h2>Sertifikat Tidak Ditemukan</h2>
             <p>
               ID sertifikat <code>{certId}</code> tidak terdaftar di sistem kami.

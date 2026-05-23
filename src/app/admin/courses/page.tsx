@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
 import type { CourseStep, AssessmentQuestion, SurveyQuestion } from "@/lib/types";
 import { Video, FileText, ClipboardList, Plus, Trash2, Save, ArrowUp, ArrowDown, Settings, X } from "lucide-react";
+import { ConfirmDialog } from "@/components/Modal/Dialogs";
 
 export default function SingleCourseEditor() {
   const { user } = useAuth();
@@ -13,11 +14,12 @@ export default function SingleCourseEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [confirmDeleteStepIdx, setConfirmDeleteStepIdx] = useState<number | null>(null);
 
   const [steps, setSteps] = useState<CourseStep[]>([]);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"list" | "editor">("list");
-  const [activeCompTab, setActiveCompTab] = useState<"assessment" | "survey">("assessment");
+  const [activeCompTab, setActiveCompTab] = useState<"assessment" | "survey" | "additional">("assessment");
 
   const getToken = useCallback(async () => {
     if (!user) return "";
@@ -88,15 +90,20 @@ export default function SingleCourseEditor() {
     setActiveStepIndex(steps.length);
   };
 
-  const deleteStep = (index: number) => {
-    if (!confirm("Hapus materi ini?")) return;
+  const handleDeleteStep = (index: number) => {
+    setConfirmDeleteStepIdx(index);
+  };
+
+  const executeDeleteStep = () => {
+    if (confirmDeleteStepIdx === null) return;
     const newSteps = [...steps];
-    newSteps.splice(index, 1);
+    newSteps.splice(confirmDeleteStepIdx, 1);
     setSteps(newSteps);
-    if (activeStepIndex === index) setActiveStepIndex(null);
-    else if (activeStepIndex !== null && activeStepIndex > index) {
+    if (activeStepIndex === confirmDeleteStepIdx) setActiveStepIndex(null);
+    else if (activeStepIndex !== null && activeStepIndex > confirmDeleteStepIdx) {
       setActiveStepIndex(activeStepIndex - 1);
     }
+    setConfirmDeleteStepIdx(null);
   };
 
   const moveStep = (index: number, direction: "up" | "down") => {
@@ -276,7 +283,7 @@ export default function SingleCourseEditor() {
                     <div className={styles.editorContent}>
                       <div className={styles.editorHeader}>
                         <h2>Edit Materi: {activeStep.title || "Tanpa Judul"}</h2>
-                        <button className={styles.deleteBtn} onClick={() => { deleteStep(activeStepIndex!); setActiveTab("list"); }}>
+                        <button className={styles.deleteBtn} onClick={() => { handleDeleteStep(activeStepIndex!); setActiveTab("list"); }}>
                           <Trash2 size={14} /> Hapus Materi
                         </button>
                       </div>
@@ -343,31 +350,60 @@ export default function SingleCourseEditor() {
                               }))}
                             /> Survei
                           </label>
+                          <label>
+                            <input 
+                              type="checkbox" 
+                              checked={activeStep.hasAdditionalMaterial || false} 
+                              onChange={(e) => updateActiveStep(s => ({ 
+                                ...s, 
+                                hasAdditionalMaterial: e.target.checked,
+                                additionalMaterial: e.target.checked ? (s.additionalMaterial || { description: "", linkTitle: "", linkUrl: "" }) : s.additionalMaterial
+                              }))}
+                            /> Materi Tambahan
+                          </label>
                         </div>
                       </div>
 
                       {/* Companion Editors */}
-                      {(activeStep.hasAssessment || activeStep.hasSurvey) && (
+                      {(activeStep.hasAssessment || activeStep.hasSurvey || activeStep.hasAdditionalMaterial) && (() => {
+                        const numChecked = [activeStep.hasAssessment, activeStep.hasSurvey, activeStep.hasAdditionalMaterial].filter(Boolean).length;
+                        const renderAssessment = activeStep.hasAssessment && (numChecked === 1 || activeCompTab === 'assessment');
+                        const renderSurvey = activeStep.hasSurvey && (numChecked === 1 || activeCompTab === 'survey');
+                        const renderAdditional = activeStep.hasAdditionalMaterial && (numChecked === 1 || activeCompTab === 'additional');
+
+                        return (
                         <div className={styles.companionEditorsContainer}>
-                          {activeStep.hasAssessment && activeStep.hasSurvey && (
+                          {numChecked > 1 && (
                             <div className={styles.compTabs}>
-                              <button 
-                                className={`${styles.compTab} ${activeCompTab === 'assessment' ? styles.compTabActive : ''}`}
-                                onClick={() => setActiveCompTab('assessment')}
-                              >
-                                Assessment (Kuis)
-                              </button>
-                              <button 
-                                className={`${styles.compTab} ${activeCompTab === 'survey' ? styles.compTabActive : ''}`}
-                                onClick={() => setActiveCompTab('survey')}
-                              >
-                                Survei
-                              </button>
+                              {activeStep.hasAssessment && (
+                                <button 
+                                  className={`${styles.compTab} ${activeCompTab === 'assessment' ? styles.compTabActive : ''}`}
+                                  onClick={() => setActiveCompTab('assessment')}
+                                >
+                                  Assessment (Kuis)
+                                </button>
+                              )}
+                              {activeStep.hasSurvey && (
+                                <button 
+                                  className={`${styles.compTab} ${activeCompTab === 'survey' ? styles.compTabActive : ''}`}
+                                  onClick={() => setActiveCompTab('survey')}
+                                >
+                                  Survei
+                                </button>
+                              )}
+                              {activeStep.hasAdditionalMaterial && (
+                                <button 
+                                  className={`${styles.compTab} ${activeCompTab === 'additional' ? styles.compTabActive : ''}`}
+                                  onClick={() => setActiveCompTab('additional')}
+                                >
+                                  Materi Tambahan
+                                </button>
+                              )}
                             </div>
                           )}
 
                           {/* Assessment Editor */}
-                          {activeStep.hasAssessment && activeStep.assessment && (!activeStep.hasSurvey || activeCompTab === 'assessment') && (
+                          {renderAssessment && activeStep.assessment && (
                             <div className={styles.sectionAlt}>
                               <div className={styles.sectionHeader}>
                                 <h3>Daftar Pertanyaan Assessment</h3>
@@ -449,7 +485,7 @@ export default function SingleCourseEditor() {
                           )}
 
                           {/* Survey Editor */}
-                          {activeStep.hasSurvey && activeStep.survey && (!activeStep.hasAssessment || activeCompTab === 'survey') && (
+                          {renderSurvey && activeStep.survey && (
                             <div className={styles.sectionAlt}>
                               <div className={styles.sectionHeader}>
                                 <h3>Daftar Pertanyaan Survei</h3>
@@ -546,8 +582,49 @@ export default function SingleCourseEditor() {
                               <button className={styles.addBlockBtn} onClick={addSurveyQuestion}>+ Tambah Pertanyaan Survei</button>
                             </div>
                           )}
+
+                          {/* Additional Material Editor */}
+                          {renderAdditional && activeStep.additionalMaterial && (
+                            <div className={styles.sectionAlt}>
+                              <div className={styles.sectionHeader}>
+                                <h3>Materi Tambahan</h3>
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label>Instruksi / Deskripsi</label>
+                                <textarea 
+                                  className={styles.textarea} 
+                                  value={activeStep.additionalMaterial.description}
+                                  onChange={e => updateActiveStep(s => ({ ...s, additionalMaterial: { ...s.additionalMaterial!, description: e.target.value } }))}
+                                  placeholder="Masukkan deskripsi atau instruksi untuk materi tambahan ini..."
+                                  rows={3}
+                                />
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label>Judul Link</label>
+                                <input 
+                                  type="text" 
+                                  className={styles.input} 
+                                  value={activeStep.additionalMaterial.linkTitle}
+                                  onChange={e => updateActiveStep(s => ({ ...s, additionalMaterial: { ...s.additionalMaterial!, linkTitle: e.target.value } }))}
+                                  placeholder="Contoh: Download Template Excel"
+                                />
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label>URL Link</label>
+                                <input 
+                                  type="text" 
+                                  className={styles.input} 
+                                  value={activeStep.additionalMaterial.linkUrl}
+                                  onChange={e => updateActiveStep(s => ({ ...s, additionalMaterial: { ...s.additionalMaterial!, linkUrl: e.target.value } }))}
+                                  placeholder="https://..."
+                                />
+                              </div>
+                            </div>
+                          )}
+
                         </div>
-                      )}
+                      );
+                      })()}
 
                     </div>
                   )}
@@ -557,6 +634,16 @@ export default function SingleCourseEditor() {
           </div>
         )}
         
+        <ConfirmDialog 
+          isOpen={confirmDeleteStepIdx !== null}
+          onClose={() => setConfirmDeleteStepIdx(null)}
+          onConfirm={executeDeleteStep}
+          title="Hapus Materi"
+          message="Yakin ingin menghapus materi ini?"
+          confirmText="Hapus"
+          confirmStyle={{ background: '#cc0000', borderColor: '#cc0000', color: 'white' }}
+        />
+
         {/* Floating Save Button */}
         <button className={styles.floatingSaveBtn} onClick={saveChanges} disabled={saving || loading}>
           <Save size={18} /> {saving ? "Menyimpan..." : "Simpan Perubahan"}

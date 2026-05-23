@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 
 export default function StudentLayout({
   children,
@@ -10,7 +9,6 @@ export default function StudentLayout({
     <>
       <Header />
       <main className="page-content">{children}</main>
-      <Footer />
     </>
   );
 }

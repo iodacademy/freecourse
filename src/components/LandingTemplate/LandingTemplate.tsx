@@ -19,9 +19,12 @@ interface StageConfig {
 
 export interface WorkshopData {
   title: string;
-  date: string;
-  time: string;
+  date: string;         // ISO: "2026-06-15"
+  dayLabel?: string;    // Manual: "Sabtu"
+  time: string;         // Manual: "09.00-12.00 WIB"
   platform: string;
+  meetingLink?: string;
+  waGroupLink?: string;
   speakerName: string;
   speakerTitle: string;
   speakerPhoto?: string;
@@ -30,7 +33,8 @@ export interface WorkshopData {
 interface LandingTemplateProps {
   type: LandingType;
   eventId: string;
-  heroTitle?: string;
+  partnerCode?: string;   // Kode mitra singkat (untuk channel kemitraan)
+  heroTitle?: React.ReactNode;
   heroSubtitle?: string;
   workshopData?: WorkshopData;
 }
@@ -189,16 +193,21 @@ const StepConnector = ({ bowLeft }: { bowLeft: boolean }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle, workshopData }: LandingTemplateProps) {
+export default function LandingTemplate({ type, eventId, partnerCode, heroTitle, heroSubtitle, workshopData }: LandingTemplateProps) {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, loginWithGoogle } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   // Kalau user sudah login & profil lengkap → langsung ke /learn
-  // 1 akun = 1 channel, tidak bisa pindah channel
+  // Redirect logic
   useEffect(() => {
-    if (!loading && user && profile?.profileCompleted) {
-      router.push("/learn");
+    if (!loading && user && profile) {
+      if (profile.role === "admin") {
+        router.push("/admin");
+      } else if (profile.profileCompleted) {
+        router.push("/learn");
+      }
     }
   }, [loading, user, profile, router]);
 
@@ -206,10 +215,10 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
   const eyebrow = EYEBROW[type];
 
   const defaultTitle =
-    type === "workshop" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat! Kamu Terpilih untuk Workshop Gratis <GraduationCap size={32} /></span> :
-      type === "beasiswa" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat! Kamu Lolos Seleksi Beasiswa <Star size={32} /></span> :
-        type === "kemitraan" ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat Datang, Kaum Muda! <Handshake size={32} /></span> :
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Selamat Datang di YouRise! <Star size={32} /></span>;
+    type === "workshop" ? "Selamat! Kamu Terpilih untuk Workshop Gratis 🎓" :
+      type === "beasiswa" ? "Selamat! Kamu Lolos Seleksi Beasiswa 🌟" :
+        type === "kemitraan" ? "Selamat Datang, Kaum Muda! 🤝" :
+          "Selamat Datang di Program YouRise! 🌟";
 
   const defaultSubtitle = "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!";
 
@@ -262,9 +271,62 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
     }
   };
 
-  const handleLanjut = () => {
+  const handleLanjut = async () => {
+    // Build target URL berdasarkan konteks landing page ini
+    const params = new URLSearchParams();
+    params.set("type", type);
+    // Untuk kemitraan: kirim partnerCode (kode mitra pendek) di URL — bukan eventId
+    if (type === "kemitraan" && partnerCode) {
+      params.set("partnerCode", partnerCode.toUpperCase());
+    } else if (eventId && type !== "kemitraan") {
+      params.set("eventId", eventId);
+    }
+    const targetUrl = `/profile?${params.toString()}`;
+
+    // Simpan konteks ke sessionStorage agar profile page dan auth bisa membacanya
+    if (typeof window !== "undefined") {
+      // channelSource = nama channel sesuai landing page yang dibuka
+      const sourceMap: Record<string, string> = {
+        umum:      "umum",
+        beasiswa:  "beasiswa",
+        kemitraan: "kemitraan",
+        workshop:  "workshop",
+      };
+      sessionStorage.setItem("channelSource", sourceMap[type] || "umum");
+
+      if (type === "kemitraan") {
+        // Kemitraan: HAPUS partnerCode & eventId lama agar tidak mencemari form
+        // partnerCode wajib diisi manual oleh user dari institusi mereka
+        sessionStorage.removeItem("partnerCode");
+        sessionStorage.removeItem("eventId");
+      } else if (eventId) {
+        sessionStorage.setItem("eventId", eventId);
+      }
+    }
+
     setShowModal(false);
-    handleAction();
+
+    if (!user) {
+      // Belum login → langsung popup Google SSO tanpa ke halaman /login
+      setLoginLoading(true);
+      try {
+        await loginWithGoogle();
+        // loginWithGoogle berhasil → onAuthStateChanged akan update `user`
+        // useEffect redirect akan otomatis membawa ke /profile jika belum complete
+        // Tapi jika profil sudah ada (returning user), kita perlu redirect manual
+        router.push(targetUrl);
+      } catch (e) {
+        console.error("Login error", e);
+      } finally {
+        setLoginLoading(false);
+      }
+    } else if (!profile?.profileCompleted) {
+      // Sudah login, profil belum lengkap
+      router.push(targetUrl);
+    } else {
+      // Profil sudah lengkap
+      router.push("/learn");
+    }
   };
 
   return (
@@ -293,13 +355,14 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
           <span className={styles.logoSep}>×</span>
           <Image src="/logos/dbs-foundation.png" alt="DBS Foundation" width={80} height={36} style={{ objectFit: "contain" }} />
         </div>
-        {type === "beasiswa" ? (
-          <button onClick={() => router.push("/login")} className={styles.loginBtn}>
-            Masuk / Login
-          </button>
-        ) : (
+        <div className={styles.topbarRight}>
           <div className={styles.topbarBadge}>{eyebrow}</div>
-        )}
+          {(!user || !profile?.profileCompleted) && (
+            <button onClick={() => router.push("/login")} className={styles.loginBtn}>
+              Masuk
+            </button>
+          )}
+        </div>
       </header>
 
       <main>
@@ -364,7 +427,7 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
           ) : (
             <>
               <h1 className={styles.heroTitle}>
-                {heroTitle ? <span dangerouslySetInnerHTML={{ __html: heroTitle }} /> : defaultTitle}
+                {heroTitle ? heroTitle : defaultTitle}
               </h1>
               <p className={styles.heroSub} dangerouslySetInnerHTML={{ __html: heroSubtitle || defaultSubtitle }} />
             </>
@@ -492,9 +555,16 @@ export default function LandingTemplate({ type, eventId, heroTitle, heroSubtitle
               <button className={styles.modalBtnSecondary} onClick={() => setShowModal(false)}>
                 Kembali
               </button>
-              <button className={styles.modalBtnPrimary} onClick={handleLanjut}>
-                Lanjut — Daftar Sekarang
-                <ChevronRight />
+              <button
+                className={styles.modalBtnPrimary}
+                onClick={handleLanjut}
+                disabled={loginLoading}
+              >
+                {loginLoading ? (
+                  <>Membuka Google... <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /></>
+                ) : (
+                  <>Lanjut — Daftar Sekarang <ChevronRight /></>
+                )}
               </button>
             </div>
           </div>

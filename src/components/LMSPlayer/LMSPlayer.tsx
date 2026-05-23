@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import styles from "./LMSPlayer.module.css";
-import { PartyPopper, GraduationCap } from "lucide-react";
+import { PartyPopper, GraduationCap, X, FileText } from "lucide-react";
+import Draggable from "react-draggable";
 
 // ─── Types ───────────────────────────────────────
 export interface QuizQuestion {
@@ -25,7 +26,7 @@ export interface SurveyQuestion {
   maxLabel?: string;
 }
 
-export type LMSScreen = "quiz" | "review" | "survey";
+export type LMSScreen = "quiz" | "review" | "survey" | "additional";
 
 export interface LMSPlayerProps {
   youtubeId: string;
@@ -39,7 +40,9 @@ export interface LMSPlayerProps {
   totalSteps?: number;
   stepTitle?: string;
   isLastStep?: boolean;
-  onProceedToNext?: (results?: { assessment?: any; survey?: any; }) => void;
+  alreadyCompleted?: boolean;
+  onProceedToNext?: (results?: { assessment?: any; survey?: any; }, shouldNavigate?: boolean) => void;
+  onOpenMenu?: () => void;
   // ── URL routing ──
   stepId: string;                   // unique key for sessionStorage, e.g. "step-2"
   initialScreen?: LMSScreen;
@@ -49,22 +52,76 @@ export interface LMSPlayerProps {
   onStateChange?: (screen: LMSScreen, qIdx: number, revIdx: number, survSec: number) => void;
   initialAnswers?: Record<string, string>;
   initialSurveyAnswers?: Record<string, any>;
+  additionalMaterial?: {
+    description: string;
+    linkTitle: string;
+    linkUrl: string;
+  };
 }
 
 // ─── Sub-renders ─────────────────────────────────
 
 function VideoEmbed({ youtubeId }: { youtubeId: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const [isPip, setIsPip] = useState(false);
+  const [userClosedPip, setUserClosedPip] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting && entry.boundingClientRect.bottom < 0) {
+          setIsPip(true);
+          setUserClosedPip(false);
+        } else {
+          setIsPip(false);
+        }
+      },
+      { threshold: 0 }
+    );
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const showPip = isPip && !userClosedPip;
+
   return (
-    <div className={styles.player}>
-      <div className={styles.playerInner}>
-        <iframe
-          src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
-          title="Video Pembelajaran"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className={styles.playerIframe}
-        />
-      </div>
+    <div ref={containerRef} className={styles.videoWrapper}>
+      <Draggable
+        nodeRef={nodeRef}
+        disabled={!showPip}
+        handle=".drag-handle"
+        position={showPip ? undefined : { x: 0, y: 0 }}
+      >
+        <div ref={nodeRef} className={`${styles.player} ${showPip ? styles.pipPlayer : ""}`}>
+          {showPip && (
+            <>
+              {/* Overlay transparan agar bisa digeser */}
+              <div className={`drag-handle ${styles.pipDragOverlay}`} />
+              
+              {/* Tombol Close floating */}
+              <button
+                className={styles.pipCloseFloating}
+                onClick={() => setUserClosedPip(true)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                aria-label="Tutup PIP"
+              >
+                <X size={14} strokeWidth={3} />
+              </button>
+            </>
+          )}
+          <div className={styles.playerInner}>
+            <iframe
+              src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
+              title="Video Pembelajaran"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className={styles.playerIframe}
+            />
+          </div>
+        </div>
+      </Draggable>
     </div>
   );
 }
@@ -112,6 +169,8 @@ export default function LMSPlayer({
   isLastStep,
   onProceedToNext,
   stepId,
+  stepNumber,
+  totalSteps,
   initialScreen,
   initialQIdx = 0,
   initialRevIdx = 0,
@@ -119,12 +178,18 @@ export default function LMSPlayer({
   onStateChange,
   initialAnswers = {},
   initialSurveyAnswers = {},
+  additionalMaterial,
+  onOpenMenu,
+  alreadyCompleted
 }: LMSPlayerProps) {
   const hasAssessment = questions.length > 0;
   const hasSurvey = surveyEnabled && surveyQuestions.length > 0;
+  const hasAdditionalMaterial = !!additionalMaterial;
 
   // Determine starting screen based on what's available
-  const defaultScreen: LMSScreen = hasAssessment ? "quiz" : hasSurvey ? "survey" : "quiz";
+  const defaultScreen: LMSScreen = alreadyCompleted
+    ? (hasAdditionalMaterial ? "additional" : hasSurvey ? "survey" : hasAssessment ? "review" : "quiz")
+    : (hasAssessment ? "quiz" : hasSurvey ? "survey" : hasAdditionalMaterial ? "additional" : "quiz");
   const [screen, setScreen] = useState<LMSScreen>(initialScreen || defaultScreen);
   const [qIdx, setQIdx] = useState(initialQIdx);
   const [revIdx, setRevIdx] = useState(initialRevIdx);
@@ -219,19 +284,35 @@ export default function LMSPlayer({
     nav("survey", qIdx, revIdx, 0);
   }
 
+  function showAdditional() {
+    setScreen("additional");
+    nav("additional", qIdx, revIdx, survSec);
+  }
+
   function changeSurvSec(i: number) {
     setSurvSec(i);
     nav("survey", qIdx, revIdx, i);
   }
 
+  function saveProgressAndShowAdditional() {
+    const assessmentData = hasAssessment ? { score, passed, answers } : undefined;
+    const surveyData = hasSurvey ? surveyAnswers : undefined;
+    onProceedToNext?.({ assessment: assessmentData, survey: surveyData }, false);
+    showAdditional();
+  }
+
   function sendSurvey() {
-    proceedNext();
+    if (hasAdditionalMaterial) {
+      saveProgressAndShowAdditional();
+    } else {
+      proceedNext();
+    }
   }
 
   function proceedNext() {
     const assessmentData = hasAssessment ? { score, passed, answers } : undefined;
     const surveyData = hasSurvey ? surveyAnswers : undefined;
-    onProceedToNext?.({ assessment: assessmentData, survey: surveyData });
+    onProceedToNext?.({ assessment: assessmentData, survey: surveyData }, true);
   }
 
   // ══════════════════════════════════
@@ -241,12 +322,18 @@ export default function LMSPlayer({
   const minCorrect = Math.ceil((kkm / 100) * questions.length);
 
   function renderLeft() {
-    // Quiz, Survey, Review: always show video
-    if (screen === "quiz" || screen === "survey" || screen === "review") {
+    // Quiz, Survey, Review, Additional: always show video
+    if (screen === "quiz" || screen === "survey" || screen === "review" || screen === "additional") {
       return (
         <>
           <div className={styles.videoLabel}>Selamat Menonton Video!</div>
           <VideoEmbed youtubeId={youtubeId} />
+          <div className={styles.videoFooter}>
+            <span className={styles.stepCounter}>Materi {stepNumber || 1} dari {totalSteps || 1}</span>
+            <button className={styles.btnMenu} onClick={onOpenMenu}>
+               ☰ Daftar Materi
+            </button>
+          </div>
         </>
       );
     }
@@ -258,9 +345,11 @@ export default function LMSPlayer({
   // RIGHT PANEL — title
   // ══════════════════════════════════
   function panelTitle() {
+    if (screen === "additional") return "MATERI TAMBAHAN";
     if (screen === "survey") return "SURVEY";
     if (screen === "quiz" || screen === "review") return "UJI PEMAHAMAN";
     // Fallback based on what's available
+    if (hasAdditionalMaterial && !hasSurvey && !hasAssessment) return "MATERI TAMBAHAN";
     if (hasSurvey && !hasAssessment) return "SURVEY";
     return "UJI PEMAHAMAN";
   }
@@ -441,6 +530,30 @@ export default function LMSPlayer({
       );
     }
 
+    // ── ADDITIONAL MATERIAL ──
+    if (screen === "additional" && additionalMaterial) {
+      return (
+        <div className={styles.additionalMaterialBox}>
+          <div style={{ marginBottom: '16px' }}>
+            {additionalMaterial.description && (
+              <p className={styles.amDesc}>{additionalMaterial.description}</p>
+            )}
+          </div>
+          {additionalMaterial.linkUrl && additionalMaterial.linkTitle && (
+            <a 
+              href={additionalMaterial.linkUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className={styles.amLink}
+            >
+              <FileText size={16} />
+              <span>{additionalMaterial.linkTitle}</span>
+            </a>
+          )}
+        </div>
+      );
+    }
+
     return null;
   }
 
@@ -475,15 +588,17 @@ export default function LMSPlayer({
           <button className={styles.btnDark} onClick={retry}>Kerjakan Ulang</button>
           <button
             className={styles.btnRed}
-            onClick={hasSurvey ? showSurvey : proceedNext}
+            onClick={hasSurvey ? showSurvey : (hasAdditionalMaterial ? saveProgressAndShowAdditional : proceedNext)}
             disabled={!passed}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {hasSurvey 
               ? "Isi Survei →" 
-              : isLastStep 
-                ? "Klaim Sertifikat" 
-                : "Materi Selanjutnya →"}
+              : hasAdditionalMaterial
+                ? "Materi Tambahan →"
+                : isLastStep 
+                  ? "Klaim Sertifikat" 
+                  : "Materi Selanjutnya →"}
           </button>
         </>
       );
@@ -492,9 +607,21 @@ export default function LMSPlayer({
     if (screen === "survey") {
       return (
         <button className={styles.btnRed} onClick={sendSurvey} disabled={!allRequiredSurveyAnswered}>
+          {hasAdditionalMaterial
+            ? "Kirim Jawaban"
+            : isLastStep 
+              ? "Kirim Jawaban dan Klaim Sertifikat"
+              : "Kirim Jawaban"}
+        </button>
+      );
+    }
+
+    if (screen === "additional") {
+      return (
+        <button className={styles.btnRed} onClick={proceedNext}>
           {isLastStep 
-            ? "Kirim Survey dan Klaim Sertifikat"
-            : "Kirim Survey & Lanjutkan →"}
+            ? "Klaim Sertifikat"
+            : "Materi Selanjutnya →"}
         </button>
       );
     }
@@ -503,7 +630,7 @@ export default function LMSPlayer({
   }
 
   const noVideo = !youtubeId;
-  const noRightPanel = !hasAssessment && !hasSurvey;
+  const noRightPanel = !hasAssessment && !hasSurvey && !hasAdditionalMaterial;
 
   return (
     <div className={`${styles.layout} ${(noVideo || noRightPanel) ? styles.layoutNoVideo : ""}`}>

@@ -99,13 +99,22 @@
   border-top: 1px solid var(--color-gray-800);
 }
 
-.backLink {
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-sm);
-  color: var(--color-gray-500);
-  text-decoration: none;
+  color: var(--color-gray-400);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  width: 100%;
+  text-align: left;
   transition: color var(--transition-fast);
+  font-weight: var(--font-weight-medium);
 }
 
-.backLink:hover {
-  color: var(--color-gray-200);
+.logoutBtn:hover {
+  color: var(--color-error);
 }

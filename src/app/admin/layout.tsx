@@ -1,6 +1,4 @@
-import AdminSidebar from "@/components/AdminSidebar";
-import AdminMobileNav from "@/components/AdminMobileNav";
-import styles from "./layout.module.css";
+import AdminLayoutClient from "./AdminLayoutClient";
 
 export const metadata = {
   title: "Admin — Free Course IODA Academy",
@@ -11,11 +9,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className={styles.adminLayout}>
-      <AdminSidebar />
-      <AdminMobileNav />
-      <main className={styles.mainContent}>{children}</main>
-    </div>
-  );
+  return <AdminLayoutClient>{children}</AdminLayoutClient>;
 }

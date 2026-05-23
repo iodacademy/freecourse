@@ -26,8 +26,7 @@ export async function GET(req: NextRequest) {
     // 2. Hitung statistik untuk masing-masing
     const results = await Promise.all(events.map(async (ev) => {
       let registered = 0;
-      let assessed = 0;
-      let surveyed = 0;
+      let inProgress = 0;
       let certified = 0;
 
       if (ev.partnerCode) {
@@ -36,36 +35,35 @@ export async function GET(req: NextRequest) {
           .where("partnerCode", "==", ev.partnerCode)
           .get();
         
-        registered = usersSnap.size;
+        const validUsers = usersSnap.docs.filter(u => u.data().profileCompleted === true);
+        registered = validUsers.length;
         
         // Ambil UID user untuk mengecek enrollments
-        const userIds = usersSnap.docs.map(u => u.id);
+        const userIds = validUsers.map(u => u.id);
 
         if (userIds.length > 0) {
-          // Bagi menjadi chunk 30 jika terlalu banyak (firestore in limit is 30)
-          // Untuk sederhana, kita query enrollments by eventId
-          const enrollmentsSnap = await db.collection("enrollments")
-            .where("eventId", "==", ev.id)
-            .get();
-            
-          enrollmentsSnap.docs.forEach(en => {
-            const data = en.data();
-            // Certified
-            if (data.status === "certified" || data.certificateClaimed) {
+          // Ambil enrollments
+          const enrollmentMap: Record<string, any> = {};
+          const chunkSize = 30;
+          for (let i = 0; i < userIds.length; i += chunkSize) {
+            const chunk = userIds.slice(i, i + chunkSize);
+            const enrollmentsSnap = await db.collection("enrollments")
+              .where("userId", "in", chunk)
+              .where("courseId", "==", ev.courseId || "course-main")
+              .get();
+              
+            enrollmentsSnap.docs.forEach(en => {
+              enrollmentMap[en.data().userId] = en.data();
+            });
+          }
+          
+          userIds.forEach(uid => {
+            const en = enrollmentMap[uid];
+            if (en && (en.status === "certified" || en.certificateClaimed)) {
               certified++;
+            } else {
+              inProgress++;
             }
-            // Assessed & Surveyed: kita cek di stepProgress
-            let hasPassedAssessment = false;
-            let hasSubmittedSurvey = false;
-            
-            if (data.stepProgress) {
-              Object.values(data.stepProgress).forEach((sp: any) => {
-                if (sp.assessmentResult?.passed) hasPassedAssessment = true;
-                if (sp.surveyResult?.submitted) hasSubmittedSurvey = true;
-              });
-            }
-            if (hasPassedAssessment) assessed++;
-            if (hasSubmittedSurvey) surveyed++;
           });
         }
       }
@@ -81,8 +79,7 @@ export async function GET(req: NextRequest) {
         createdAt: ev.createdAt,
         stats: {
           registered,
-          assessed,
-          surveyed,
+          inProgress,
           certified
         }
       };

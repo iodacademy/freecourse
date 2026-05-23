@@ -6,6 +6,11 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import LMSPlayer from "@/components/LMSPlayer";
 import type { QuizQuestion, LMSScreen } from "@/components/LMSPlayer";
 import { useAuth } from "@/contexts/AuthContext";
+import { createSlug } from "@/lib/utils";
+import CourseMenuDrawer from "@/components/CourseMenuDrawer/CourseMenuDrawer";
+import type { StepNavItem } from "@/components/StepNav";
+import WorkshopBanner from "@/components/WorkshopBanner/WorkshopBanner";
+import type { WorkshopData } from "@/components/LandingTemplate/LandingTemplate";
 import styles from "./page.module.css";
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -25,7 +30,8 @@ export default function StepPage() {
   const searchParams = useSearchParams();
   const { user, profile } = useAuth();
 
-  const stepNumber = parseInt(params.step as string, 10) || 1;
+  const paramStep = params.step as string;
+  let stepNumber = 1;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +41,8 @@ export default function StepPage() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [certName, setCertName] = useState("");
   const [claiming, setClaiming] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [workshopData, setWorkshopData] = useState<WorkshopData | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -84,6 +92,27 @@ export default function StepPage() {
 
         if (!mainEn) throw new Error("Gagal mendaftar kelas.");
         setEnrollment(mainEn);
+
+        // ── Load workshop data jika channelSource = workshop ──
+        const enChannelSource = mainEn.channelSource || "";
+        const enEventId = mainEn.eventId || "";
+        if (enChannelSource === "workshop" && enEventId) {
+          try {
+            const wsRes = await fetch(`/api/events/public/${enEventId}`);
+            if (wsRes.ok) {
+              const wsData = await wsRes.json();
+              if (wsData.workshopData) {
+                setWorkshopData(wsData.workshopData);
+                // Simpan ke localStorage agar Header bell bisa baca
+                localStorage.setItem("activeWorkshopData", JSON.stringify(wsData.workshopData));
+                localStorage.setItem("activeWorkshopEventId", enEventId);
+              }
+            }
+          } catch {
+            // Workshop data gagal load — tidak fatal
+          }
+        }
+
         setLoading(false);
       } catch (e: any) {
         setError(e.message);
@@ -101,9 +130,9 @@ export default function StepPage() {
       if (screen === "quiz") p.set("q", String(q));
       if (screen === "review") p.set("rev", String(rev));
       if (screen === "survey") p.set("sec", String(sec));
-      router.replace(`/learn/${stepNumber}?${p.toString()}`, { scroll: false });
+      router.replace(`/learn/${paramStep}?${p.toString()}`, { scroll: false });
     },
-    [router, stepNumber]
+    [router, paramStep]
   );
 
   if (loading) {
@@ -129,6 +158,15 @@ export default function StepPage() {
   }
 
   const steps = courseData.steps || [];
+  
+  // Determine stepNumber dynamically based on slug or number
+  const matchedIndex = steps.findIndex((s: any) => createSlug(s.title) === paramStep);
+  if (matchedIndex !== -1) {
+    stepNumber = matchedIndex + 1;
+  } else {
+    stepNumber = parseInt(paramStep, 10) || 1;
+  }
+
   const activeStep = steps[stepNumber - 1];
   const isLastStep = stepNumber >= steps.length;
   
@@ -165,7 +203,7 @@ export default function StepPage() {
 
 
 
-  async function handleProceedToNext(results?: { assessment?: any; survey?: any; }) {
+  async function handleProceedToNext(results?: { assessment?: any; survey?: any; }, shouldNavigate: boolean = true) {
     try {
       const idToken = await user!.getIdToken();
       const res = await fetch(`/api/enrollments/${enrollment.id}/progress`, {
@@ -189,10 +227,35 @@ export default function StepPage() {
         throw new Error(errData.error || "Gagal menyimpan progress");
       }
 
-      if (!isLastStep) {
-        router.push(`/learn/${stepNumber + 1}`);
-      } else {
-        setShowNameModal(true);
+      // Update local state instantly so the sidebar marks it as completed
+      setEnrollment((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          currentStep: isLastStep ? prev.currentStep : Math.max(prev.currentStep, stepNumber + 1),
+          stepProgress: {
+            ...(prev.stepProgress || {}),
+            [activeStep.id]: {
+              ...((prev.stepProgress || {})[activeStep.id] || {}),
+              completed: true,
+              assessmentResult: results?.assessment,
+              surveyResult: results?.survey,
+            }
+          }
+        };
+      });
+
+      if (shouldNavigate) {
+        if (!isLastStep) {
+          const nextStep = steps[stepNumber]; // stepNumber is already 1-indexed
+          if (nextStep) {
+            router.push(`/learn/${createSlug(nextStep.title)}`);
+          } else {
+            router.push(`/learn/${stepNumber + 1}`);
+          }
+        } else {
+          setShowNameModal(true);
+        }
       }
     } catch (e: any) {
       console.error("Failed to save progress", e);
@@ -239,14 +302,23 @@ export default function StepPage() {
   return (
     <ProtectedRoute>
       <div className={styles.wrapper}>
+        {/* Workshop Banner — tampil di atas LMSPlayer jika channelSource=workshop */}
+        {workshopData && enrollment?.eventId && (
+          <WorkshopBanner
+            workshopData={workshopData}
+            eventId={enrollment.eventId}
+          />
+        )}
         <LMSPlayer
           youtubeId={activeStep.video?.youtubeId || ""}
           questions={questions}
           kkm={kkm}
           surveyEnabled={activeStep.hasSurvey && surveyQuestions.length > 0}
           surveyQuestions={surveyQuestions}
+          additionalMaterial={activeStep.hasAdditionalMaterial ? activeStep.additionalMaterial : undefined}
           onProceedToNext={handleProceedToNext}
           isLastStep={isLastStep}
+          alreadyCompleted={!!currentStepProgress.completed || !!currentStepProgress.isCompleted}
           stepId={`step-${activeStep.id}`}
           stepNumber={stepNumber}
           totalSteps={steps.length}
@@ -258,8 +330,33 @@ export default function StepPage() {
           onStateChange={handleStateChange}
           initialAnswers={initialAnswers}
           initialSurveyAnswers={initialSurveyAnswers}
+          onOpenMenu={() => setMenuOpen(true)}
         />
       </div>
+
+      <CourseMenuDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        steps={steps.map((s: any, idx: number) => {
+          const num = idx + 1;
+          const progress = enrollment?.stepProgress?.[s.id];
+          
+          let status: "locked" | "current" | "completed" = "locked";
+          if (progress?.completed || progress?.isCompleted) status = "completed";
+          else if (num === (enrollment?.currentStep || 1)) status = "current";
+          else if (num < (enrollment?.currentStep || 1)) status = "completed"; // fallback
+
+          return {
+            stepNumber: num,
+            title: s.title,
+            status,
+            hasAssessment: s.hasAssessment,
+            assessmentPassed: s.hasAssessment ? (progress?.assessmentResult?.score >= (s.assessment?.kkm || 70)) : undefined
+          };
+        })}
+        currentStep={stepNumber}
+        courseName={courseData?.title || "Modul Financial Literacy"}
+      />
 
       {showNameModal && (
         <div style={{

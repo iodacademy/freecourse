@@ -9,7 +9,8 @@ import { json, handleError } from "@/lib/api-helpers";
 
 export async function POST(req: NextRequest) {
   try {
-    const { code } = await req.json();
+    const body = await req.json();
+    const code = body.code?.toUpperCase();
     if (!code) return json({ error: "code required" }, 400);
 
     const db = getAdminDb();

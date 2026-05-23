@@ -5,6 +5,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { AppSettings } from "@/lib/types";
 import { Trash2, CheckCircle, UploadCloud } from "lucide-react";
+import Link from "next/link";
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Partial<AppSettings>>({
@@ -24,6 +25,14 @@ export default function AdminSettingsPage() {
         </header>
 
         <div className={styles.content}>
+          <div className={styles.section}>
+            <h2 className={styles.sectionTitle}>Form Builder Profil</h2>
+            <p className={styles.sectionDesc}>Kelola pertanyaan dinamis multi-seksi untuk form registrasi dan profil peserta.</p>
+            <Link href="/admin/settings/forms" className="btn btn-secondary" style={{ display: 'inline-flex', marginTop: 10 }}>
+              Buka Form Builder
+            </Link>
+          </div>
+
           <div className={styles.section}>
             <h2 className={styles.sectionTitle}>Email Admin</h2>
             <p className={styles.sectionDesc}>Daftar email yang memiliki akses ke panel admin ini.</p>

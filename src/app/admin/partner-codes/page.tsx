@@ -18,8 +18,7 @@ interface PartnerCodeStat {
   createdAt: any;
   stats: {
     registered: number;
-    assessed: number;
-    surveyed: number;
+    inProgress: number;
     certified: number;
   };
 }
@@ -108,10 +107,9 @@ export default function AdminPartnerCodesPage() {
                   <th>Event / Mitra</th>
                   <th>Kode Mitra</th>
                   <th>Link Pendaftaran</th>
-                  <th style={{ textAlign: "center" }}>Daftar</th>
-                  <th style={{ textAlign: "center" }}>Assessment</th>
-                  <th style={{ textAlign: "center" }}>Survei</th>
-                  <th style={{ textAlign: "center" }}>Sertifikat</th>
+                  <th style={{ textAlign: "center" }}>Total Daftar</th>
+                  <th style={{ textAlign: "center" }}>Dalam Proses</th>
+                  <th style={{ textAlign: "center" }}>Selesai</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -140,8 +138,7 @@ export default function AdminPartnerCodesPage() {
                         </div>
                       </td>
                       <td style={{ textAlign: "center" }}><strong>{pc.stats.registered}</strong></td>
-                      <td style={{ textAlign: "center" }}><strong>{pc.stats.assessed}</strong></td>
-                      <td style={{ textAlign: "center" }}><strong>{pc.stats.surveyed}</strong></td>
+                      <td style={{ textAlign: "center" }}><strong>{pc.stats.inProgress}</strong></td>
                       <td style={{ textAlign: "center" }}><strong>{pc.stats.certified}</strong></td>
                       <td>
                         {isActive ? (

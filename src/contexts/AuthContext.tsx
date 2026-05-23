@@ -108,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: unknown) {
       const firebaseError = err as { code?: string; message?: string };
       if (firebaseError.code === "auth/popup-closed-by-user") return;
+      if (firebaseError.code === "auth/cancelled-popup-request") return;
       console.error("Login error:", err);
       setError("Gagal login. Silakan coba lagi.");
     }

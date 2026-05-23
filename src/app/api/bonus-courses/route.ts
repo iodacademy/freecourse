@@ -10,11 +10,18 @@ import { FieldValue } from "firebase-admin/firestore";
 export async function GET(req: NextRequest) {
   try {
     await requireAuth(req);
+    // Hindari composite index — filter status saja, sort di JS
     const snap = await getAdminDb().collection("bonusCourseTopics")
       .where("status", "==", "active")
-      .orderBy("createdAt", "asc")
       .get();
-    return json(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const docs = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a: any, b: any) => {
+        const ta = a.createdAt?.toMillis?.() ?? 0;
+        const tb = b.createdAt?.toMillis?.() ?? 0;
+        return ta - tb;
+      });
+    return json(docs);
   } catch (e) {
     return handleError(e);
   }
@@ -31,8 +38,8 @@ export async function POST(req: NextRequest) {
 
     const data = {
       name: body.name,
-      description: body.description ?? "",
-      classCode: body.classCode,
+      classCode: String(body.classCode).toUpperCase(),
+      Kode_Basis: String(body.kodeBase ?? "").toUpperCase(),
       portalUrl: body.portalUrl ?? "https://app.iodacademy.id/portal-belajar/",
       status: "active",
       createdAt: FieldValue.serverTimestamp(),

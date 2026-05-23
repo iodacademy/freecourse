@@ -1,120 +1,275 @@
 /* ═══════════════════════════════════════════
-   Admin Bonus Courses Page
+   Admin — Bonus Courses Page
    ═══════════════════════════════════════════ */
 
 .page {
-  animation: fadeIn 0.3s ease;
+  padding: var(--space-6) 30px;
+  max-width: 100%;
 }
 
+/* ─── Header ─── */
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-8);
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .title {
   font-size: var(--font-size-2xl);
-  margin-bottom: var(--space-1);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-900);
+  margin: 0 0 var(--space-1);
 }
 
 .subtitle {
+  font-size: var(--font-size-sm);
   color: var(--color-gray-500);
   margin: 0;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-6);
-}
-
-.card {
+/* ─── Table ─── */
+.tableWrap {
   background: var(--color-white);
   border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  border: 1px solid var(--color-gray-200);
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  flex-direction: column;
-  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-.card:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-primary-200);
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
 }
 
-.inactiveCard {
-  opacity: 0.6;
+.table th {
+  background: var(--color-gray-50);
+  padding: 11px 18px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.table td {
+  padding: 14px 18px;
+  color: var(--color-gray-800);
+  border-bottom: 1px solid var(--color-gray-100);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:not(.addRow):hover td {
   background: var(--color-gray-50);
 }
 
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-3);
-}
-
-.cardTitle {
-  font-size: var(--font-size-lg);
-  margin: 0;
-  line-height: var(--line-height-tight);
-}
-
-.statusBadge {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+/* Code badge */
+.code {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
   font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  flex-shrink: 0;
+  font-family: "Courier New", monospace;
+  letter-spacing: 1px;
 }
 
-.active {
-  background: var(--color-success-light);
-  color: var(--color-success);
+.dash {
+  color: var(--color-gray-300);
+  font-size: 14px;
 }
 
-.inactive {
-  background: var(--color-gray-200);
-  color: var(--color-gray-600);
+/* Center cell (loading) */
+.centerCell {
+  text-align: center;
+  color: var(--color-gray-400);
+  padding: 32px !important;
+  font-size: 13px;
 }
 
-.cardDesc {
-  font-size: var(--font-size-sm);
-  color: var(--color-gray-500);
-  margin-bottom: var(--space-6);
-  flex-grow: 1;
+/* ─── Add Row ─── */
+.addRow {
+  cursor: pointer;
 }
 
-.cardMeta {
+.addRow td {
+  padding: 0 !important;
+  border-top: 1px dashed var(--color-gray-200);
+  border-bottom: none !important;
+}
+
+.addRowInner {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
-  background: var(--color-gray-50);
-  padding: var(--space-3);
+  gap: 8px;
+  padding: 13px 18px;
+  color: var(--color-gray-400);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast);
+}
+
+.addRow:hover .addRowInner {
+  color: var(--color-primary);
+  background: var(--color-primary-50);
+}
+
+/* Action buttons (edit + delete) */
+.actionBtn {
+  background: none;
+  border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
-}
-
-.codeLabel {
-  font-size: var(--font-size-xs);
+  padding: 5px 7px;
   color: var(--color-gray-500);
-  text-transform: uppercase;
-}
-
-.codeValue {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-primary-dark);
-}
-
-.cardActions {
+  cursor: pointer;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.actionBtn:hover:not(:disabled) {
+  border-color: var(--color-primary-200);
+  color: var(--color-primary);
+  background: var(--color-primary-50);
+}
+
+.deleteBtn:hover:not(:disabled) {
+  border-color: #ff4444 !important;
+  color: #ff4444 !important;
+  background: #fff0f0 !important;
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal error */
+.errorMsg {
+  font-size: 13px;
+  color: var(--color-primary);
+  background: #fff0f0;
+  border: 1px solid #ffd0d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+/* ─── Modal ─── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.15s ease;
+}
+
+.modal {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 440px;
+  animation: slideUp 0.2s ease-out;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+
+.modalTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-900);
+  margin: 0;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--color-gray-400);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.closeBtn:hover:not(:disabled) {
+  color: var(--color-gray-700);
+  background: var(--color-gray-100);
+}
+
+/* ─── Form (inside modal) ─── */
+.form {
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray-700);
+}
+
+.input {
+  padding: 10px 14px;
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--color-gray-900);
+  transition: border-color var(--transition-fast);
+  background: var(--color-white);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.08);
+}
+
+.errorMsg {
+  color: var(--color-primary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
   gap: var(--space-3);
-  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-gray-100);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: var(--space-5);
+  }
 }

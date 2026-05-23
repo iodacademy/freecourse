@@ -4,108 +4,148 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import { CheckCircle2, ShieldCheck, Building2 } from "lucide-react";
 import { WILAYAH_INDONESIA } from "@/lib/wilayah";
+import SearchableSelect from "@/components/SearchableSelect";
 import styles from "./page.module.css";
-
-const DISABILITY_CATEGORIES = [
-  "Disabilitas Fisik",
-  "Disabilitas Sensorik Netra",
-  "Disabilitas Sensorik Tuli",
-  "Disabilitas Sensorik Wicara",
-  "Disabilitas Mental",
-  "Disabilitas Intelektual",
-  "Disabilitas Ganda",
-  "Lainnya",
-];
+import type { DynamicForm, DynamicFormSection, DynamicFormField } from "@/lib/types";
 
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, profile, updateUserProfile, loading } = useAuth();
+  const { user, profile, updateUserProfile, loading: authLoading } = useAuth();
 
   const channelType = searchParams.get("type") || "beasiswa";
   const urlEventId = searchParams.get("eventId") || "";
-  const isKemitraan = channelType === "kemitraan" || profile?.channelSource === "b2b_campus";
+  const urlPartnerCode = searchParams.get("partnerCode") || "";
+  const isKemitraan = channelType === "kemitraan" || profile?.channelSource === "kemitraan";
 
+  // Form State
+  const [activeForm, setActiveForm] = useState<DynamicForm | null>(null);
+  const [loadingForm, setLoadingForm] = useState(true);
+  const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
+  
+  // Answers State
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  
+  // Partner Code State (Hardcoded logic)
   const [partnerCode, setPartnerCode] = useState("");
   const [validatingCode, setValidatingCode] = useState(false);
   const [partnerCodeValid, setPartnerCodeValid] = useState(false);
   const [partnerEventId, setPartnerEventId] = useState("");
-  
-  const [namaLengkap, setNamaLengkap] = useState("");
-  const [jenisKelamin, setJenisKelamin] = useState<"Laki-laki" | "Perempuan" | "">("");
-  const [tanggalLahir, setTanggalLahir] = useState("");
-  const [nomorWA, setNomorWA] = useState("");
-  const [provinsi, setProvinsi] = useState("");
-  const [kotaKabupaten, setKotaKabupaten] = useState("");
-  const [disabilitas, setDisabilitas] = useState<"Ya" | "Tidak" | "">("");
-  const [disabilitasKategori, setDisabilitasKategori] = useState<string[]>([]);
-  const [disabilitasLainnya, setDisabilitasLainnya] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const userEmail = user?.email || "";
-  const kotaList = WILAYAH_INDONESIA.find((w) => w.name === provinsi)?.cities || [];
+  const isEditMode = searchParams.get("edit") === "true";
 
-  // Redirect if not logged in
+  // 1. Redirect if not logged in or already completed (unless editing)
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/login");
     }
-    // Kalau profil sudah lengkap & sudah punya channel → tidak bisa ganti channel
-    if (!loading && user && profile?.profileCompleted && profile?.channelSource) {
-      router.push("/learn");
+    if (!authLoading && user && profile) {
+      if (profile.role === "admin") {
+        router.push("/admin");
+      } else if (profile.profileCompleted && profile.channelSource && !isEditMode) {
+        // Jika profile sudah lengkap dan bukan sedang mode edit, arahkan ke /learn
+        router.push("/learn");
+      }
     }
-  }, [loading, user, profile, router]);
+  }, [authLoading, user, profile, router, searchParams]);
 
-  // Pre-fill existing data
+  // 2. Fetch Active Form
+  useEffect(() => {
+    async function fetchForm() {
+      try {
+        const res = await fetch("/api/forms/active");
+        if (res.ok) {
+          const data = await res.json();
+          setActiveForm(data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingForm(false);
+      }
+    }
+    fetchForm();
+  }, []);
+
+  // 3. Pre-fill existing data + auto-validate partnerCode jika sudah ada
   useEffect(() => {
     if (profile) {
-      if (profile.profileData?.namaLengkap) setNamaLengkap(profile.profileData.namaLengkap as string);
-      else if (profile.displayName) setNamaLengkap(profile.displayName);
-
-      if (profile.profileData?.jenisKelamin) setJenisKelamin(profile.profileData.jenisKelamin as any);
-      if (profile.profileData?.tanggalLahir) setTanggalLahir(profile.profileData.tanggalLahir as string);
-      if (profile.profileData?.nomorWA) setNomorWA(profile.profileData.nomorWA as string);
-      if (profile.profileData?.provinsi) setProvinsi(profile.profileData.provinsi as string);
-      if (profile.profileData?.kotaKabupaten) setKotaKabupaten(profile.profileData.kotaKabupaten as string);
-      if (profile.profileData?.disabilitas) setDisabilitas(profile.profileData.disabilitas as any);
-      
-      const kat = profile.profileData?.kategoriDisabilitas;
-      if (Array.isArray(kat)) setDisabilitasKategori(kat as string[]);
-      
-      if (profile.profileData?.kategoriDisabilitasLainnya) {
-        setDisabilitasLainnya(profile.profileData.kategoriDisabilitasLainnya as string);
+      if (profile.profileData) {
+        setAnswers(profile.profileData);
       }
-
+      // Jika partnerCode sudah tersimpan di profil, langsung anggap valid
       if (profile.partnerCode) {
         setPartnerCode(profile.partnerCode);
         setPartnerCodeValid(true);
       }
     }
-    
-    // Pre-fill kode mitra dari URL (kalau dari /partner/KAMPUS-X)
-    if (isKemitraan && urlEventId && !partnerCode) {
-      setPartnerCode(urlEventId);
-    }
+    // CATATAN: partnerCode TIDAK di-auto-fill dari URL atau eventId.
+    // User harus memasukkan sendiri kode mitra dari institusi mereka.
   }, [profile]);
 
-  useEffect(() => { setKotaKabupaten((prev) => prev ? prev : ""); }, [provinsi]);
+  // Auto-fill & auto-validasi partnerCode dari URL ?partnerCode=XXX
+  useEffect(() => {
+    if (!isKemitraan || !urlPartnerCode || partnerCodeValid) return;
+    // Isi field dulu
+    setPartnerCode(urlPartnerCode.toUpperCase());
+    // Langsung validasi otomatis
+    const autoValidate = async () => {
+      setValidatingCode(true);
+      try {
+        const res = await fetch("/api/partner-codes/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: urlPartnerCode }),
+        });
+        const data = await res.json();
+        if (res.ok && data.valid) {
+          setPartnerCodeValid(true);
+          setPartnerEventId(data.eventId || "");
+          setErrors((p) => { const next = {...p}; delete next.partnerCode; return next; });
+        } else {
+          // Kode dari URL tidak valid — biarkan user isi manual
+          setPartnerCode("");
+          setErrors((p) => ({ ...p, partnerCode: data.error || "Kode mitra dari URL tidak valid" }));
+        }
+      } catch {
+        setPartnerCode("");
+      } finally {
+        setValidatingCode(false);
+      }
+    };
+    autoValidate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlPartnerCode, isKemitraan]);
 
-  const toggleKategori = (kat: string) => {
-    setDisabilitasKategori((prev) =>
-      prev.includes(kat) ? prev.filter((k) => k !== kat) : [...prev, kat]
-    );
-  };
+  // Auto-fill email dynamic fields
+  useEffect(() => {
+    if (activeForm && userEmail) {
+      let changed = false;
+      const nextAnswers = { ...answers };
+      activeForm.sections.forEach(s => {
+        s.fields.forEach(f => {
+          if (f.type === 'email' && !nextAnswers[f.name]) {
+            nextAnswers[f.name] = userEmail;
+            changed = true;
+          }
+        });
+      });
+      if (changed) setAnswers(nextAnswers);
+    }
+  }, [activeForm, userEmail, answers]);
 
   const validatePartnerCode = async () => {
     if (!partnerCode.trim()) {
       setErrors((p) => ({ ...p, partnerCode: "Kode mitra wajib diisi" }));
       return false;
     }
-    
     setValidatingCode(true);
     try {
       const res = await fetch("/api/partner-codes/validate", {
@@ -114,13 +154,11 @@ function ProfileContent() {
         body: JSON.stringify({ code: partnerCode })
       });
       const data = await res.json();
-      
       if (!data.valid) {
         setErrors((p) => ({ ...p, partnerCode: data.error || "Kode Mitra tidak valid" }));
         setPartnerCodeValid(false);
         return false;
       }
-      
       setErrors((p) => { const next = {...p}; delete next.partnerCode; return next; });
       setPartnerCodeValid(true);
       setPartnerEventId(data.eventId);
@@ -133,26 +171,59 @@ function ProfileContent() {
     }
   };
 
-  const validate = () => {
+  const validateCurrentSection = () => {
     const errs: Record<string, string> = {};
-    if (isKemitraan && !partnerCodeValid && !profile?.partnerCode) errs.partnerCode = "Kode mitra wajib divalidasi";
-    if (!namaLengkap.trim()) errs.namaLengkap = "Nama lengkap wajib diisi";
-    if (!jenisKelamin) errs.jenisKelamin = "Jenis kelamin wajib dipilih";
-    if (!tanggalLahir) errs.tanggalLahir = "Tanggal lahir wajib diisi";
-    if (!nomorWA.trim()) errs.nomorWA = "Nomor WhatsApp wajib diisi";
-    if (!provinsi) errs.provinsi = "Provinsi wajib dipilih";
-    if (!kotaKabupaten) errs.kotaKabupaten = "Kota/Kabupaten wajib dipilih";
-    if (!disabilitas) errs.disabilitas = "Status disabilitas wajib dipilih";
-    if (disabilitas === "Ya" && disabilitasKategori.length === 0)
-      errs.disabilitasKategori = "Pilih minimal satu kategori disabilitas";
-    if (disabilitas === "Ya" && disabilitasKategori.includes("Lainnya") && !disabilitasLainnya.trim())
-      errs.disabilitasLainnya = "Sebutkan jenis disabilitas lainnya";
+    
+    // Partner code validation on first section if kemitraan
+    if (currentSectionIdx === 0 && isKemitraan && !partnerCodeValid && !profile?.partnerCode) {
+      errs.partnerCode = "Kode mitra wajib divalidasi";
+    }
+
+    if (!activeForm) return errs;
+    const section = activeForm.sections[currentSectionIdx];
+    
+    section.fields.forEach(field => {
+      if (field.required) {
+        const val = answers[field.name];
+        if (field.type === 'province_city') {
+          if (!val?.province) errs[field.name] = `${field.label} (Provinsi) wajib diisi`;
+          else if (!val?.city) errs[field.name] = `${field.label} (Kota) wajib diisi`;
+        } else if (field.type === 'checkbox') {
+          if (!val || val.length === 0) errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+        } else {
+          if (!val || String(val).trim() === "") errs[field.name] = `${field.label} wajib diisi`;
+        }
+      }
+    });
+
     return errs;
+  };
+
+  const handleNext = () => {
+    const errs = validateCurrentSection();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setErrors({});
+    if (activeForm && currentSectionIdx < activeForm.sections.length - 1) {
+      setCurrentSectionIdx(prev => prev + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentSectionIdx > 0) {
+      setCurrentSectionIdx(prev => prev - 1);
+      setErrors({});
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validate();
+    const errs = validateCurrentSection();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -162,20 +233,24 @@ function ProfileContent() {
     setSubmitting(true);
     try {
       const channelSource = profile?.channelSource || (
-        channelType === "workshop" ? "b2c_workshop" :
-        channelType === "kemitraan" ? "b2b_campus" : "b2c_ads"
+        channelType === "workshop"  ? "workshop"  :
+        channelType === "kemitraan" ? "kemitraan" :
+        channelType === "beasiswa"  ? "beasiswa"  : "umum"
       );
       
+      let newDisplayName = profile?.displayName;
+      if (answers["nama_lengkap"]) newDisplayName = answers["nama_lengkap"];
+      else if (answers["nama"]) newDisplayName = answers["nama"];
+      else if (answers["name"]) newDisplayName = answers["name"];
+      else if (answers["full_name"]) newDisplayName = answers["full_name"];
+
       await updateUserProfile({
         profileCompleted: true,
         channelSource,
         eventId: profile?.eventId || urlEventId || partnerEventId || null,
         partnerCode: isKemitraan ? partnerCode : profile?.partnerCode,
-        profileData: {
-          namaLengkap, jenisKelamin, tanggalLahir, nomorWA, provinsi, kotaKabupaten, disabilitas,
-          kategoriDisabilitas: disabilitas === "Ya" ? disabilitasKategori : [],
-          kategoriDisabilitasLainnya: disabilitas === "Ya" && disabilitasKategori.includes("Lainnya") ? disabilitasLainnya : "",
-        },
+        profileData: answers,
+        ...(newDisplayName && { displayName: newDisplayName }),
       });
       
       setSaved(true);
@@ -189,9 +264,131 @@ function ProfileContent() {
     }
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  const setAnswer = (key: string, value: any) => {
+    setAnswers(prev => ({ ...prev, [key]: value }));
+    setErrors(prev => { const next = {...prev}; delete next[key]; return next; });
+  };
 
-  if (loading || !user) {
+  const renderField = (field: DynamicFormField) => {
+    const val = answers[field.name];
+
+    if (field.type === 'email') {
+      return (
+        <div className={styles.gmailField}>
+          <div className={styles.gmailIco}>
+            <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 23.5L4 12v28h40V12z"/><path fill="#FBBC04" d="M4 12l20 11.5L44 12"/><path fill="#34A853" d="M44 12v28H4"/><path fill="#4285F4" d="M4 40V12l20 11.5z"/><path fill="#1967D2" d="M24 23.5L44 12v28z"/></svg>
+          </div>
+          <div className={styles.gmailInfo}>
+            <div className={styles.gmailEmail}>{userEmail || "—"}</div>
+            <span className={styles.gmailBadge}>✓ Terautentikasi via Google</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === 'province_city') {
+      const prov = val?.province || "";
+      const city = val?.city || "";
+      
+      const isManual = field.regionSource === 'manual';
+      const regionData = isManual ? (field.customRegions || []) : WILAYAH_INDONESIA;
+      
+      const provList = isManual ? regionData.map((r: any) => r.province).filter(Boolean) : regionData.map((r: any) => r.name);
+      const selectedProvObj = regionData.find((w: any) => (isManual ? w.province : w.name) === prov);
+      const kotaList = selectedProvObj ? (selectedProvObj.cities || []) : [];
+
+      return (
+        <div className={styles.fieldRow}>
+          <div className={styles.fieldGroup} style={{ marginBottom: 0 }}>
+            <label className={styles.fieldLabel}>Provinsi{field.required && <span className={styles.req}>*</span>}</label>
+            <SearchableSelect 
+              className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`}
+              options={provList}
+              value={prov}
+              onChange={(val) => setAnswer(field.name, { province: val, city: "" })}
+              placeholder="Cari atau pilih provinsi"
+              error={!!errors[field.name]}
+            />
+          </div>
+          <div className={styles.fieldGroup} style={{ marginBottom: 0 }}>
+            <label className={styles.fieldLabel}>Kota / Kabupaten{field.required && <span className={styles.req}>*</span>}</label>
+            <SearchableSelect 
+              className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`}
+              options={kotaList}
+              value={city}
+              onChange={(val) => setAnswer(field.name, { province: prov, city: val })}
+              placeholder={prov ? "Cari atau pilih kota" : "Pilih dulu provinsi"}
+              disabled={!prov}
+              error={!!errors[field.name]}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === 'radio') {
+      return (
+        <div className={styles.radioGroup}>
+          {(field.options || []).map((opt) => (
+            <div key={opt} className={`${styles.radioOpt} ${val === opt ? styles.radioSel : ""}`} onClick={() => setAnswer(field.name, opt)}>
+              <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
+              <span className={styles.radioLabel}>{opt}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (field.type === 'checkbox') {
+      const selected = Array.isArray(val) ? val : [];
+      const toggleCheck = (opt: string) => {
+        if (selected.includes(opt)) setAnswer(field.name, selected.filter((o: string) => o !== opt));
+        else setAnswer(field.name, [...selected, opt]);
+      };
+      return (
+        <div className={styles.checkboxList}>
+          {(field.options || []).map((opt) => (
+            <div key={opt} className={`${styles.chkItem} ${selected.includes(opt) ? styles.chkSel : ""}`} onClick={() => toggleCheck(opt)}>
+              <div className={styles.chkBox}><svg className={styles.chkTick} viewBox="0 0 12 12"><polyline points="1.5 6 4.5 9 10.5 3" /></svg></div>
+              <span className={styles.chkLabel}>{opt}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (field.type === 'select') {
+      return (
+        <select className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`} value={val || ""} onChange={(e) => setAnswer(field.name, e.target.value)}>
+          <option value="">-- Pilih --</option>
+          {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <textarea className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`} placeholder={field.placeholder} rows={4} value={val || ""} onChange={(e) => setAnswer(field.name, e.target.value)} />
+      );
+    }
+
+    return (
+      <input 
+        type={field.type} 
+        className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`} 
+        placeholder={field.placeholder || "Jawaban Anda..."} 
+        value={val || ""} 
+        onChange={(e) => setAnswer(field.name, e.target.value)} 
+        onClick={(e) => {
+          if (field.type === 'date' && 'showPicker' in HTMLInputElement.prototype) {
+            try { (e.target as HTMLInputElement).showPicker(); } catch(err) {}
+          }
+        }}
+      />
+    );
+  };
+
+  if (authLoading || loadingForm || !user) {
     return (
       <div className={styles.page}>
         <div style={{ textAlign: "center", marginTop: "100px" }}>
@@ -202,23 +399,40 @@ function ProfileContent() {
     );
   }
 
+  if (!activeForm) {
+    return (
+      <div className={styles.page}>
+        <div style={{ textAlign: "center", marginTop: "100px", color: "#666" }}>
+           <h2>Mohon Maaf</h2>
+           <p>Formulir pendaftaran sedang tidak tersedia atau belum dikonfigurasi oleh Admin.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentSection = activeForm.sections[currentSectionIdx];
+  const isLastSection = currentSectionIdx === activeForm.sections.length - 1;
+
   return (
     <div className={styles.page}>
       <div className={styles.regHeader}>
-        <div className={styles.regLogos}>
-          <Image src="/logos/plan-international.png" alt="Plan Indonesia" width={100} height={40} style={{ objectFit: "contain" }} />
-          <span className={styles.logoSep}>×</span>
-          <Image src="/logos/dbs-foundation.png" alt="DBS Foundation" width={80} height={34} style={{ objectFit: "contain" }} />
-        </div>
         <p className={styles.regSubtitle}>
           {profile?.profileCompleted ? "Perbarui informasi data diri Anda" : "Lengkapi data diri untuk memulai program"}
         </p>
       </div>
 
-      <form className={styles.card} onSubmit={handleSubmit} noValidate>
+      {activeForm.sections.length > 1 && (
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '20px', justifyContent: 'center' }}>
+          {activeForm.sections.map((_, idx) => (
+            <div key={idx} style={{ height: '6px', width: '40px', borderRadius: '3px', background: idx <= currentSectionIdx ? '#cc0000' : '#e5e5e5', transition: 'background 0.3s' }} />
+          ))}
+        </div>
+      )}
+
+      <form className={styles.card} onSubmit={isLastSection ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} noValidate>
         <div className={styles.cardHead}>
-          <h2>{profile?.profileCompleted ? "Profil Identitas Diri" : "Formulir Identitas Diri"}</h2>
-          <p>Isikan data diri Anda dengan benar sesuai identitas resmi</p>
+          <h2>{currentSection.title}</h2>
+          {currentSection.description && <p>{currentSection.description}</p>}
         </div>
         
         <div className={styles.cardBody}>
@@ -228,152 +442,135 @@ function ProfileContent() {
             </div>
           )}
 
-          <p className={styles.reqNote}>Kolom bertanda <span className={styles.req}>*</span> wajib diisi</p>
-
-          {/* Partner Code (Kemitraan) */}
-          {isKemitraan && !profile?.partnerCode && (
-            <div className={styles.fieldGroup} style={{ backgroundColor: "#fff5f5", padding: "16px", borderRadius: "8px", border: "1px solid #ffe5e5" }}>
-              <label className={styles.fieldLabel}>Kode Mitra Kampus / Institusi<span className={styles.req}>*</span></label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <input 
-                  className={`${styles.fieldInput} ${errors.partnerCode ? styles.fieldError : ""}`} 
-                  type="text" 
-                  placeholder="Masukkan kode mitra..." 
-                  value={partnerCode} 
-                  onChange={(e) => { setPartnerCode(e.target.value.toUpperCase()); setPartnerCodeValid(false); setErrors((p) => ({ ...p, partnerCode: "" })); }} 
-                  disabled={partnerCodeValid}
-                />
+          {/* Partner Code — selalu tampil di section 1 untuk kemitraan */}
+          {/* Partner Code — selalu tampil di section 1 untuk kemitraan */}
+          {currentSectionIdx === 0 && isKemitraan && (
+            <div className={styles.fieldGroup} style={{ backgroundColor: "#f8fafc", padding: "24px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+              <label className={styles.fieldLabel} style={{ display: "flex", alignItems: "center", gap: "8px", color: "#334155", marginBottom: "12px" }}>
+                <Building2 size={18} color="#64748b" />
+                <span>Kode Mitra Kampus / Institusi <span className={styles.req}>*</span></span>
+              </label>
+              <div style={{ display: "flex", gap: "12px", alignItems: "stretch" }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input 
+                    className={`${styles.fieldInput} ${errors.partnerCode ? styles.fieldError : ""}`} 
+                    type="text" 
+                    placeholder="Contoh: UNJ2024" 
+                    value={partnerCode} 
+                    onChange={(e) => { setPartnerCode(e.target.value.toUpperCase()); setPartnerCodeValid(false); setErrors((p) => ({ ...p, partnerCode: "" })); }} 
+                    disabled={partnerCodeValid}
+                    style={{ 
+                      width: "100%", 
+                      height: "48px", 
+                      fontSize: "16px",
+                      textTransform: "uppercase", 
+                      letterSpacing: "1px",
+                      fontWeight: 600,
+                      backgroundColor: partnerCodeValid ? "#f1f5f9" : "white",
+                      color: partnerCodeValid ? "#737373" : "#171717",
+                      border: partnerCodeValid ? "1px solid #cbd5e1" : undefined
+                    }}
+                  />
+                  {partnerCodeValid && (
+                    <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>
+                      <CheckCircle2 size={20} color="#10b981" />
+                    </div>
+                  )}
+                </div>
                 {!partnerCodeValid ? (
-                  <button type="button" onClick={validatePartnerCode} disabled={validatingCode || !partnerCode} style={{ padding: "0 16px", backgroundColor: "#cc0000", color: "white", borderRadius: "8px", fontWeight: 600, border: "none", cursor: "pointer" }}>
-                    {validatingCode ? "Cek..." : "Validasi"}
+                  <button type="button" onClick={validatePartnerCode} disabled={validatingCode || !partnerCode} 
+                    style={{ 
+                      padding: "0 24px", 
+                      backgroundColor: (validatingCode || !partnerCode) ? "#94a3b8" : "#CC0000", 
+                      color: "white", 
+                      borderRadius: "8px", 
+                      fontWeight: 600, 
+                      border: "none", 
+                      cursor: (validatingCode || !partnerCode) ? "not-allowed" : "pointer",
+                      height: "48px",
+                      transition: "all 0.2s",
+                      whiteSpace: "nowrap"
+                    }}>
+                    {validatingCode ? "Memeriksa..." : "Validasi"}
                   </button>
                 ) : (
-                  <div style={{ display: "flex", alignItems: "center", padding: "0 16px", backgroundColor: "#dcfce7", color: "#166534", borderRadius: "8px", fontWeight: 600 }}>
-                    Valid ✓
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "6px", 
+                    padding: "0 20px", 
+                    backgroundColor: "#ecfdf5", 
+                    color: "#059669", 
+                    borderRadius: "8px", 
+                    fontWeight: 600,
+                    border: "1px solid #a7f3d0",
+                    height: "48px",
+                    whiteSpace: "nowrap"
+                  }}>
+                    <ShieldCheck size={18} />
+                    Terverifikasi
                   </div>
                 )}
               </div>
-              {errors.partnerCode && <div className={styles.errMsg} data-field-error>{errors.partnerCode}</div>}
-              {partnerCodeValid && <div style={{ fontSize: "12px", color: "#166534", marginTop: "6px" }}>Kode mitra berhasil divalidasi.</div>}
+              {errors.partnerCode && <div className={styles.errMsg} data-field-error style={{ marginTop: "8px" }}>{errors.partnerCode}</div>}
+              {partnerCodeValid && <div style={{ fontSize: "13px", color: "#059669", marginTop: "12px", display: "flex", alignItems: "center", gap: "6px" }}>✨ Bagus! Kamu telah terhubung dengan mitra yang sah.</div>}
+              {!partnerCodeValid && partnerCode && !errors.partnerCode && <div style={{ fontSize: "13px", color: "#64748b", marginTop: "10px" }}>ℹ️ Pastikan untuk menekan tombol "Validasi" agar kodemu diverifikasi.</div>}
             </div>
           )}
 
-          {/* Nama Lengkap */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Nama Lengkap (sesuai KTP/Kartu Identitas)<span className={styles.req}>*</span></label>
-            <input className={`${styles.fieldInput} ${errors.namaLengkap ? styles.fieldError : ""}`} type="text" placeholder="Contoh: Ahmad Farhan Rizaldi" value={namaLengkap} onChange={(e) => { setNamaLengkap(e.target.value); setErrors((p) => ({ ...p, namaLengkap: "" })); }} autoComplete="name" />
-            {errors.namaLengkap && <div className={styles.errMsg} data-field-error>{errors.namaLengkap}</div>}
-          </div>
+          <div className={styles.sectionBody}>
+          {activeForm.sections[currentSectionIdx].fields.map((field) => {
+            // Check if edit mode and filter fields
+            if (isEditMode) {
+              const allowedEditFields = [
+                "nama_lengkap", "nama", "name", "full_name",
+                "jenis_kelamin", 
+                "tanggal_lahir", 
+                "alamat_email", "email",
+                "nomor_whatsapp", "whatsapp", "phone",
+                "asal_daerah", "provinsi", "kota",
+                "disabilitas",
+                "jenis_disabilitas", "kategori_disabilitas"
+              ];
+              if (!allowedEditFields.includes(field.name)) return null;
+            }
 
-          {/* Jenis Kelamin */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Jenis Kelamin<span className={styles.req}>*</span></label>
-            <div className={styles.radioGroup}>
-              {(["Laki-laki", "Perempuan"] as const).map((jk) => (
-                <div key={jk} className={`${styles.radioOpt} ${jenisKelamin === jk ? styles.radioSel : ""}`} onClick={() => { setJenisKelamin(jk); setErrors((p) => ({ ...p, jenisKelamin: "" })); }}>
-                  <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
-                  <span className={styles.radioLabel}>{jk}</span>
-                </div>
-              ))}
-            </div>
-            {errors.jenisKelamin && <div className={styles.errMsg} data-field-error>{errors.jenisKelamin}</div>}
-          </div>
+            // Check conditional logic
+            if (field.dependsOn) {
+              const dependentVal = answers[field.dependsOn];
+              // If it's an array (checkboxes), check if value is included
+              if (Array.isArray(dependentVal)) {
+                if (!dependentVal.includes(field.dependsOnValue)) return null;
+              } else {
+                if (dependentVal !== field.dependsOnValue) return null;
+              }
+            }
 
-          {/* Tanggal Lahir */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Tanggal Lahir<span className={styles.req}>*</span></label>
-            <input className={`${styles.fieldInput} ${errors.tanggalLahir ? styles.fieldError : ""}`} type="date" min="1950-01-01" max={today} value={tanggalLahir} onChange={(e) => { setTanggalLahir(e.target.value); setErrors((p) => ({ ...p, tanggalLahir: "" })); }} />
-            {errors.tanggalLahir && <div className={styles.errMsg} data-field-error>{errors.tanggalLahir}</div>}
-          </div>
-
-          {/* Email (readonly) */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Alamat Email</label>
-            <div className={styles.gmailField}>
-              <div className={styles.gmailIco}>
-                <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 23.5L4 12v28h40V12z"/><path fill="#FBBC04" d="M4 12l20 11.5L44 12"/><path fill="#34A853" d="M44 12v28H4"/><path fill="#4285F4" d="M4 40V12l20 11.5z"/><path fill="#1967D2" d="M24 23.5L44 12v28z"/></svg>
+            return (
+              <div key={field.id} className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>
+                  {field.label} {field.required && <span className={styles.req}>*</span>}
+                </label>
+                {field.description && <p className={styles.fieldDesc}>{field.description}</p>}
+                {renderField(field)}
+                {errors[field.name] && <div className={styles.errorMsg} data-field-error>{errors[field.name]}</div>}
               </div>
-              <div className={styles.gmailInfo}>
-                <div className={styles.gmailEmail}>{userEmail || "—"}</div>
-                <span className={styles.gmailBadge}>✓ Terautentikasi via Google</span>
-              </div>
-            </div>
-            <div className={styles.fieldHint}>Email diambil otomatis dari akun Google Anda</div>
+            );
+          })}
+        </div>   {errors.submit && <div className={styles.errMsg} style={{ display: "block", marginTop: "12px" }}>{errors.submit}</div>}
+
+          <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
+            {currentSectionIdx > 0 && (
+              <button type="button" className={styles.backBtn} onClick={handlePrev} style={{ flex: 1 }}>
+                Kembali
+              </button>
+            )}
+            <button className={styles.submitBtn} type="submit" disabled={submitting} style={{ flex: 2 }}>
+              {submitting ? (<><div className={styles.spinner} />Menyimpan...</>) : (
+                <>{isLastSection ? (profile?.profileCompleted ? "Simpan Perubahan" : "Simpan & Mulai Belajar") : "Selanjutnya"} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>
+              )}
+            </button>
           </div>
-
-          {/* Nomor WA */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Nomor WhatsApp / Telepon Aktif<span className={styles.req}>*</span></label>
-            <input className={`${styles.fieldInput} ${errors.nomorWA ? styles.fieldError : ""}`} type="tel" placeholder="Contoh: 08123456789" inputMode="numeric" value={nomorWA} onChange={(e) => { setNomorWA(e.target.value); setErrors((p) => ({ ...p, nomorWA: "" })); }} />
-            {errors.nomorWA && <div className={styles.errMsg} data-field-error>{errors.nomorWA}</div>}
-          </div>
-
-          <div className={styles.divider}><div className={styles.dividerLine} /><span className={styles.dividerText}>Asal Daerah</span><div className={styles.dividerLine} /></div>
-
-          {/* Provinsi & Kota */}
-          <div className={styles.fieldRow}>
-            <div className={styles.fieldGroup} style={{ marginBottom: 0 }}>
-              <label className={styles.fieldLabel}>Provinsi<span className={styles.req}>*</span></label>
-              <select className={`${styles.fieldInput} ${errors.provinsi ? styles.fieldError : ""}`} value={provinsi} onChange={(e) => { setProvinsi(e.target.value); setErrors((p) => ({ ...p, provinsi: "" })); }}>
-                <option value="">-- Pilih Provinsi --</option>
-                {WILAYAH_INDONESIA.map((w) => <option key={w.name} value={w.name}>{w.name}</option>)}
-              </select>
-              {errors.provinsi && <div className={styles.errMsg} data-field-error>{errors.provinsi}</div>}
-            </div>
-            <div className={styles.fieldGroup} style={{ marginBottom: 0 }}>
-              <label className={styles.fieldLabel}>Kota / Kabupaten<span className={styles.req}>*</span></label>
-              <select className={`${styles.fieldInput} ${errors.kotaKabupaten ? styles.fieldError : ""}`} value={kotaKabupaten} disabled={!provinsi} onChange={(e) => { setKotaKabupaten(e.target.value); setErrors((p) => ({ ...p, kotaKabupaten: "" })); }}>
-                <option value="">{provinsi ? "-- Pilih Kota/Kab --" : "-- Pilih dulu Provinsi --"}</option>
-                {kotaList.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-              {errors.kotaKabupaten && <div className={styles.errMsg} data-field-error>{errors.kotaKabupaten}</div>}
-            </div>
-          </div>
-
-          <div style={{ height: "18px" }} />
-          <div className={styles.divider}><div className={styles.dividerLine} /><span className={styles.dividerText}>Informasi Disabilitas</span><div className={styles.dividerLine} /></div>
-
-          {/* Disabilitas */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Apakah Anda merupakan penyandang disabilitas?<span className={styles.req}>*</span></label>
-            <div className={styles.radioGroup}>
-              {(["Tidak", "Ya"] as const).map((val) => (
-                <div key={val} className={`${styles.radioOpt} ${disabilitas === val ? styles.radioSel : ""}`} onClick={() => { setDisabilitas(val); setDisabilitasKategori([]); setErrors((p) => ({ ...p, disabilitas: "", disabilitasKategori: "" })); }}>
-                  <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
-                  <span className={styles.radioLabel}>{val}</span>
-                </div>
-              ))}
-            </div>
-            {errors.disabilitas && <div className={styles.errMsg} data-field-error>{errors.disabilitas}</div>}
-          </div>
-
-          {disabilitas === "Ya" && (
-            <div className={styles.disabBox}>
-              <label className={styles.fieldLabel} style={{ marginBottom: "10px" }}>Kategori disabilitas yang Anda miliki<span className={styles.req}>*</span></label>
-              <div className={styles.checkboxList}>
-                {DISABILITY_CATEGORIES.map((kat) => {
-                  const isSel = disabilitasKategori.includes(kat);
-                  return (
-                    <div key={kat} className={`${styles.chkItem} ${isSel ? styles.chkSel : ""}`} onClick={() => { toggleKategori(kat); setErrors((p) => ({ ...p, disabilitasKategori: "" })); }}>
-                      <div className={styles.chkBox}><svg className={styles.chkTick} viewBox="0 0 12 12"><polyline points="1.5 6 4.5 9 10.5 3" /></svg></div>
-                      <span className={styles.chkLabel}>{kat}</span>
-                    </div>
-                  );
-                })}
-                {disabilitasKategori.includes("Lainnya") && (
-                  <input className={styles.otherInput} type="text" placeholder="Sebutkan jenis disabilitas lainnya..." value={disabilitasLainnya} onChange={(e) => { setDisabilitasLainnya(e.target.value); setErrors((p) => ({ ...p, disabilitasLainnya: "" })); }} />
-                )}
-              </div>
-              {errors.disabilitasKategori && <div className={styles.errMsg} data-field-error>{errors.disabilitasKategori}</div>}
-              {errors.disabilitasLainnya && <div className={styles.errMsg} data-field-error>{errors.disabilitasLainnya}</div>}
-            </div>
-          )}
-
-          {errors.submit && <div className={styles.errMsg} style={{ display: "block", marginTop: "12px" }}>{errors.submit}</div>}
-
-          <button className={styles.submitBtn} type="submit" disabled={submitting}>
-            {submitting ? (<><div className={styles.spinner} />Menyimpan...</>) : (<>{profile?.profileCompleted ? "Simpan Perubahan" : "Simpan & Mulai Belajar"} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>)}
-          </button>
         </div>
       </form>
     </div>

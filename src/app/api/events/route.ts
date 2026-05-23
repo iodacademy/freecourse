@@ -1,11 +1,23 @@
 /**
  * GET  /api/events  — daftar events (admin)
  * POST /api/events  — buat event baru (admin)
+ *   Untuk channel b2c_workshop: eventId = slug dari nama/judul
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
+
+/** Buat slug dari string: "Workshop Literasi Gen-Z" → "workshop-literasi-gen-z" */
+function toSlug(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,31 +40,53 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const db = getAdminDb();
 
-    const data = {
+    const channelType = body.channelType ?? "b2c_ads";
+    const isWorkshop = channelType === "b2c_workshop";
+
+    const data: Record<string, any> = {
       name: body.name ?? "Event Baru",
       description: body.description ?? "",
-      channelType: body.channelType ?? "b2c_ads",
+      channelType,
       courseId: body.courseId ?? "",
       status: body.status ?? "draft",
       startDate: body.startDate ? new Date(body.startDate) : null,
       endDate: body.endDate ? new Date(body.endDate) : null,
-      // Channel 1
+      // Channel 1 — Kemitraan
       campusName: body.campusName ?? null,
       partnerCode: body.partnerCode ?? null,
       partnerCodeLower: body.partnerCode ? body.partnerCode.toLowerCase() : null,
       bulkImportedEmails: body.bulkImportedEmails ?? [],
-      // Channel 2
+      // Channel 2 — Beasiswa / Ads
       landingPageConfig: body.landingPageConfig ?? null,
       utmTracking: body.utmTracking ?? false,
-      // Channel 3
+      // Channel 3 — Workshop
+      workshopData: body.workshopData ?? null,
       workshopConfig: body.workshopConfig ?? null,
       customProfileFields: body.customProfileFields ?? [],
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     };
 
-    const ref = await db.collection("events").add(data);
-    return json({ id: ref.id, ...data }, 201);
+    let docId: string;
+
+    if (isWorkshop && body.name) {
+      // Gunakan slug judul sebagai eventId dokumen
+      const slug = toSlug(body.name);
+      const docRef = db.collection("events").doc(slug);
+      // Cek kalau slug sudah ada
+      const existing = await docRef.get();
+      if (existing.exists) {
+        return json({ error: `Event dengan slug "${slug}" sudah ada. Gunakan judul berbeda.` }, 409);
+      }
+      await docRef.set(data);
+      docId = slug;
+    } else {
+      // Auto-generated ID untuk channel lain
+      const ref = await db.collection("events").add(data);
+      docId = ref.id;
+    }
+
+    return json({ id: docId, ...data }, 201);
   } catch (e) {
     return handleError(e);
   }

@@ -5,14 +5,15 @@
 .page {
   min-height: 100vh;
   background: linear-gradient(160deg, #fff5f5 0%, #fff 60%);
-  padding: 0 0 60px;
+  margin-top: calc(-1 * var(--space-8));
+  padding: var(--space-5) var(--space-4) 60px;
   font-family: 'Open Sans', system-ui, sans-serif;
 }
 
 /* ─── Header ─── */
 .regHeader {
   text-align: center;
-  padding: 32px 20px 16px;
+  padding: 0 20px 16px;
 }
 
 .regLogos {
@@ -374,7 +375,6 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 28px;
   transition: background 180ms, transform 80ms;
 }
 
@@ -389,6 +389,32 @@
 .submitBtn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.backBtn {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid #CC0000;
+  border-radius: 10px;
+  background: #fff;
+  color: #CC0000;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 180ms, transform 80ms;
+}
+
+.backBtn:hover {
+  background: #fff5f5;
+}
+
+.backBtn:active {
+  transform: scale(0.98);
 }
 
 /* ─── Spinner ─── */

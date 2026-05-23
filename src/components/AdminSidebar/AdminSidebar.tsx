@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings, LogOut } from "lucide-react";
 import styles from "./AdminSidebar.module.css";
+import { useAuth } from "@/contexts/AuthContext";
 
 const menuItems = [
   { href: "/admin", label: "Beranda", icon: <Home size={18} /> },
@@ -18,6 +19,17 @@ const menuItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push("/");
+    } catch (e) {
+      console.error("Logout error", e);
+    }
+  };
 
   return (
     <aside className={styles.sidebar}>
@@ -49,9 +61,9 @@ export default function AdminSidebar() {
       </nav>
 
       <div className={styles.footer}>
-        <Link href="/" className={styles.backLink}>
-          ← Kembali ke Siswa
-        </Link>
+        <button onClick={handleLogout} className={styles.logoutBtn}>
+          <LogOut size={16} /> Logout Admin
+        </button>
       </div>
     </aside>
   );

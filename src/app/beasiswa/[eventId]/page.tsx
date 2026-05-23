@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import LandingTemplate from "@/components/LandingTemplate/LandingTemplate";
 
 export default function BeasiswaPage() {
@@ -11,20 +9,26 @@ export default function BeasiswaPage() {
   const eventId = params.eventId as string;
 
   const [eventData, setEventData] = useState<{ heroTitle?: string; heroSubtitle?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!eventId) return;
+
     async function fetchEvent() {
-      if (!db || !eventId) return;
       try {
-        const snap = await getDoc(doc(db, "events", eventId));
-        if (snap.exists()) {
-          const data = snap.data();
+        // Gunakan public API — tidak butuh autentikasi, bypass Firestore rules
+        const res = await fetch(`/api/events/public/${eventId}`);
+        if (res.ok) {
+          const data = await res.json();
           setEventData(data?.landingPageConfig || {});
         }
-      } catch {
-        // fallback to defaults
+      } catch (err) {
+        console.error("[BeasiswaPage] Fetch error:", err);
+      } finally {
+        setLoading(false);
       }
     }
+
     fetchEvent();
   }, [eventId]);
 

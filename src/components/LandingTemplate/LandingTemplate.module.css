@@ -48,9 +48,34 @@
   color: #fff;
   border-radius: 999px;
   font-size: var(--font-size-xs);
-  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.topbarRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.loginBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #CC0000;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: white;
+  transition: all 0.15s;
+}
+
+.loginBtn:hover {
+  background: #B30000;
 }
 
 /* ─── Hero ─── */

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import styles from "./StepNav.module.css";
+import { createSlug } from "@/lib/utils";
 
 export interface StepNavItem {
   stepNumber: number;
@@ -57,7 +58,7 @@ export default function StepNav({ steps, currentStep, courseName }: StepNavProps
                 </div>
               ) : (
                 <Link
-                  href={`/learn/${step.stepNumber}`}
+                  href={`/learn/${createSlug(step.title)}`}
                   className={`${styles.step} ${
                     isCurrent ? styles.stepActive : ""
                   } ${isCompleted ? styles.stepCompleted : ""}`}

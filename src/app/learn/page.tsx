@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { createSlug } from "@/lib/utils";
 
 export default function LearnPage() {
   const router = useRouter();
@@ -38,12 +39,31 @@ export default function LearnPage() {
           }
         }
 
+        // Fetch course steps to get the title for the slug
+        const courseRes = await fetch("/api/courses/main", {
+          headers: { Authorization: `Bearer ${idToken}` },
+          cache: 'no-store',
+        });
+        if (!courseRes.ok) throw new Error("Gagal memuat materi kursus");
+        const courseData = await courseRes.json();
+        const steps = courseData.steps || [];
+
         if (mainEnrollment) {
-          const targetStep = mainEnrollment.currentStep || 1;
-          router.replace(`/learn/${targetStep}`);
+          const targetStepNum = mainEnrollment.currentStep || 1;
+          const targetStepData = steps[targetStepNum - 1] || steps[0];
+          if (targetStepData) {
+            window.location.replace(`/learn/${createSlug(targetStepData.title)}`);
+          } else {
+            window.location.replace(`/learn/${targetStepNum}`);
+          }
         } else {
           // If no enrollment, start at step 1
-          router.replace(`/learn/1`);
+          const firstStep = steps[0];
+          if (firstStep) {
+            window.location.replace(`/learn/${createSlug(firstStep.title)}`);
+          } else {
+            window.location.replace(`/learn/1`);
+          }
         }
       } catch (e: any) {
         console.error(e);

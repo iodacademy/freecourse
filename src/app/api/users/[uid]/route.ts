@@ -3,7 +3,7 @@
  * PATCH /api/users/[uid] — update profileData (dan set profileCompleted: true)
  */
 import { NextRequest } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { requireAuth, requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -56,7 +56,7 @@ export async function PATCH(
     }
 
     // Allow updating other allowed fields
-    const allowedFields = ["displayName", "photoURL", "channelSource", "eventId"];
+    const allowedFields = ["displayName", "photoURL", "channelSource", "eventId", "partnerCode"];
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         updateData[field] = body[field];
@@ -66,6 +66,65 @@ export async function PATCH(
     await ref.update(updateData);
     const updated = await ref.get();
     return json(updated.data());
+  } catch (e) {
+    return handleError(e);
+  }
+}
+
+/**
+ * DELETE /api/users/[uid]
+ * Hanya admin yang bisa. Menghapus user dari:
+ * 1. Firebase Authentication
+ * 2. Koleksi "users" di Firestore
+ * 3. Koleksi "enrollments" (semua enrollment user tersebut)
+ * 4. Koleksi "certificates" (jika ada)
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ uid: string }> }
+) {
+  try {
+    // Hanya admin yang boleh menghapus
+    await requireAdmin(req);
+    const { uid } = await params;
+
+    const db = getAdminDb();
+    const auth = getAdminAuth();
+
+    // 1. Hapus dari Firebase Authentication
+    try {
+      await auth.deleteUser(uid);
+    } catch (authErr: any) {
+      // Jika user tidak ditemukan di Auth, lanjutkan saja hapus dari Firestore
+      if (authErr.code !== "auth/user-not-found") {
+        throw authErr;
+      }
+    }
+
+    // 2. Hapus dokumen user dari koleksi "users"
+    await db.collection("users").doc(uid).delete();
+
+    // 3. Hapus semua enrollments milik user ini
+    const enrollmentsSnap = await db
+      .collection("enrollments")
+      .where("userId", "==", uid)
+      .get();
+    const enrollBatch = db.batch();
+    enrollmentsSnap.docs.forEach((doc) => enrollBatch.delete(doc.ref));
+    await enrollBatch.commit();
+
+    // 4. Hapus semua certificates milik user ini (jika koleksi ada)
+    const certsSnap = await db
+      .collection("certificates")
+      .where("userId", "==", uid)
+      .get();
+    if (!certsSnap.empty) {
+      const certBatch = db.batch();
+      certsSnap.docs.forEach((doc) => certBatch.delete(doc.ref));
+      await certBatch.commit();
+    }
+
+    return json({ success: true, message: `User ${uid} berhasil dihapus sepenuhnya.` });
   } catch (e) {
     return handleError(e);
   }

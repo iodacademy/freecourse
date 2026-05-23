@@ -1,7 +1,7 @@
 .adminLayout {
   display: flex;
   min-height: 100vh;
-  overflow-x: hidden;
+  /* overflow-x: hidden removed — it blocks position:fixed modals from covering sidebar */
 }
 
 .mainContent {

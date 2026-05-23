@@ -5,10 +5,12 @@
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getAuth, Auth } from "firebase-admin/auth";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { getStorage, Storage } from "firebase-admin/storage";
 
 let app: App;
 let adminAuth: Auth;
 let adminDb: Firestore;
+let adminStorage: Storage;
 
 function getPrivateKey(): string {
   const raw = process.env.FIREBASE_PRIVATE_KEY || "";
@@ -34,6 +36,8 @@ function getAdminApp(): App {
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
         privateKey: getPrivateKey(),
       }),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET ||
+        `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`,
     });
   } else {
     app = getApps()[0];
@@ -53,4 +57,11 @@ export function getAdminDb(): Firestore {
     adminDb = getFirestore(getAdminApp());
   }
   return adminDb;
+}
+
+export function getAdminStorage(): Storage {
+  if (!adminStorage) {
+    adminStorage = getStorage(getAdminApp());
+  }
+  return adminStorage;
 }

@@ -16,11 +16,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const body = await req.json();
     const ref = getAdminDb().collection("bonusCourseTopics").doc(id);
 
-    const allowed = ["name","description","classCode","portalUrl","status"];
     const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
-    for (const k of allowed) {
-      if (body[k] !== undefined) update[k] = body[k];
-    }
+    if (body.name !== undefined)       update.name       = body.name;
+    if (body.classCode !== undefined)  update.classCode  = String(body.classCode).toUpperCase();
+    if (body.Kode_Basis !== undefined) update.Kode_Basis = String(body.Kode_Basis).toUpperCase();
+    if (body.portalUrl !== undefined)  update.portalUrl  = body.portalUrl;
+    if (body.status !== undefined)     update.status     = body.status;
 
     await ref.update(update);
     const updated = await ref.get();
