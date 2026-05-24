@@ -43,7 +43,6 @@ export default function CertificatePage() {
 
   // Konfirmasi nama sebelum klaim
   const [certName, setCertName] = useState("");
-  const [nameConfirmed, setNameConfirmed] = useState(false);
 
   // Fetch enrollment & course steps
   useEffect(() => {
@@ -70,7 +69,6 @@ export default function CertificatePage() {
         // Jika sudah diklaim sebelumnya, langsung set certId
         if (main.certificateClaimed && main.certificateId) {
           setCertId(main.certificateId);
-          setNameConfirmed(true); // sudah diklaim, skip konfirmasi
         }
 
         // Pre-fill nama dari profil
@@ -209,8 +207,8 @@ export default function CertificatePage() {
             </div>
           )}
 
-          {/* ── SEMUA SELESAI: STEP 1 — KONFIRMASI NAMA ── */}
-          {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && !nameConfirmed && (
+          {/* ── SEMUA SELESAI: KLAIM SERTIFIKAT ── */}
+          {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && (
             <div className={styles.claimCard}>
               <div className={styles.claimHeader}>
                 <h1>Selamat, {userName}!</h1>
@@ -259,106 +257,15 @@ export default function CertificatePage() {
 
                 <button
                   className="btn btn-primary btn-lg w-full"
-                  onClick={() => {
-                    if (!certName.trim()) {
-                      setClaimError("Nama tidak boleh kosong.");
-                      return;
-                    }
-                    setClaimError("");
-                    setNameConfirmed(true);
-                  }}
+                  disabled={claiming}
+                  onClick={handleClaim}
                 >
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    Lanjut ke Klaim Sertifikat →
+                    {claiming ? <Loader2 size={18} className="animate-spin" /> : <GraduationCap size={18} />}
+                    {claiming ? "Memproses..." : "Klaim Sertifikat"}
                   </span>
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* ── SEMUA SELESAI: STEP 2 — KLAIM SERTIFIKAT ── */}
-          {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && nameConfirmed && (
-            <div className={styles.claimCard}>
-              <div className={styles.claimHeader}>
-                <Trophy size={56} style={{ color: "var(--color-primary)", marginBottom: 16 }} />
-                <h1>Selamat, {certName}!</h1>
-                <p>
-                  Nama <strong>{certName}</strong> akan tercetak di sertifikat.
-                  Klaim sertifikat resmimu sekarang!
-                </p>
-              </div>
-
-              {/* Preview Sertifikat */}
-              <div className={styles.certPreview}>
-                <div className={styles.certCard}>
-                  <div className={styles.certBorder}>
-                    <div className={styles.certInner}>
-                      <span className={styles.certLogo}>IODA Academy × Plan Indonesia</span>
-                      <p className={styles.certLabel}>SERTIFIKAT PENYELESAIAN</p>
-                      <h2 className={styles.certName}>{certName}</h2>
-                      <p className={styles.certDesc}>Telah berhasil menyelesaikan kursus</p>
-                      <p className={styles.certCourse}>{courseName}</p>
-                      <div className={styles.certMeta}>
-                        <span>Menunggu ID...</span>
-                        <span>
-                          {new Date().toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ganti nama */}
-              <button
-                onClick={() => setNameConfirmed(false)}
-                style={{
-                  background: "none", border: "none", fontSize: 13, color: "#999",
-                  cursor: "pointer", marginBottom: 12, padding: 0, textDecoration: "underline",
-                }}
-              >
-                ← Ubah nama
-              </button>
-
-              {claimError && (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  background: "#fff0f0", border: "1px solid #ffcccc",
-                  borderRadius: 8, padding: "12px 16px", marginBottom: 16,
-                  color: "var(--color-primary)", fontSize: 14,
-                }}>
-                  <AlertCircle size={16} />
-                  {claimError}
-                </div>
-              )}
-
-              <button
-                className="btn btn-primary btn-lg w-full"
-                onClick={handleClaim}
-                disabled={claiming}
-              >
-                {claiming ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Membuat Sertifikat...
-                  </>
-                ) : (
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <GraduationCap size={20} />
-                    Klaim Sertifikat Sekarang
-                  </span>
-                )}
-              </button>
-
-              {claiming && (
-                <p className={styles.claimNote}>
-                  Sedang membuat sertifikat... Mohon jangan tutup halaman ini.
-                </p>
-              )}
             </div>
           )}
 
