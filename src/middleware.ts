@@ -7,6 +7,7 @@ const PUBLIC_API_ROUTES = [
   '/api/partner-codes/validate',
   '/api/forms/active',
   '/api/events/public',   // Landing page workshop/beasiswa — tidak butuh auth
+  '/api/health',          // Diagnostic endpoint
 ];
 
 export function middleware(request: NextRequest) {
@@ -24,13 +25,29 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Cek keberadaan header Authorization
+    // Cek keberadaan header Authorization ATAU X-Firebase-Token (fallback)
+    // Hostinger dan beberapa hosting lain strip header Authorization
     const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const fallbackToken = request.headers.get('X-Firebase-Token');
+    
+    const hasAuth = (authHeader && authHeader.startsWith('Bearer '));
+    const hasFallback = !!fallbackToken;
+
+    if (!hasAuth && !hasFallback) {
       return new NextResponse(
         JSON.stringify({ error: 'Missing or invalid Authorization header' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Jika Authorization header di-strip tapi X-Firebase-Token ada,
+    // reconstruct Authorization header agar route handler tetap bisa baca
+    if (!hasAuth && hasFallback) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('Authorization', `Bearer ${fallbackToken}`);
+      return NextResponse.next({
+        request: { headers: requestHeaders },
+      });
     }
     
     // Note: Validasi token JWT Firebase (termasuk Role check) dilakukan di 
