@@ -58,6 +58,11 @@ const STAGES: Record<LandingType, StageConfig[]> = {
       title: "Klaim Sertifikat",
       sub: "Sertifikat resmi Plan Indonesia × DBS Foundation langsung di tanganmu.",
     },
+    {
+      label: "Tahap 4",
+      title: "Klaim Beasiswa",
+      sub: "Gunakan kode redeem yang kamu terima untuk masuk ke portal belajar Ioda Academy dan klaim kelas online pilihanmu di app.iodacademy.id/portal-belajar.",
+    },
   ],
   workshop: [
     {
@@ -216,11 +221,16 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
 
   const defaultTitle =
     type === "workshop" ? "Selamat! Kamu Terpilih untuk Workshop Gratis 🎓" :
-      type === "beasiswa" ? "Selamat! Kamu Lolos Seleksi Beasiswa 🌟" :
+      type === "beasiswa" ? "Belajar Skill Baru, Gratis!! 🌟" :
         type === "kemitraan" ? "Selamat Datang, Kaum Muda! 🤝" :
           "Selamat Datang di Program YouRise! 🌟";
 
-  const defaultSubtitle = "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!";
+  const defaultSubtitle: Record<LandingType, string> = {
+    beasiswa: "Selesaikan modul Literasi Finansial dan dapatkan sertifikatnya untuk klaim Beasiswa Kelas Online dari Ioda Academy.",
+    workshop: "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!",
+    kemitraan: "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!",
+    umum: "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!",
+  };
 
   const getStepStatus = (index: number) => {
     let activeIdx = 0;
@@ -380,7 +390,15 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
                     </div>
                     <div>
                       <div className={styles.wbInfoLabel}>TANGGAL</div>
-                      <div className={styles.wbInfoVal}>{workshopData?.date || "15 Juni 2026"}</div>
+                      <div className={styles.wbInfoVal}>
+                        {workshopData?.date
+                          ? (() => {
+                              const formatted = new Date(workshopData.date + "T00:00:00").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+                              return formatted;
+                            })()
+                          : "15 Juni 2026"
+                        }
+                      </div>
                     </div>
                   </div>
                   <div className={styles.wbInfoItem}>
@@ -388,8 +406,8 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                     </div>
                     <div>
-                      <div className={styles.wbInfoLabel}>HARI & JAM</div>
-                      <div className={styles.wbInfoVal}>{workshopData?.time || "Sabtu - 09.00-12.00 WIB"}</div>
+                      <div className={styles.wbInfoLabel}>JAM</div>
+                      <div className={styles.wbInfoVal}>{workshopData?.time || "09.00-12.00 WIB"}</div>
                     </div>
                   </div>
                   <div className={styles.wbInfoItem}>
@@ -429,7 +447,7 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
               <h1 className={styles.heroTitle}>
                 {heroTitle ? heroTitle : defaultTitle}
               </h1>
-              <p className={styles.heroSub} dangerouslySetInnerHTML={{ __html: heroSubtitle || defaultSubtitle }} />
+              <p className={styles.heroSub} dangerouslySetInnerHTML={{ __html: heroSubtitle || defaultSubtitle[type] }} />
             </>
           )}
 
@@ -439,7 +457,11 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
             </p>
           ) : (
             <div className={styles.topicChips}>
-              {["💰 Pengelolaan Keuangan", "📈 Perencanaan Masa Depan", "💼 Kesiapan Kerja", "🏦 Literasi Perbankan", "📊 Investasi Dasar"].map((chip) => (
+              {(
+                type === "beasiswa"
+                  ? ["Digital Marketing", "Legal", "Human Resource", "Sales & Business Development", "Product Management", "Finance & Accounting", "Topik Menarik Lainnya"]
+                  : ["💰 Pengelolaan Keuangan", "📈 Perencanaan Masa Depan", "💼 Kesiapan Kerja", "🏦 Literasi Perbankan", "📊 Investasi Dasar"]
+              ).map((chip) => (
                 <span key={chip} className={styles.chip}>{chip}</span>
               ))}
             </div>

@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
       const eventData = eventSnap.docs[0].data();
       return json({
         valid: true,
-        partnerName: eventData.name, // Gunakan nama event sbg nama mitra
+        partnerName: eventData.name,
+        audienceLabel: eventData.audienceLabel || "",  // sapaan custom dari admin
         eventId: eventSnap.docs[0].id,
         courseId: eventData.courseId || "",
       });

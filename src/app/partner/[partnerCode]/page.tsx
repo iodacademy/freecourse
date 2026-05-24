@@ -9,6 +9,7 @@ export default function PartnerPage() {
   const urlPartnerCode = (params.partnerCode as string).toUpperCase();
 
   const [partnerName, setPartnerName] = useState<string | undefined>(undefined);
+  const [audienceLabel, setAudienceLabel] = useState<string>("Mahasiswa/Karyawan");
   // eventId = Firestore doc ID (internal), partnerCode = kode pendek (untuk user)
   const [eventId, setEventId] = useState<string>("");
 
@@ -25,6 +26,7 @@ export default function PartnerPage() {
         if (data.valid) {
           setPartnerName(data.partnerName);
           setEventId(data.eventId || ""); // Firestore doc ID
+          if (data.audienceLabel) setAudienceLabel(data.audienceLabel);
         }
       } catch (err) {
         console.error("Gagal fetch partner:", err);
@@ -34,7 +36,7 @@ export default function PartnerPage() {
   }, [urlPartnerCode]);
 
   const heroTitle = partnerName
-    ? `Selamat Datang, Mahasiswa/Karyawan ${partnerName}! 🤝`
+    ? `Selamat Datang, ${audienceLabel} ${partnerName}! 🤝`
     : undefined;
 
   return (

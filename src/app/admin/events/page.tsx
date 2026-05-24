@@ -56,6 +56,7 @@ export default function AdminEventsPage() {
     status: "draft" as string,
     startDate: "",
     partnerCode: "",
+    audienceLabel: "",
   });
 
   // Form khusus workshop
@@ -197,6 +198,7 @@ export default function AdminEventsPage() {
         status: form.status,
         startDate: form.startDate || null,
         partnerCode: form.channelType === "b2b_campus" ? form.partnerCode : null,
+        audienceLabel: form.channelType === "b2b_campus" ? form.audienceLabel : null,
         workshopData,
       };
 
@@ -282,7 +284,7 @@ export default function AdminEventsPage() {
   const openCreate = () => {
     setEditing(null);
     setWizardStep(1);
-    setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "" });
+    setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "", audienceLabel: "" });
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
     setPhotoFile(null);
     setPhotoPreview("");
@@ -310,6 +312,7 @@ export default function AdminEventsPage() {
       status: evt.status,
       startDate: formattedDate,
       partnerCode: evt.partnerCode || "",
+      audienceLabel: (evt as any).audienceLabel || "",
     });
     setWorkshopForm({
       date: wd?.date || "",
@@ -569,19 +572,9 @@ export default function AdminEventsPage() {
                               />
                               {workshopForm.date && (
                                 <span className={styles.formHint}>
-                                  Tampil: {new Date(workshopForm.date + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                                  Tampil: {new Date(workshopForm.date + "T00:00:00").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                                 </span>
                               )}
-                            </div>
-                            <div className={styles.formGroup}>
-                              <label className={styles.formLabel}>Hari</label>
-                              <input
-                                className={styles.formInput}
-                                type="text"
-                                placeholder="Sabtu"
-                                value={workshopForm.dayLabel}
-                                onChange={(e) => setWorkshopForm({ ...workshopForm, dayLabel: e.target.value })}
-                              />
                             </div>
                           </div>
                           <div className={styles.formRow}>
@@ -767,6 +760,11 @@ export default function AdminEventsPage() {
                         <label className={styles.formLabel}>Kode Mitra <span className={styles.required}>*</span></label>
                         <input className={styles.formInput} type="text" placeholder="Contoh: KAMPUS-X" value={form.partnerCode} onChange={(e) => setForm({ ...form, partnerCode: e.target.value.toUpperCase().replace(/\s/g, "-") })} />
                         <span className={styles.formHint}>Peserta harus memasukkan kode ini saat mendaftar.</span>
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Sapaan Peserta</label>
+                        <input className={styles.formInput} type="text" placeholder="Contoh: Mahasiswa, Karyawan, Member" value={form.audienceLabel} onChange={(e) => setForm({ ...form, audienceLabel: e.target.value })} />
+                        <span className={styles.formHint}>Tampil di landing page: "Selamat Datang, <em>[Sapaan]</em> [Nama Event]!"</span>
                       </div>
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Deskripsi (opsional)</label>
