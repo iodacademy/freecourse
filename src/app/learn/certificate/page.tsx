@@ -213,10 +213,9 @@ export default function CertificatePage() {
           {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && !nameConfirmed && (
             <div className={styles.claimCard}>
               <div className={styles.claimHeader}>
-                <Trophy size={48} style={{ color: "var(--color-primary)", marginBottom: 12 }} />
                 <h1>Selamat, {userName}!</h1>
                 <p>
-                  Kamu telah menyelesaikan seluruh materi <strong>{courseName}</strong>.
+                  Kamu telah menyelesaikan seluruh materi modul <strong>{courseName}</strong>.
                   Sebelum klaim, pastikan nama di sertifikatmu sudah benar.
                 </p>
               </div>
