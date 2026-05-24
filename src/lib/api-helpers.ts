@@ -17,28 +17,34 @@ export async function verifyToken(
   }
 }
 
-/** Ambil token dari request, verifikasi, throw Response jika gagal */
 export async function requireAuth(req: Request): Promise<DecodedIdToken> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  // Baca dari Authorization header, atau fallback ke X-Firebase-Token
+  // (beberapa hosting strip header Authorization)
+  const rawToken =
+    req.headers.get("Authorization")?.replace(/^Bearer /, "") ||
+    req.headers.get("X-Firebase-Token") ||
+    "";
+
+  if (!rawToken) {
     throw new Response(
-      JSON.stringify({ error: "Unauthorized" }),
+      JSON.stringify({ error: "Unauthorized: no token" }),
       { status: 401, headers: { "Content-Type": "application/json" } }
     );
   }
 
+  const authHeader = `Bearer ${rawToken}`;
   const decoded = await verifyToken(authHeader);
   if (decoded) return decoded;
 
   // Fallback: Cek apakah token ini adalah kode admin
-  const token = authHeader.slice(7);
   const { getAdminDb } = await import("./firebase-admin");
-  const adminDocs = await getAdminDb().collection("admin").where("code", "==", token).get();
+  const adminDocs = await getAdminDb().collection("admin").where("code", "==", rawToken).get();
   
   if (!adminDocs.empty) {
     return { uid: "admin", role: adminDocs.docs[0].data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
   }
 
+  console.error("[requireAuth] Token not valid as Firebase ID token or admin code");
   throw new Response(
     JSON.stringify({ error: "Unauthorized" }),
     { status: 401, headers: { "Content-Type": "application/json" } }

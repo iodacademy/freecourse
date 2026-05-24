@@ -59,7 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const res = await fetch("/api/auth/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "X-Firebase-Token": token 
+        },
         body: JSON.stringify({
           idToken: token,
           channelSource,
@@ -84,7 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = await user.getIdToken();
       const res = await fetch(`/api/users/${user.uid}`, {
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "X-Firebase-Token": token,  // fallback untuk hosting yg strip Authorization
+        }
       });
       if (res.ok) {
         const data = await res.json();
@@ -172,12 +179,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "X-Firebase-Token": token,  // fallback untuk hosting yg strip Authorization
         },
         body: JSON.stringify(data)
       });
       
-      if (!res.ok) throw new Error("Gagal update profil");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("[updateUserProfile] API error:", res.status, errData);
+        throw new Error(errData.error || "Gagal update profil");
+      }
       
       const updatedData = await res.json();
       setProfile(updatedData as UserProfile);
