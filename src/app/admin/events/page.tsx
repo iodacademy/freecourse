@@ -518,7 +518,7 @@ export default function AdminEventsPage() {
                       <button
                         key={ch.key}
                         className={`${styles.channelCard} ${form.channelType === ch.key ? styles.channelCardActive : ""}`}
-                        onClick={() => setForm({ ...form, channelType: ch.key })}
+                        onClick={() => { setForm({ ...form, channelType: ch.key }); setWizardStep(2); }}
                         style={form.channelType === ch.key ? { borderColor: ch.color, background: `${ch.color}08` } : {}}
                       >
                         <div className={styles.channelCardIcon} style={{ color: ch.color }}>{ch.icon}</div>
@@ -560,7 +560,7 @@ export default function AdminEventsPage() {
 
                           <div className={styles.formRow}>
                             <div className={styles.formGroup}>
-                              <label className={styles.formLabel}><Calendar size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />Tanggal <span className={styles.required}>*</span></label>
+                              <label className={styles.formLabel}>Tanggal <span className={styles.required}>*</span></label>
                               <input
                                 className={styles.formInput}
                                 type="date"
@@ -586,7 +586,7 @@ export default function AdminEventsPage() {
                           </div>
                           <div className={styles.formRow}>
                             <div className={styles.formGroup}>
-                              <label className={styles.formLabel}><Clock size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />Jam</label>
+                              <label className={styles.formLabel}>Jam</label>
                               <input
                                 className={styles.formInput}
                                 type="text"
@@ -598,7 +598,7 @@ export default function AdminEventsPage() {
                           </div>
 
                           <div className={styles.formGroup}>
-                            <label className={styles.formLabel}><Monitor size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />Platform</label>
+                            <label className={styles.formLabel}>Platform</label>
                             <input
                               className={styles.formInput}
                               type="text"
@@ -610,7 +610,6 @@ export default function AdminEventsPage() {
 
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                               Link Meeting <span className={styles.formBadgeInfo}>Untuk Email</span>
                             </label>
                             <input
@@ -625,7 +624,6 @@ export default function AdminEventsPage() {
 
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                               Grup WhatsApp <span className={styles.formBadgeInfo}>Untuk Email</span>
                             </label>
                             <input
@@ -670,7 +668,7 @@ export default function AdminEventsPage() {
                           {/* Foto Upload */}
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>
-                              <ImageIcon size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />Foto Pemateri
+                              Foto Pemateri
                               <span className={styles.formBadgeSizeHint}>Square 1:1 · min 240×240px</span>
                             </label>
                             <div className={styles.photoUploadArea} onClick={() => photoInputRef.current?.click()}>
@@ -749,17 +747,11 @@ export default function AdminEventsPage() {
                         <label className={styles.formLabel}>Deskripsi (opsional)</label>
                         <textarea className={styles.formTextarea} placeholder="Deskripsi singkat..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
                       </div>
-                      <div className={styles.formRow}>
-                        <div className={styles.formGroup}>
-                          <label className={styles.formLabel}>Tanggal Mulai</label>
-                          <input className={styles.formInput} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-                        </div>
-                        <div className={styles.formGroup}>
-                          <label className={styles.formLabel}>Status</label>
-                          <select className={styles.formInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                            <option value="draft">Draft</option><option value="active">Aktif</option><option value="ended">Selesai</option>
-                          </select>
-                        </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Status</label>
+                        <select className={styles.formInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                          <option value="draft">Draft</option><option value="active">Aktif</option><option value="ended">Selesai</option>
+                        </select>
                       </div>
                     </div>
                   )}
@@ -780,17 +772,11 @@ export default function AdminEventsPage() {
                         <label className={styles.formLabel}>Deskripsi (opsional)</label>
                         <textarea className={styles.formTextarea} placeholder="Deskripsi singkat..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
                       </div>
-                      <div className={styles.formRow}>
-                        <div className={styles.formGroup}>
-                          <label className={styles.formLabel}>Tanggal Mulai</label>
-                          <input className={styles.formInput} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-                        </div>
-                        <div className={styles.formGroup}>
-                          <label className={styles.formLabel}>Status</label>
-                          <select className={styles.formInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                            <option value="draft">Draft</option><option value="active">Aktif</option><option value="ended">Selesai</option>
-                          </select>
-                        </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Status</label>
+                        <select className={styles.formInput} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                          <option value="draft">Draft</option><option value="active">Aktif</option><option value="ended">Selesai</option>
+                        </select>
                       </div>
                     </div>
                   )}
@@ -803,11 +789,7 @@ export default function AdminEventsPage() {
             {/* Footer */}
             <div className={styles.modalFooter}>
               <button className={styles.modalBtnCancel} onClick={closeModal}>Batal</button>
-              {wizardStep === 1 && !editing ? (
-                <button className={styles.modalBtnSave} onClick={() => setWizardStep(2)}>
-                  Lanjut <ChevronRight size={15} />
-                </button>
-              ) : (
+              {wizardStep === 2 && (
                 <button className={styles.modalBtnSave} onClick={handleSave} disabled={saving || uploadingPhoto}>
                   {saving || uploadingPhoto ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Buat Event"}
                 </button>
