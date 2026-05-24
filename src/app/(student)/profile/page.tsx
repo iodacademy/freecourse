@@ -183,13 +183,43 @@ function ProfileContent() {
     const section = activeForm.sections[currentSectionIdx];
     
     section.fields.forEach(field => {
+      // ── Skip field yang tersembunyi (dependsOn tidak terpenuhi) ──
+      if (field.dependsOn) {
+        const depVal = answers[field.dependsOn];
+        if (Array.isArray(depVal)) {
+          if (!depVal.includes(field.dependsOnValue)) return;
+        } else {
+          if (depVal !== field.dependsOnValue) return;
+        }
+      }
+
       if (field.required) {
         const val = answers[field.name];
         if (field.type === 'province_city') {
           if (!val?.province) errs[field.name] = `${field.label} (Provinsi) wajib diisi`;
           else if (!val?.city) errs[field.name] = `${field.label} (Kota) wajib diisi`;
         } else if (field.type === 'checkbox') {
-          if (!val || val.length === 0) errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+          // Checkbox: minimal satu dipilih, dan jika "Lainnya" dipilih → teks wajib diisi
+          const arr: string[] = Array.isArray(val) ? val : [];
+          const withoutOther = arr.filter(v => v !== '__other__');
+          const hasOther = arr.includes('__other__');
+          const otherText = (answers[`${field.name}__other`] || '').trim();
+
+          if (arr.length === 0) {
+            errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+          } else if (hasOther && !otherText) {
+            errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
+          } else if (withoutOther.length === 0 && !otherText) {
+            errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+          }
+        } else if (field.type === 'radio') {
+          // Radio: jika __other__ dipilih → teks wajib diisi
+          if (!val || String(val).trim() === '') {
+            errs[field.name] = `${field.label} wajib diisi`;
+          } else if (val === '__other__') {
+            const otherText = (answers[`${field.name}__other`] || '').trim();
+            if (!otherText) errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
+          }
         } else {
           if (!val || String(val).trim() === "") errs[field.name] = `${field.label} wajib diisi`;
         }
@@ -244,12 +274,29 @@ function ProfileContent() {
       else if (answers["name"]) newDisplayName = answers["name"];
       else if (answers["full_name"]) newDisplayName = answers["full_name"];
 
+      // ── Resolve "Lainnya" answers sebelum disimpan ──
+      const cleanAnswers: Record<string, any> = {};
+      for (const [key, value] of Object.entries(answers)) {
+        if (key.endsWith('__other')) continue; // skip helper keys
+        if (value === '__other__') {
+          // radio: replace dengan teks yang diketik
+          cleanAnswers[key] = answers[`${key}__other`] || 'Lainnya';
+        } else if (Array.isArray(value) && value.includes('__other__')) {
+          // checkbox: replace __other__ di array dengan teks yang diketik
+          cleanAnswers[key] = value.map((v: string) =>
+            v === '__other__' ? (answers[`${key}__other`] || 'Lainnya') : v
+          );
+        } else {
+          cleanAnswers[key] = value;
+        }
+      }
+
       await updateUserProfile({
         profileCompleted: true,
         channelSource,
         eventId: profile?.eventId || urlEventId || partnerEventId || null,
         partnerCode: isKemitraan ? partnerCode : profile?.partnerCode,
-        profileData: answers,
+        profileData: cleanAnswers,
         ...(newDisplayName && { displayName: newDisplayName }),
       });
       
@@ -327,6 +374,7 @@ function ProfileContent() {
     }
 
     if (field.type === 'radio') {
+      const otherText = answers[`${field.name}__other`] || "";
       return (
         <div className={styles.radioGroup}>
           {(field.options || []).map((opt) => (
@@ -335,12 +383,34 @@ function ProfileContent() {
               <span className={styles.radioLabel}>{opt}</span>
             </div>
           ))}
+          {field.allowOther && (
+            <div
+              className={`${styles.radioOpt} ${val === '__other__' ? styles.radioSel : ""}`}
+              onClick={() => setAnswer(field.name, '__other__')}
+            >
+              <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
+              {val === '__other__' ? (
+                <input
+                  type="text"
+                  className={styles.otherInlineInput}
+                  placeholder="Sebutkan..."
+                  value={otherText}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <span className={styles.radioLabel}>Lainnya</span>
+              )}
+            </div>
+          )}
         </div>
       );
     }
 
     if (field.type === 'checkbox') {
       const selected = Array.isArray(val) ? val : [];
+      const otherText = answers[`${field.name}__other`] || "";
       const toggleCheck = (opt: string) => {
         if (selected.includes(opt)) setAnswer(field.name, selected.filter((o: string) => o !== opt));
         else setAnswer(field.name, [...selected, opt]);
@@ -353,6 +423,27 @@ function ProfileContent() {
               <span className={styles.chkLabel}>{opt}</span>
             </div>
           ))}
+          {field.allowOther && (
+            <div
+              className={`${styles.chkItem} ${selected.includes('__other__') ? styles.chkSel : ""}`}
+              onClick={() => toggleCheck('__other__')}
+            >
+              <div className={styles.chkBox}><svg className={styles.chkTick} viewBox="0 0 12 12"><polyline points="1.5 6 4.5 9 10.5 3" /></svg></div>
+              {selected.includes('__other__') ? (
+                <input
+                  type="text"
+                  className={styles.otherInlineInput}
+                  placeholder="Sebutkan..."
+                  value={otherText}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <span className={styles.chkLabel}>Lainnya</span>
+              )}
+            </div>
+          )}
         </div>
       );
     }
@@ -416,18 +507,10 @@ function ProfileContent() {
   return (
     <div className={styles.page}>
       <div className={styles.regHeader}>
-        <p className={styles.regSubtitle}>
+        <h1 className={styles.regTitle}>
           {profile?.profileCompleted ? "Perbarui informasi data diri Anda" : "Lengkapi data diri untuk memulai program"}
-        </p>
+        </h1>
       </div>
-
-      {activeForm.sections.length > 1 && (
-        <div style={{ display: 'flex', gap: '5px', marginBottom: '20px', justifyContent: 'center' }}>
-          {activeForm.sections.map((_, idx) => (
-            <div key={idx} style={{ height: '6px', width: '40px', borderRadius: '3px', background: idx <= currentSectionIdx ? '#cc0000' : '#e5e5e5', transition: 'background 0.3s' }} />
-          ))}
-        </div>
-      )}
 
       <form className={styles.card} onSubmit={isLastSection ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} noValidate>
         <div className={styles.cardHead}>
@@ -551,7 +634,12 @@ function ProfileContent() {
                 <label className={styles.fieldLabel}>
                   {field.label} {field.required && <span className={styles.req}>*</span>}
                 </label>
-                {field.description && <p className={styles.fieldDesc}>{field.description}</p>}
+                {field.description && (
+                  <div
+                    className={styles.fieldDesc}
+                    dangerouslySetInnerHTML={{ __html: field.description }}
+                  />
+                )}
                 {renderField(field)}
                 {errors[field.name] && <div className={styles.errorMsg} data-field-error>{errors[field.name]}</div>}
               </div>
@@ -573,6 +661,19 @@ function ProfileContent() {
           </div>
         </div>
       </form>
+
+      {activeForm.sections.length > 1 && (
+        <div className={styles.stepProgress}>
+          {activeForm.sections.map((sec, idx) => (
+            <div key={idx} className={styles.stepPill}>
+              <div className={`${styles.stepBar} ${idx <= currentSectionIdx ? styles.stepBarActive : ''}`} />
+              <span className={`${styles.stepNum} ${idx <= currentSectionIdx ? styles.stepNumActive : ''}`}>
+                {idx + 1}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

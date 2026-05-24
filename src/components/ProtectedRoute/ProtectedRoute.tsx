@@ -14,6 +14,7 @@ interface ProtectedRouteProps {
  * Komponen pembungkus untuk halaman yang butuh login.
  * - requireAdmin: hanya admin yang boleh akses (redirect ke /admin/login)
  * - requireProfile: redirect ke /profile jika profil belum lengkap
+ *   Termasuk saat profile masih null (belum selesai di-fetch dari Firestore).
  */
 export default function ProtectedRoute({
   children,
@@ -45,8 +46,10 @@ export default function ProtectedRoute({
         return;
       }
 
-      // Butuh profil lengkap tapi belum lengkap → ke profile page
-      if (requireProfile && profile && !profile.profileCompleted) {
+      // Butuh profil lengkap:
+      // - profile === null → belum selesai load, anggap belum lengkap
+      // - profile.profileCompleted === false → belum diisi
+      if (requireProfile && (!profile || !profile.profileCompleted)) {
         router.push("/profile");
         return;
       }
@@ -63,12 +66,12 @@ export default function ProtectedRoute({
     );
   }
 
-  // Guard checks
+  // Guard checks (render-time block — mencegah flash konten)
   if (requireAdmin) {
     if (!user || profile?.role !== "admin") return null;
   } else {
     if (!user) return null;
-    if (requireProfile && profile && !profile.profileCompleted) return null;
+    if (requireProfile && (!profile || !profile.profileCompleted)) return null;
   }
 
   return <>{children}</>;

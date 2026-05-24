@@ -1,264 +1,450 @@
+/* ═══════════════════════════════════════════
+   Form Builder — Minimalist Modern Design
+   ═══════════════════════════════════════════ */
+
 .page {
-  padding: 30px;
-  max-width: 1000px;
+  padding: 28px 32px 120px;
+  max-width: 860px;
   margin: 0 auto;
 }
 
+/* ── Header ── */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid #e5e5e5;
+  margin-bottom: 28px;
+  background: #fff;
+  padding: 20px 24px;
+  border-radius: 14px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 14px;
 }
 
 .backBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   background: #f5f5f5;
-  color: #333;
+  color: #555;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: background 0.18s;
+  flex-shrink: 0;
 }
-
-.backBtn:hover {
-  background: #e5e5e5;
-}
+.backBtn:hover { background: #ebebeb; }
 
 .titleInput {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: #111;
   border: none;
   background: transparent;
   outline: none;
   width: 100%;
-  padding: 4px 0;
+  padding: 2px 0;
+  letter-spacing: -0.2px;
 }
-
-.titleInput:focus {
-  border-bottom: 2px solid #cc0000;
-}
+.titleInput:focus { border-bottom: 2px solid #dc2626; }
 
 .subtitle {
-  color: #666;
-  font-size: 13px;
-  margin-top: 4px;
+  color: #9ca3af;
+  font-size: 12.5px;
+  margin-top: 3px;
 }
 
+/* ── Builder ── */
 .builder {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 20px;
 }
 
+/* ── Section Card ── */
 .sectionCard {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e5e5e5;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  overflow: visible;
+  transition: box-shadow 0.2s;
+}
+.sectionCard:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
 }
 
 .sectionHeader {
-  background: #f8f9fa;
-  padding: 20px;
-  border-bottom: 1px solid #e5e5e5;
+  background: #fafafa;
+  padding: 18px 20px;
+  border-bottom: 1px solid #f3f3f3;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  border-radius: 16px 16px 0 0;
+  gap: 12px;
 }
+
+.sectionDragHandle {
+  cursor: grab;
+  color: #d1d5db;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+.sectionDragHandle:hover { color: #9ca3af; }
 
 .sectionTitleBlock {
   flex: 1;
 }
 
 .sectionBadge {
-  background: #333;
-  color: white;
-  font-size: 11px;
+  background: #111827;
+  color: #fff;
+  font-size: 10px;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 4px;
-  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
   margin-bottom: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 .sectionTitleInput {
   display: block;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   border: none;
   background: transparent;
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   outline: none;
+  color: #111;
+  letter-spacing: -0.2px;
 }
-
-.sectionTitleInput:focus {
-  border-bottom: 1px solid #cc0000;
-}
+.sectionTitleInput:focus { border-bottom: 1.5px solid #dc2626; }
 
 .sectionDescInput {
   display: block;
-  font-size: 14px;
-  color: #666;
+  font-size: 13.5px;
+  color: #9ca3af;
   border: none;
   background: transparent;
   width: 100%;
   outline: none;
 }
+.sectionDescInput:focus { color: #6b7280; }
 
+/* ── Icon Buttons ── */
 .iconBtn {
   background: transparent;
   border: none;
-  color: #999;
+  color: #d1d5db;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  padding: 7px;
+  border-radius: 8px;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
 .iconBtn:hover {
-  background: #ffe0e0;
-  color: #cc0000;
+  background: #fef2f2;
+  color: #dc2626;
 }
 
+/* ── Fields Container ── */
 .fieldsContainer {
-  padding: 20px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
 }
 
+/* ── Field Row ── */
 .fieldRow {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  background: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 15px;
+  background: #fff;
+  border: 1.5px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.fieldRow:hover {
+  border-color: #e5e7eb;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+.fieldRow:focus-within {
+  border-color: #fca5a5;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.06);
 }
 
 .fieldDrag {
   cursor: grab;
-  padding-top: 10px;
+  padding-top: 12px;
+  color: #e5e7eb;
+  flex-shrink: 0;
 }
+.fieldDrag:hover { color: #9ca3af; }
 
 .fieldBody {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 10px;
+  min-width: 0;
 }
 
+/* ── Field Top Row ── */
 .fieldTop {
   display: flex;
-  gap: 15px;
+  gap: 10px;
   align-items: center;
 }
 
 .fieldLabelInput {
   flex: 1;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
-  border: 1px solid #ddd;
-  padding: 8px 12px;
-  border-radius: 6px;
+  border: none;
+  background: transparent;
   outline: none;
+  color: #111827;
+  padding: 4px 0;
+  border-bottom: 1.5px solid transparent;
+  transition: border-color 0.18s;
+  min-width: 0;
 }
-
 .fieldLabelInput:focus {
-  border-color: #cc0000;
+  border-bottom-color: #dc2626;
+}
+.fieldLabelInput::placeholder { color: #d1d5db; }
+
+/* ── Type selector dropdown ── */
+.typeSelect {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  outline: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+  appearance: auto;
+}
+.typeSelect:hover { border-color: #d1d5db; background: #f3f4f6; }
+.typeSelect:focus { border-color: #dc2626; }
+
+
+/* ── Description block (below question input) ── */
+.descriptionBlock {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid #f3f4f6;
+  background: #fafafa;
 }
 
+/* ── Field Settings Bar ── */
 .fieldSettings {
   display: flex;
-  gap: 20px;
   align-items: center;
-  font-size: 13px;
-  color: #555;
+  gap: 4px;
+  flex-wrap: wrap;                  /* biarkan kondisi wrap ke bawah */
+  row-gap: 6px;
 }
 
 .settingItem {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 
+.settingItem label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+  background: #f9fafb;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.settingItem label:hover {
+  border-color: #e5e7eb;
+  color: #374151;
+}
+.settingItem input[type="checkbox"] {
+  accent-color: #dc2626;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+/* ── Conditional Logic Row ("Tampilkan jika") ── */
+.conditionRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  flex-wrap: wrap;                  /* wrap ke bawah kalau sempit */
+  justify-content: flex-end;
+}
+
+.condLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Custom dropdown wrapper */
+.condDropWrap {
+  position: relative;
+  flex-shrink: 0;
+  max-width: 200px;
+  min-width: 120px;
+}
+
+/* Trigger button */
+.condTrigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: #374151;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  overflow: hidden;
+}
+.condTrigger:hover   { border-color: #d1d5db; background: #f3f4f6; }
+.condTriggerOpen     { border-color: #dc2626 !important; background: #fff !important; }
+
+/* Truncate label text inside trigger */
+.condTriggerText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chevron icon */
+.condChev {
+  flex-shrink: 0;
+  color: #9ca3af;
+  transition: transform 0.15s;
+}
+.condTriggerOpen .condChev { transform: rotate(180deg); }
+
+/* Dropdown panel */
+.condPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;                         /* align kanan supaya tidak keluar layar */
+  min-width: 100%;
+  max-width: 320px;                 /* batas max supaya tidak terlalu lebar */
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  z-index: 999;
+  padding: 4px;
+}
+
+/* Option button dalam panel */
+.condOpt {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.4;
+  white-space: normal;              /* IZINKAN wrap text panjang */
+  word-break: break-word;
+  transition: background 0.12s;
+}
+.condOpt:hover     { background: #f3f4f6; }
+.condOptActive     { background: #FFF0F0; color: #dc2626; font-weight: 600; }
+
+/* Input text untuk nilai bebas */
+.condInput {
+  height: 28px;
+  padding: 0 8px;
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 120px;
+  flex-shrink: 0;
+}
+.condInput:hover   { border-color: #d1d5db; }
+.condInput:focus   { border-color: #dc2626; }
+.condInput::placeholder { color: #c4c9d4; font-style: italic; }
+
+
+/* ── Options Block ── */
 .optionsBlock {
-  background: white;
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px dashed #ccc;
+  background: #fafafa;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #f3f4f6;
 }
 
 .optionsLabel {
   display: block;
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 6px;
-}
-
-.sectionFooter {
-  padding: 15px 20px;
-  background: #f8f9fa;
-  border-top: 1px dashed #ddd;
-  text-align: center;
-}
-
-.addSectionBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 20px;
-  background: transparent;
-  border: 2px dashed #ccc;
-  color: #666;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.addSectionBtn:hover {
-  border-color: #cc0000;
-  color: #cc0000;
-  background: #fffafa;
-}
-
-.minimized .fieldsContainer,
-.minimized .sectionFooter {
-  display: none;
-}
-
-.minimized .sectionHeader {
-  border-bottom: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
 }
 
 .optionRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .optionDot {
@@ -266,40 +452,40 @@
   align-items: center;
   justify-content: center;
   width: 20px;
-  color: #ccc;
+  color: #d1d5db;
+  flex-shrink: 0;
 }
 
 .checkSquare {
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid #ccc;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid #d1d5db;
   border-radius: 3px;
 }
 
 .numberDot {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9ca3af;
 }
 
 .optionInput {
   flex: 1;
-  font-size: 13px;
-  border: 1px solid transparent;
-  padding: 4px 0;
+  font-size: 13.5px;
+  border: none;
+  padding: 3px 0;
   outline: none;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1.5px solid #f0f0f0;
   background: transparent;
+  color: #374151;
+  transition: border-color 0.15s;
 }
-
-.optionInput:focus {
-  border-bottom-color: #cc0000;
-}
+.optionInput:focus { border-bottom-color: #dc2626; }
 
 .addOptionRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  margin-top: 6px;
   padding-left: 28px;
 }
 
@@ -309,14 +495,117 @@
   gap: 4px;
   background: transparent;
   border: none;
-  color: #666;
-  font-size: 13px;
+  color: #9ca3af;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.addOptionBtn:hover { background: #f3f4f6; color: #374151; }
+
+/* ── Allow Other toggle ── */
+.allowOtherRow {
+  border-top: 1px dashed #e5e7eb;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
-.addOptionBtn:hover {
-  background: #f0f0f0;
-  color: #333;
+.allowOtherLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.allowOtherLabel input[type="checkbox"] {
+  accent-color: #dc2626;
+  cursor: pointer;
+}
+
+.otherPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1.5px dashed #e5e7eb;
+}
+
+.otherPreviewText {
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.otherPreviewInput {
+  font-size: 11px;
+  color: #d1d5db;
+  margin-left: 4px;
+}
+
+/* ── Section Footer ── */
+.sectionFooter {
+  padding: 14px 20px;
+  background: #fafafa;
+  border-top: 1px dashed #f0f0f0;
+  text-align: center;
+  border-radius: 0 0 16px 16px;
+}
+
+/* ── Add Section Button ── */
+.addSectionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 18px;
+  background: transparent;
+  border: 2px dashed #e5e7eb;
+  color: #9ca3af;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.1px;
+}
+.addSectionBtn:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+  background: #fff5f5;
+}
+
+/* ── Minimized state ── */
+.minimized .fieldsContainer,
+.minimized .sectionFooter { display: none; }
+.minimized .sectionHeader { border-bottom: none; border-radius: 16px; }
+
+/* ── Custom Region Block ── */
+.customRegionsBlock { margin-top: 8px; }
+.regionCard {}
+
+/* ── Removed descriptionLabel (no longer used) ── */
+.descriptionLabel { display: none; }
+
+/* ── Save Action FAB ── */
+.saveAction {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 100;
+}
+
+.saveBtn {
+  padding: 14px 28px !important;
+  border-radius: 50px !important;
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.3) !important;
+  font-size: var(--font-size-lg) !important;
+  font-weight: 600 !important;
 }

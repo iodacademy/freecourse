@@ -766,14 +766,14 @@
 }
 
 .amTitle {
-  font-size: 14px;
+  font-size: var(--font-size-lg);     /* was 14px */
   font-weight: 600;
   color: var(--color-primary-800);
   margin: 0 0 8px 0;
 }
 
 .amDesc {
-  font-size: 14px;
+  font-size: var(--font-size-lg);     /* was 14px */
   color: var(--color-gray-700);
   margin: 0 0 12px 0;
   line-height: 1.5;
@@ -788,7 +788,7 @@
   padding: 8px 16px;
   border-radius: 6px;
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--font-size-lg);     /* was 14px */
   font-weight: 500;
   transition: background-color 0.2s;
 }

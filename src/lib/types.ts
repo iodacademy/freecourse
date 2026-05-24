@@ -250,10 +250,11 @@ export interface DynamicFormField {
   placeholder?: string;
   options?: string[]; // for select, radio, checkbox
   description?: string;
-  dependsOn?: string; // ID of the field this field depends on
-  dependsOnValue?: string; // Value of the dependent field that triggers this field
+  dependsOn?: string;
+  dependsOnValue?: string;
   regionSource?: "auto" | "manual";
   customRegions?: { province: string; cities: string[] }[];
+  allowOther?: boolean; // aktifkan opsi "Lainnya" untuk radio & checkbox
 }
 
 export interface DynamicFormSection {

@@ -74,6 +74,7 @@ export default function PreviewModal({ form, onClose }: PreviewModalProps) {
     }
 
     if (field.type === 'radio') {
+      const otherText = previewAnswers[`${field.name}__other`] || "";
       return (
         <div className={styles.radioGroup}>
           {(field.options || []).map((opt) => (
@@ -86,12 +87,34 @@ export default function PreviewModal({ form, onClose }: PreviewModalProps) {
               <span className={styles.radioLabel}>{opt}</span>
             </div>
           ))}
+          {field.allowOther && (
+            <div 
+              className={`${styles.radioOpt} ${val === '__other__' ? styles.radioSel : ""}`}
+              onClick={() => setAnswer(field.name, '__other__')}
+            >
+              <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
+              {val === '__other__' ? (
+                <input
+                  type="text"
+                  className={styles.otherInput}
+                  placeholder="Sebutkan..."
+                  value={otherText}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <span className={styles.radioLabel}>Lainnya</span>
+              )}
+            </div>
+          )}
         </div>
       );
     }
 
     if (field.type === 'checkbox') {
       const selected = Array.isArray(val) ? val : [];
+      const otherText = previewAnswers[`${field.name}__other`] || "";
       const toggleCheck = (opt: string) => {
         if (selected.includes(opt)) setAnswer(field.name, selected.filter((o: string) => o !== opt));
         else setAnswer(field.name, [...selected, opt]);
@@ -108,6 +131,27 @@ export default function PreviewModal({ form, onClose }: PreviewModalProps) {
               <span className={styles.chkLabel}>{opt}</span>
             </div>
           ))}
+          {field.allowOther && (
+            <div
+              className={`${styles.chkItem} ${selected.includes('__other__') ? styles.chkSel : ""}`}
+              onClick={() => toggleCheck('__other__')}
+            >
+              <div className={styles.chkBox}><svg className={styles.chkTick} viewBox="0 0 12 12"><polyline points="1.5 6 4.5 9 10.5 3" /></svg></div>
+              {selected.includes('__other__') ? (
+                <input
+                  type="text"
+                  className={styles.otherInput}
+                  placeholder="Sebutkan..."
+                  value={otherText}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <span className={styles.chkLabel}>Lainnya</span>
+              )}
+            </div>
+          )}
         </div>
       );
     }
@@ -166,7 +210,12 @@ export default function PreviewModal({ form, onClose }: PreviewModalProps) {
                 {field.label}
                 {field.required && <span className={styles.req}>*</span>}
               </label>
-              {field.description && <div className={styles.fieldHint} style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>{field.description}</div>}
+              {field.description && (
+                <div
+                  className={styles.fieldHint}
+                  dangerouslySetInnerHTML={{ __html: field.description }}
+                />
+              )}
               {renderField(field)}
             </div>
           ))}

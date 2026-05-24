@@ -112,11 +112,11 @@
 
 .radioGroup {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .radioOpt {
-  flex: 1;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -253,3 +253,38 @@
 .submitBtn:hover {
   background: #aa0000;
 }
+
+/* ── Field description / hint (rich text HTML) ── */
+.fieldHint {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+
+.fieldHint b, .fieldHint strong { font-weight: 700; }
+.fieldHint i, .fieldHint em { font-style: italic; }
+.fieldHint u { text-decoration: underline; }
+.fieldHint s { text-decoration: line-through; }
+.fieldHint h3 { font-size: 14px; font-weight: 700; margin: 6px 0 4px; color: #222; }
+.fieldHint ol { padding-left: 18px; margin: 4px 0; list-style-type: decimal; }
+.fieldHint ul { padding-left: 18px; margin: 4px 0; list-style-type: disc; }
+.fieldHint li { margin: 2px 0; }
+.fieldHint p { margin: 3px 0; }
+
+/* ── "Lainnya" inline input (replaces label when selected) ── */
+.otherInput {
+  flex: 1;
+  padding: 0 4px;
+  font-size: var(--font-size-lg);   /* was 14px */
+  font-weight: 600;
+  font-family: inherit;
+  color: #cc0000;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid #fca5a5;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+}
+.otherInput::placeholder { color: #fca5a5; font-weight: 400; font-style: italic; }

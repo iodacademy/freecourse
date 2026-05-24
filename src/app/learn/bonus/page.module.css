@@ -45,7 +45,7 @@
 }
 
 .eyebrow {
-  font-size: 11px;
+  font-size: var(--font-size-sm);   /* was 11px */
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--color-primary);
@@ -53,7 +53,7 @@
 }
 
 .pageTitle {
-  font-size: 26px;
+  font-size: 26px;                  /* intentional display size, no token */
   font-weight: 800;
   color: var(--color-gray-900);
   margin: 0 0 12px;
@@ -61,7 +61,7 @@
 }
 
 .pageDesc {
-  font-size: 14px;
+  font-size: var(--font-size-lg);   /* was 14px */
   color: var(--color-gray-500);
   line-height: 1.65;
   margin: 0;
@@ -132,7 +132,7 @@
   position: absolute;
   top: 6px;
   right: 10px;
-  font-size: 36px;
+  font-size: 36px;                  /* intentional dekoratif watermark */
   font-weight: 900;
   color: rgba(204, 0, 0, 0.12);
   line-height: 1;
@@ -147,7 +147,7 @@
 
 .topicRowName {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--font-size-md);   /* was 13px */
   font-weight: 600;
   color: var(--color-gray-800);
   line-height: 1.35;
@@ -172,7 +172,7 @@
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: var(--font-size-lg);   /* was 15px → closest token 14px */
   font-weight: 700;
   font-family: var(--font-family);
   cursor: pointer;
@@ -196,14 +196,14 @@
 
 .hint {
   text-align: center;
-  font-size: 12px;
+  font-size: var(--font-size-base);  /* was 12px */
   color: var(--color-gray-400);
   margin: 0;
 }
 
 /* ─── Error ─── */
 .errorMsg {
-  font-size: 13px;
+  font-size: var(--font-size-md);   /* was 13px */
   color: var(--color-primary);
   background: #fff0f0;
   border: 1px solid #ffd0d0;
@@ -217,7 +217,7 @@
   text-align: center;
   padding: 40px 0;
   color: var(--color-gray-400);
-  font-size: 14px;
+  font-size: var(--font-size-lg);   /* was 14px */
 }
 
 /* ─── Success ─── */
@@ -278,7 +278,7 @@
 }
 
 .successTitle {
-  font-size: 24px;
+  font-size: var(--font-size-4xl);  /* was 24px */
   font-weight: 800;
   color: white;
   margin: 0 0 8px;
@@ -287,7 +287,7 @@
 }
 
 .successDesc {
-  font-size: 14px;
+  font-size: var(--font-size-lg);   /* was 14px */
   color: rgba(255,255,255,0.8);
   line-height: 1.6;
   margin: 0;
@@ -307,7 +307,7 @@
 }
 
 .codeLabel {
-  font-size: 10px;
+  font-size: var(--font-size-xs);   /* was 10px */
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--color-gray-400);
@@ -328,7 +328,7 @@
 }
 
 .codeText {
-  font-size: 18px;
+  font-size: var(--font-size-2xl);  /* was 18px */
   font-weight: 900;
   color: var(--color-primary);
   font-family: "Courier New", monospace;
@@ -345,7 +345,7 @@
   background: var(--color-primary);
   border: none;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--font-size-base);  /* was 12px */
   font-weight: 700;
   color: white;
   cursor: pointer;
@@ -360,7 +360,7 @@
 }
 
 .codeNote {
-  font-size: 12px;
+  font-size: var(--font-size-base);  /* was 12px */
   color: var(--color-gray-400);
   margin: 0;
   text-align: center;
@@ -378,7 +378,7 @@
   color: white;
   text-decoration: none;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: var(--font-size-lg);    /* was 15px → token 14px */
   font-weight: 700;
   margin-bottom: 28px;
   transition: all 0.15s;
@@ -402,7 +402,7 @@
 }
 
 .stepsTitle {
-  font-size: 11px;
+  font-size: var(--font-size-sm);    /* was 11px */
   font-weight: 700;
   color: var(--color-gray-400);
   letter-spacing: 1.5px;
@@ -422,7 +422,7 @@
 }
 
 .stepsList li {
-  font-size: 13px;
+  font-size: var(--font-size-md);    /* was 13px */
   color: var(--color-gray-600);
   line-height: 1.5;
   display: flex;
@@ -438,7 +438,7 @@
   border-radius: 50%;
   background: var(--color-primary);
   color: white;
-  font-size: 10px;
+  font-size: var(--font-size-xs);    /* was 10px */
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -457,15 +457,14 @@
   }
 
   .pageTitle {
-    font-size: 22px;
+    font-size: 22px;                 /* intentional mobile display size */
   }
 
   .successTitle {
-    font-size: 20px;
+    font-size: var(--font-size-3xl); /* was 20px */
   }
 
   .codeText {
-    font-size: 14px;
+    font-size: var(--font-size-lg);  /* was 14px mobile */
   }
 }
-

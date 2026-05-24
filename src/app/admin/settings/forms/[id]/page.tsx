@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
-import { ArrowLeft, Plus, Trash2, GripVertical, Settings2, Save, Circle, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, GripVertical, Settings2, Save, Circle, ChevronDown, ChevronUp, AlignLeft } from "lucide-react";
+import RichTextEditor from "@/components/RichTextEditor/RichTextEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import type { DynamicForm, DynamicFormSection, DynamicFormField } from "@/lib/types";
 import Link from "next/link";
@@ -16,6 +17,64 @@ function generateId() {
 
 function slugify(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
+}
+/* ─── Custom Condition Select ─── */
+type CondOption = { value: string; label: string };
+function CondSelect({
+  value, onChange, options, placeholder = '-- Selalu Tampil --'
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: CondOption[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selected = options.find(o => o.value === value);
+  const displayLabel = selected?.label || placeholder;
+
+  return (
+    <div ref={ref} className={styles.condDropWrap}>
+      <button
+        type="button"
+        className={`${styles.condTrigger} ${open ? styles.condTriggerOpen : ''}`}
+        onClick={() => setOpen(p => !p)}
+      >
+        <span className={styles.condTriggerText}>{displayLabel}</span>
+        <ChevronDown size={12} className={styles.condChev} />
+      </button>
+      {open && (
+        <div className={styles.condPanel}>
+          <button
+            type="button"
+            className={`${styles.condOpt} ${!value ? styles.condOptActive : ''}`}
+            onClick={() => { onChange(''); setOpen(false); }}
+          >
+            {placeholder}
+          </button>
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`${styles.condOpt} ${opt.value === value ? styles.condOptActive : ''}`}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function FormBuilderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -257,18 +316,11 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
           </div>
         </header>
 
-        <div style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 100 }}>
+        <div className={styles.saveAction}>
           <button 
-            className="btn btn-primary" 
+            className={`btn btn-primary ${styles.saveBtn}`}
             onClick={saveForm} 
             disabled={saving}
-            style={{ 
-              padding: '14px 28px', 
-              borderRadius: '50px', 
-              boxShadow: '0 8px 24px rgba(220, 38, 38, 0.3)', 
-              fontSize: '15px',
-              fontWeight: 600
-            }}
           >
             <Save size={20} style={{ marginRight: 8, display: 'inline' }} />
             {saving ? "Menyimpan..." : "Simpan Form"}
@@ -345,8 +397,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                           placeholder="Pertanyaan"
                         />
                         <select 
-                          className="input" 
-                          style={{ width: 150 }}
+                          className={styles.typeSelect}
                           value={field.type}
                           onChange={e => updateField(section.id, field.id, { type: e.target.value as any })}
                         >
@@ -363,6 +414,17 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                         </select>
                       </div>
 
+                      {/* ── Deskripsi pertanyaan (tepat di bawah input label) ── */}
+                      {field.description !== undefined && (
+                        <div className={styles.descriptionBlock}>
+                          <RichTextEditor
+                            value={field.description}
+                            onChange={val => updateField(section.id, field.id, { description: val })}
+                            placeholder="Tulis deskripsi, instruksi, atau keterangan tambahan untuk pertanyaan ini..."
+                          />
+                        </div>
+                      )}
+
                       <div className={styles.fieldSettings}>
 
                         <div className={styles.settingItem}>
@@ -374,42 +436,47 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                             /> Wajib Diisi
                           </label>
                         </div>
+
+                        <div className={styles.settingItem}>
+                          <label style={{ color: '#374151', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <input
+                              type="checkbox"
+                              checked={field.description !== undefined}
+                              onChange={e => updateField(section.id, field.id, {
+                                description: e.target.checked ? (field.description ?? "") : undefined
+                              })}
+                            />
+                            <AlignLeft size={13} style={{ opacity: 0.6 }} />
+                            Tambah Deskripsi
+                          </label>
+                        </div>
+
                         {prevFields.length > 0 && (
-                          <div className={styles.settingItem} style={{ marginLeft: 'auto' }}>
-                            <label style={{ fontSize: 11 }}>Tampilkan jika:</label>
-                            <select 
-                              className="input" 
-                              style={{ padding: '2px 4px', fontSize: 11, width: 120 }}
+                          <div className={styles.conditionRow}>
+                            <span className={styles.condLabel}>Tampilkan jika:</span>
+                            <CondSelect
                               value={field.dependsOn || ""}
-                              onChange={e => updateField(section.id, field.id, { dependsOn: e.target.value, dependsOnValue: "" })}
-                            >
-                              <option value="">-- Selalu Tampil --</option>
-                              {prevFields.map(pf => <option key={pf.id} value={pf.name}>{pf.label}</option>)}
-                            </select>
+                              onChange={v => updateField(section.id, field.id, { dependsOn: v, dependsOnValue: "" })}
+                              options={prevFields.map(pf => ({ value: pf.name, label: pf.label }))}
+                            />
                             {field.dependsOn && (() => {
                               const depField = prevFields.find(pf => pf.name === field.dependsOn);
                               const hasOptions = depField && ['radio', 'checkbox', 'select'].includes(depField.type) && (depField.options || []).length > 0;
-                              
+
                               return hasOptions ? (
-                                <select
-                                  className="input"
-                                  style={{ padding: '2px 4px', fontSize: 11, width: 100 }}
+                                <CondSelect
                                   value={field.dependsOnValue || ""}
-                                  onChange={e => updateField(section.id, field.id, { dependsOnValue: e.target.value })}
-                                >
-                                  <option value="">-- Pilih Nilai --</option>
-                                  {(depField.options || []).map(opt => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
+                                  onChange={v => updateField(section.id, field.id, { dependsOnValue: v })}
+                                  options={(depField.options || []).map(opt => ({ value: opt, label: opt }))}
+                                  placeholder="-- Nilai --"
+                                />
                               ) : (
-                                <input 
+                                <input
                                   type="text"
-                                  className="input"
-                                  style={{ padding: '2px 4px', fontSize: 11, width: 100 }}
+                                  className={styles.condInput}
                                   value={field.dependsOnValue || ""}
                                   onChange={e => updateField(section.id, field.id, { dependsOnValue: e.target.value })}
-                                  placeholder="Nilai Jawaban ="
+                                  placeholder="= nilai..."
                                 />
                               );
                             })()}
@@ -459,8 +526,31 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                               <Plus size={14} /> Tambah Opsi
                             </button>
                           </div>
+
+                          {/* ── Lainnya toggle ── */}
+                          <div className={styles.allowOtherRow}>
+                            <label className={styles.allowOtherLabel}>
+                              <input
+                                type="checkbox"
+                                checked={field.allowOther || false}
+                                onChange={e => updateField(section.id, field.id, { allowOther: e.target.checked })}
+                              />
+                              Aktifkan opsi &ldquo;Lainnya (isi sendiri)&rdquo;
+                            </label>
+                            {field.allowOther && (
+                              <div className={styles.otherPreviewRow}>
+                                <div className={styles.optionDot}>
+                                  {field.type === 'radio' ? <Circle size={13} color="#aaa" /> : <div className={styles.checkSquare} />}
+                                </div>
+                                <span className={styles.otherPreviewText}>Lainnya...</span>
+                                <span className={styles.otherPreviewInput}>[ input teks ]</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
+
+
 
                       {field.type === 'province_city' && (
                         <div className={styles.optionsBlock}>
