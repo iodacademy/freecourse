@@ -81,20 +81,22 @@ export default function CertificatesSettingsPage() {
     }
   }
 
-  if (loading) return <div style={{ padding: 24 }}>Memuat...</div>;
+  if (loading) return <div style={{ padding: "24px", color: "#9ca3af", fontSize: 14 }}>Memuat...</div>;
 
   return (
     <div className={styles.page}>
-      {/* ── INTEGRASI GAS ── */}
+
+      {/* ── GAS ── */}
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Integrasi Google Apps Script (GAS)</h2>
-        <p className={styles.sectionDesc}>URL Web App GAS untuk generate sertifikat PDF dan kirim email otomatis.</p>
-        
+        <h2 className={styles.sectionTitle}>Google Apps Script (GAS)</h2>
+        <p className={styles.sectionDesc}>
+          URL Web App GAS untuk generate sertifikat PDF dan kirim email otomatis kepada peserta.
+        </p>
         <div className={styles.inputGroup}>
           <label className={styles.label}>GAS Web App URL</label>
-          <input 
-            type="text" 
-            className="input w-full" 
+          <input
+            type="text"
+            className={styles.fieldInput}
             value={settings.gasWebAppUrl}
             onChange={(e) => setSettings({ ...settings, gasWebAppUrl: e.target.value })}
             placeholder="https://script.google.com/macros/s/.../exec"
@@ -103,24 +105,25 @@ export default function CertificatesSettingsPage() {
         {settings.gasWebAppUrl && (
           <div className={styles.testConnection}>
             <span className={styles.statusOk}>
-              <CheckCircle size={15} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />
+              <CheckCircle size={13} />
               URL sudah diisi
             </span>
           </div>
         )}
       </div>
 
-      {/* ── SERTIFIKAT KURSUS UTAMA ── */}
+      {/* ── Sertifikat Kursus Utama ── */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Sertifikat Kursus Utama</h2>
         <p className={styles.sectionDesc}>
           Judul yang tampil pada kalimat <em>"materi modul …"</em> di halaman klaim sertifikat peserta.
+          Jika kosong, menggunakan judul modul dari pengaturan kursus.
         </p>
         <div className={styles.inputGroup}>
           <label className={styles.label}>Judul Sertifikat</label>
           <input
             type="text"
-            className="input w-full"
+            className={styles.fieldInput}
             value={settings.mainCertTitle}
             onChange={(e) => setSettings({ ...settings, mainCertTitle: e.target.value })}
             placeholder="Contoh: Literasi Finansial Dasar"
@@ -128,39 +131,38 @@ export default function CertificatesSettingsPage() {
         </div>
       </div>
 
-      {/* ── SERTIFIKAT WORKSHOP ── */}
+      {/* ── Sertifikat Workshop ── */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Sertifikat Kehadiran Workshop</h2>
         <p className={styles.sectionDesc}>
-          ID template Google Slide untuk sertifikat kehadiran workshop. Data judul dan tanggal diambil otomatis dari data event.
+          ID template Google Slide untuk sertifikat kehadiran workshop.
+          Salin dari URL: docs.google.com/presentation/d/<strong>[ID]</strong>/edit
         </p>
         <div className={styles.inputGroup}>
-          <label className={styles.label}>ID Template Google Slide (Workshop)</label>
+          <label className={styles.label}>ID Template Google Slide</label>
           <input
             type="text"
-            className="input w-full"
+            className={styles.fieldInput}
             value={settings.workshopCertSlideTemplateId}
             onChange={(e) => setSettings({ ...settings, workshopCertSlideTemplateId: e.target.value })}
             placeholder="1BxiMVs0XRA5nFMDkVBdBZjgmUUqptlbs74OgVE2upms"
           />
-          <p style={{ fontSize: 12, color: "#888", marginTop: 4, marginBottom: 0 }}>
-            Salin dari URL Google Slides: docs.google.com/presentation/d/<strong>[ID di sini]</strong>/edit
-          </p>
         </div>
       </div>
 
-      {/* ── TOMBOL SIMPAN ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button 
-          className="btn btn-primary" 
-          onClick={saveSettings} 
+      {/* ── Simpan ── */}
+      <div className={styles.saveBanner}>
+        <button
+          className="btn btn-primary"
+          onClick={saveSettings}
           disabled={saving}
+          style={{ fontSize: 14, padding: '9px 20px' }}
         >
-          <Save size={16} style={{ marginRight: 8, display: 'inline' }} />
+          <Save size={15} />
           {saving ? "Menyimpan..." : "Simpan Pengaturan"}
         </button>
-        {saveSuccess && <span style={{ color: "var(--color-success)", fontSize: 14, fontWeight: 600 }}>✓ Tersimpan!</span>}
-        {saveError && <span style={{ color: "#cc0000", fontSize: 14 }}>{saveError}</span>}
+        {saveSuccess && <span style={{ color: "#059669", fontSize: 13, fontWeight: 600 }}>✓ Tersimpan</span>}
+        {saveError && <span style={{ color: "#cc0000", fontSize: 13 }}>{saveError}</span>}
       </div>
     </div>
   );

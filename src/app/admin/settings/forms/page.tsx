@@ -134,14 +134,6 @@ export default function AdminFormsPage() {
   return (
     <>
       <div className={styles.page}>
-        <div className={styles.contentTop} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h2 style={{ fontSize: 18, margin: 0 }}>Daftar Form</h2>
-          <button className="btn btn-primary" onClick={() => setShowPrompt(true)}>
-            <Plus size={18} style={{ marginRight: 8, display: 'inline' }} />
-            Buat Form Baru
-          </button>
-        </div>
-
         <div className={styles.content}>
           {loading ? (
             <p>Memuat form...</p>
@@ -201,6 +193,19 @@ export default function AdminFormsPage() {
                       </td>
                     </tr>
                   ))}
+
+                  {/* ── BARIS PLACEHOLDER TAMBAH ── */}
+                  <tr
+                    onClick={() => setShowPrompt(true)}
+                    style={{ cursor: 'pointer', opacity: 0.5 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.opacity = '1'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.opacity = '0.5'; }}
+                  >
+                    <td colSpan={5} style={{ color: '#888', fontSize: 13, borderTop: '1px dashed #e5e7eb' }}>
+                      <Plus size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                      Tambah form baru...
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
