@@ -82,7 +82,11 @@ export default function CertificatePage() {
         if (courseRes.ok) {
           const courseData = await courseRes.json();
           setCourseSteps(courseData.steps || []);
-          setCourseName(courseData.title || "Kursus Literasi Finansial");
+          setCourseName(
+            courseData.course?.mainCertTitle || 
+            courseData.course?.title || 
+            "Kursus Literasi Finansial"
+          );
         }
       } catch (e) {
         console.error("[CertificatePage]", e);

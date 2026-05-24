@@ -37,7 +37,16 @@ export async function GET(req: NextRequest) {
       courseDoc = await courseRef.get();
     }
 
-    const courseData = { id: courseDoc.id, ...courseDoc.data() };
+    const courseData = { id: courseDoc.id, ...courseDoc.data() } as any;
+
+    // 1.5 Ambil settings untuk mainCertTitle
+    const settingsDoc = await db.collection("settings").doc("app").get();
+    if (settingsDoc.exists) {
+      const settingsData = settingsDoc.data() || {};
+      if (settingsData.mainCertTitle) {
+        courseData.mainCertTitle = settingsData.mainCertTitle;
+      }
+    }
 
     // 2. Dapatkan Semua Steps
     const stepsSnap = await db.collection("courseSteps")
