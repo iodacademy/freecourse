@@ -25,12 +25,9 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Cek keberadaan header Authorization ATAU X-Firebase-Token (fallback)
-    // Hostinger strip header Authorization, jadi kita juga cek X-Firebase-Token
+    // Cek keberadaan header Authorization
     const authHeader = request.headers.get('Authorization');
-    const fallbackToken = request.headers.get('X-Firebase-Token');
-    
-    if ((!authHeader || !authHeader.startsWith('Bearer ')) && !fallbackToken) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new NextResponse(
         JSON.stringify({ error: 'Missing or invalid Authorization header' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
