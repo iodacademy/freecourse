@@ -186,9 +186,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        console.error("[updateUserProfile] API error:", res.status, errData);
-        throw new Error(errData.error || "Gagal update profil");
+        const rawText = await res.text();
+        console.error("[updateUserProfile] API error:", res.status, rawText);
+        // Coba parse JSON, kalau gagal tampilkan raw text
+        let errorMsg = `HTTP ${res.status}`;
+        try {
+          const errData = JSON.parse(rawText);
+          errorMsg = errData.error || errorMsg;
+        } catch {
+          errorMsg = `HTTP ${res.status}: ${rawText.substring(0, 200)}`;
+        }
+        throw new Error(errorMsg);
       }
       
       const updatedData = await res.json();
