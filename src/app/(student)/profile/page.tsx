@@ -304,8 +304,10 @@ function ProfileContent() {
       setTimeout(() => {
         router.push("/learn");
       }, 1500);
-    } catch {
-      setErrors({ submit: "Gagal menyimpan data. Silakan coba lagi." });
+    } catch (err: any) {
+      const msg = err?.message || "Unknown error";
+      console.error("[Profile Submit Error]", msg, err);
+      setErrors({ submit: `Gagal menyimpan data: ${msg}` });
     } finally {
       setSubmitting(false);
     }
