@@ -1,27 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { GraduationCap, Award, CheckCircle, Loader2, ExternalLink, Lock } from "lucide-react";
 import styles from "./ProfileDrawer.module.css";
-
-// Dummy profile data — will be replaced by Firestore data later
-const DUMMY_PROFILE = {
-  namaLengkap: "Ahmad Farhan Rizaldi",
-  jenisKelamin: "Laki-laki",
-  tanggalLahir: "2000-05-15",
-  email: "ahmad.farhan@gmail.com",
-  whatsapp: "08123456789",
-  provinsi: "Jawa Barat",
-  kota: "Kota Bandung",
-  disabilitas: "Tidak",
-  disabKategori: [] as string[],
-  kursusSelesai: 2,
-  rataScore: 82,
-  sertifikat: 1,
-  progress: 67,
-};
 
 function getInitials(name: string) {
   return name.split(" ").slice(0, 2).map((w) => w[0] || "").join("").toUpperCase();
@@ -37,6 +21,18 @@ function getAge(ttlStr: string): string {
   return `${formatted} (${age} tahun)`;
 }
 
+interface EnrollmentInfo {
+  id: string;
+  courseId: string;
+  channelSource?: string;
+  certificateClaimed: boolean;
+  certificateId?: string;
+  workshopCertificateClaimed?: boolean;
+  workshopCertificateId?: string;
+  currentStep?: number;
+  totalSteps?: number;
+  status?: "enrolled" | "in_progress" | "completed" | "certified";
+}
 
 interface ProfileDrawerProps {
   open: boolean;
@@ -46,6 +42,12 @@ interface ProfileDrawerProps {
 export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
   const router = useRouter();
   const { user, profile } = useAuth();
+
+  const [enrollment, setEnrollment] = useState<EnrollmentInfo | null>(null);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const [claimingWorkshop, setClaimingWorkshop] = useState(false);
+  const [workshopClaimError, setWorkshopClaimError] = useState("");
+  const [workshopClaimed, setWorkshopClaimed] = useState(false);
 
   // Close on Escape
   useEffect(() => {
@@ -62,11 +64,82 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
+  // Fetch enrollment data saat drawer dibuka
+  useEffect(() => {
+    if (!open || !user) return;
+
+    async function loadEnrollment() {
+      try {
+        const idToken = await user!.getIdToken();
+        const [enrollRes, courseRes] = await Promise.all([
+          fetch("/api/enrollments", { headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store" }),
+          fetch("/api/courses/main", { headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store" }),
+        ]);
+
+        if (enrollRes.ok) {
+          const enrollments: EnrollmentInfo[] = await enrollRes.json();
+          const main = enrollments.find((e) => e.courseId === "course-main");
+          if (main) {
+            setEnrollment(main);
+            setWorkshopClaimed(!!main.workshopCertificateClaimed);
+          }
+        }
+
+        if (courseRes.ok) {
+          const courseData = await courseRes.json();
+          setTotalSteps((courseData.steps || []).length);
+        }
+      } catch {
+        // Tidak fatal jika gagal load
+      }
+    }
+
+    loadEnrollment();
+  }, [open, user]);
+
+  const handleClaimWorkshopCert = useCallback(async () => {
+    if (!user || !enrollment) return;
+    setClaimingWorkshop(true);
+    setWorkshopClaimError("");
+
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollment.id}/claim-workshop-cert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setWorkshopClaimError(data.error || "Gagal mengklaim sertifikat workshop.");
+        return;
+      }
+
+      setWorkshopClaimed(true);
+      setEnrollment((prev) => prev ? {
+        ...prev,
+        workshopCertificateClaimed: true,
+        workshopCertificateId: data.certId,
+      } : prev);
+
+      if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+    } catch {
+      setWorkshopClaimError("Terjadi kesalahan. Periksa koneksi internet dan coba lagi.");
+    } finally {
+      setClaimingWorkshop(false);
+    }
+  }, [user, enrollment]);
+
   // Extract data from Firestore profile or fallback to user
-  const namaLengkap = profile?.displayName || user?.displayName || "Pengguna";
+  const namaLengkap = profile?.profileData?.namaLengkap || profile?.displayName || user?.displayName || "Pengguna";
   const email = profile?.email || user?.email || "Tidak ada email";
   const photoURL = profile?.photoURL || user?.photoURL || null;
   const partnerCode = profile?.partnerCode || null;
+  const channelSource = profile?.channelSource || null;
   const profileData = profile?.profileData || {};
 
   const jenisKelamin = profileData.jenis_kelamin || "—";
@@ -76,10 +149,19 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
   const provinsi = asalDaerah?.province || (typeof profileData.asal_daerah === "string" ? profileData.asal_daerah : "—");
   const kota = asalDaerah?.city || "—";
   const disabilitas = profileData.disabilitas || "—";
-  // The disabilitas options from dynamic forms might be different, just handle "Ya" vs "Tidak"
-  // For disabKategori, currently profileData might not have it as an array if it wasn't requested, we will skip it or use a default if it's there
-  
+
   const initials = getInitials(namaLengkap);
+
+  // Hitung status sertifikat utama
+  const mainCertClaimed = enrollment?.certificateClaimed ?? false;
+  const mainCertId = enrollment?.certificateId ?? null;
+  const currentStep = enrollment?.currentStep ?? 1;
+  // Dianggap selesai jika status sudah completed/certified,
+  // ATAU currentStep sudah melampaui total step
+  const isAllStepsDone =
+    enrollment?.status === "completed" ||
+    enrollment?.status === "certified" ||
+    (totalSteps > 0 && currentStep > totalSteps);
 
   return (
     <>
@@ -111,19 +193,145 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
         {/* Body */}
         <div className={styles.body}>
           <div className={styles.profName}>{namaLengkap}</div>
-          <div style={{ marginBottom: 6 }}>
-            <span className={styles.roleBadge}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-              </svg>
-              Peserta Modul
-            </span>
-          </div>
-          <div className={styles.onlinePill}>
-            <div className={styles.onlineDot} />
-            Online Sekarang
-          </div>
+
+          {/* ── SERTIFIKAT SAYA ── tampil di bawah nama ── */}
+          {enrollment && (
+            <div className={styles.section} style={{ marginTop: 10, marginBottom: 4 }}>
+              <div className={styles.sectionTitle}>SERTIFIKAT SAYA</div>
+
+              {/* Tombol 1: Sertifikat Kursus Utama */}
+              <div style={{ marginBottom: 10 }}>
+                <div className={styles.infoLbl} style={{ marginBottom: 6 }}>Sertifikat Financial Literacy</div>
+                {mainCertClaimed && mainCertId ? (
+                  // Sudah diklaim
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: "#e8f5e9", border: "1px solid #a5d6a7",
+                      borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
+                    }}>
+                      <CheckCircle size={14} />
+                      Sertifikat sudah diklaim
+                    </div>
+                    <a
+                      href={`/verify/${mainCertId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                        fontSize: 12, color: "var(--color-primary)", textDecoration: "none",
+                        border: "1px solid var(--color-primary)", borderRadius: 6, padding: "6px 10px",
+                      }}
+                    >
+                      <ExternalLink size={12} /> Lihat Sertifikat
+                    </a>
+                  </div>
+                ) : isAllStepsDone ? (
+                  // Semua materi selesai, belum klaim
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, justifyContent: "center", fontSize: 13 }}
+                    onClick={() => { onClose(); router.push("/learn/certificate"); }}
+                  >
+                    <GraduationCap size={14} />
+                    Klaim Sertifikat Sekarang
+                  </button>
+                ) : (
+                  // Belum selesai semua materi
+                  <button
+                    disabled
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                      fontSize: 12, opacity: 1, cursor: "not-allowed",
+                      background: "#9e9e9e", color: "white", border: "none",
+                      borderRadius: 8, padding: "8px 12px", fontWeight: 500,
+                    }}
+                  >
+                    <Lock size={12} />
+                    Selesaikan semua materi terlebih dahulu
+                  </button>
+                )}
+              </div>
+
+              {/* Tombol 2: Sertifikat Workshop — hanya untuk channelSource=workshop */}
+              {channelSource === "workshop" && (
+                <div>
+                  <div className={styles.infoLbl} style={{ marginBottom: 6 }}>Sertifikat Kehadiran Workshop</div>
+                  {(workshopClaimed || enrollment?.workshopCertificateClaimed) ? (
+                    // Sudah diklaim
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: "#e8f5e9", border: "1px solid #a5d6a7",
+                        borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
+                      }}>
+                        <CheckCircle size={14} />
+                        Sertifikat workshop sudah diklaim
+                      </div>
+                      {enrollment?.workshopCertificateId && (
+                        <a
+                          href={`/verify/${enrollment.workshopCertificateId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                            fontSize: 12, color: "var(--color-primary)", textDecoration: "none",
+                            border: "1px solid var(--color-primary)", borderRadius: 6, padding: "6px 10px",
+                          }}
+                        >
+                          <ExternalLink size={12} /> Lihat Sertifikat Workshop
+                        </a>
+                      )}
+                    </div>
+                  ) : !mainCertClaimed ? (
+                    // Sertifikat utama belum diklaim
+                    <button
+                      disabled
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                        fontSize: 12, opacity: 1, cursor: "not-allowed",
+                        background: "#9e9e9e", color: "white", border: "none",
+                        borderRadius: 8, padding: "8px 12px", fontWeight: 500,
+                      }}
+                    >
+                      <Lock size={12} />
+                      Klaim sertifikat utama terlebih dahulu
+                    </button>
+                  ) : (
+                    // Sertifikat utama sudah diklaim, belum klaim workshop
+                    <>
+                      {workshopClaimError && (
+                        <div style={{
+                          fontSize: 11, color: "#c62828", background: "#ffebee",
+                          border: "1px solid #ef9a9a", borderRadius: 6, padding: "6px 10px",
+                          marginBottom: 6,
+                        }}>
+                          {workshopClaimError}
+                        </div>
+                      )}
+                      <button
+                        style={{
+                          width: "100%", display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                          fontSize: 13, fontWeight: 600, cursor: claimingWorkshop ? "not-allowed" : "pointer",
+                          background: "var(--color-primary)", color: "white", border: "none",
+                          borderRadius: 8, padding: "9px 12px", opacity: claimingWorkshop ? 0.7 : 1,
+                          transition: "opacity 0.2s",
+                        }}
+                        onClick={handleClaimWorkshopCert}
+                        disabled={claimingWorkshop}
+                      >
+                        {claimingWorkshop ? (
+                          <><Loader2 size={14} className="animate-spin" />Memproses...</>
+                        ) : (
+                          <><Award size={14} />Klaim Sertifikat Kehadiran</>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Data Diri */}
           <div className={styles.section}>
@@ -188,8 +396,11 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
             </div>
           </div>
 
-          <button 
-            className={styles.editBtn} 
+
+
+
+          <button
+            className={styles.editBtn}
             onClick={() => {
               onClose();
               router.push("/profile?edit=true");

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import { Loader2, Check, Copy, ExternalLink, ChevronRight } from "lucide-react";
 import styles from "./page.module.css";
 
@@ -100,18 +100,15 @@ export default function BonusCoursePage() {
 
   const showSuccess = !!redeemCode;
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <div className={styles.centered}>
-          <Loader2 size={28} className={styles.spinner} />
-        </div>
-      </ProtectedRoute>
-    );
-  }
+  const { signalReady } = useLearnLoading();
+  useEffect(() => {
+    if (!loading) signalReady();
+  }, [loading, signalReady]);
+
+  if (loading) return null;
 
   return (
-    <ProtectedRoute>
+    <>
       <div className={styles.wrapper}>
         <div className={styles.container}>
 
@@ -220,6 +217,6 @@ export default function BonusCoursePage() {
 
         </div>
       </div>
-    </ProtectedRoute>
+    </>
   );
 }

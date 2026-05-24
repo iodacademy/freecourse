@@ -56,15 +56,9 @@ export default function ProtectedRoute({
     }
   }, [user, profile, loading, requireAdmin, requireProfile, router]);
 
-  // Loading
-  if (loading) {
-    return (
-      <div className="loading-overlay" style={{ minHeight: "60vh" }}>
-        <div className="spinner spinner-lg" />
-        <p>Memuat...</p>
-      </div>
-    );
-  }
+  // Saat auth masih dicek, render null (transparan) — tidak perlu spinner sendiri
+  // karena auth context sudah sangat cepat dan halaman /learn punya loading-nya sendiri
+  if (loading) return null;
 
   // Guard checks (render-time block — mencegah flash konten)
   if (requireAdmin) {

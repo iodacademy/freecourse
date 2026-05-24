@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import styles from "./page.module.css";
 import { GraduationCap, Trophy, Loader2, AlertCircle, ExternalLink } from "lucide-react";
 
@@ -41,6 +41,10 @@ export default function CertificatePage() {
   const [certId, setCertId] = useState("");
   const [copiedId, setCopiedId] = useState(false);
 
+  // Konfirmasi nama sebelum klaim
+  const [certName, setCertName] = useState("");
+  const [nameConfirmed, setNameConfirmed] = useState(false);
+
   // Fetch enrollment & course steps
   useEffect(() => {
     if (!user) return;
@@ -66,7 +70,11 @@ export default function CertificatePage() {
         // Jika sudah diklaim sebelumnya, langsung set certId
         if (main.certificateClaimed && main.certificateId) {
           setCertId(main.certificateId);
+          setNameConfirmed(true); // sudah diklaim, skip konfirmasi
         }
+
+        // Pre-fill nama dari profil
+        // (diisi via useEffect terpisah setelah profile tersedia)
 
         // 2. Get course steps
         const courseRes = await fetch("/api/courses/main", {
@@ -88,6 +96,16 @@ export default function CertificatePage() {
     load();
   }, [user, router]);
 
+  // Pre-fill certName dari profil
+  useEffect(() => {
+    if (profile && !certName) {
+      setCertName(
+        profile.profileData?.namaLengkap || profile.displayName || ""
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
   // Hitung berapa step yang sudah selesai
   const completedSteps = courseSteps.filter((step) => {
     const prog = enrollment?.stepProgress?.[step.id];
@@ -102,6 +120,10 @@ export default function CertificatePage() {
 
   async function handleClaim() {
     if (!user || !enrollment) return;
+    if (!certName.trim()) {
+      setClaimError("Nama tidak boleh kosong.");
+      return;
+    }
     setClaiming(true);
     setClaimError("");
 
@@ -113,7 +135,7 @@ export default function CertificatePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ customName: certName.trim() }),
       });
 
       const data = await res.json();
@@ -143,23 +165,16 @@ export default function CertificatePage() {
   const userName =
     profile?.profileData?.namaLengkap || profile?.displayName || "Peserta";
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <div className={styles.wrapper}>
-          <div className={`container ${styles.content}`}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, paddingTop: 64 }}>
-              <Loader2 size={40} className="animate-spin" style={{ color: "var(--color-primary)" }} />
-              <p style={{ color: "var(--color-gray-500)" }}>Memuat data sertifikat...</p>
-            </div>
-          </div>
-        </div>
-      </ProtectedRoute>
-    );
-  }
+  // Beritahu layout bahwa konten siap
+  const { signalReady } = useLearnLoading();
+  useEffect(() => {
+    if (!loading) signalReady();
+  }, [loading, signalReady]);
+
+  if (loading) return null;
 
   return (
-    <ProtectedRoute>
+    <>
       <div className={styles.wrapper}>
         <div className={`container ${styles.content}`}>
 
@@ -194,15 +209,83 @@ export default function CertificatePage() {
             </div>
           )}
 
-          {/* ── SEMUA SELESAI, BELUM KLAIM ── */}
-          {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && (
+          {/* ── SEMUA SELESAI: STEP 1 — KONFIRMASI NAMA ── */}
+          {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && !nameConfirmed && (
+            <div className={styles.claimCard}>
+              <div className={styles.claimHeader}>
+                <Trophy size={48} style={{ color: "var(--color-primary)", marginBottom: 12 }} />
+                <h1>Selamat, {userName}!</h1>
+                <p>
+                  Kamu telah menyelesaikan seluruh materi <strong>{courseName}</strong>.
+                  Sebelum klaim, pastikan nama di sertifikatmu sudah benar.
+                </p>
+              </div>
+
+              {/* Form konfirmasi nama */}
+              <div style={{ marginTop: 8 }}>
+                <label style={{
+                  display: "block", fontSize: 13, fontWeight: 700,
+                  color: "#555", marginBottom: 8, letterSpacing: "0.3px",
+                }}>
+                  NAMA PADA SERTIFIKAT
+                </label>
+                <input
+                  type="text"
+                  value={certName}
+                  onChange={e => setCertName(e.target.value)}
+                  placeholder="Masukkan nama lengkap"
+                  style={{
+                    width: "100%", padding: "13px 14px",
+                    border: "1.5px solid #E5E5E5", borderRadius: 10,
+                    fontSize: 16, marginBottom: 6,
+                    outline: "none", boxSizing: "border-box",
+                  }}
+                  onFocus={e => e.target.style.borderColor = "#CC0000"}
+                  onBlur={e => e.target.style.borderColor = "#E5E5E5"}
+                />
+                <p style={{ fontSize: 12, color: "#999", margin: "0 0 20px" }}>
+                  Nama ini akan dicetak di sertifikat. Tambahkan gelar jika diperlukan.
+                </p>
+
+                {claimError && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: "#fff0f0", border: "1px solid #ffcccc",
+                    borderRadius: 8, padding: "10px 14px", marginBottom: 14,
+                    color: "var(--color-primary)", fontSize: 13,
+                  }}>
+                    <AlertCircle size={14} />{claimError}
+                  </div>
+                )}
+
+                <button
+                  className="btn btn-primary btn-lg w-full"
+                  onClick={() => {
+                    if (!certName.trim()) {
+                      setClaimError("Nama tidak boleh kosong.");
+                      return;
+                    }
+                    setClaimError("");
+                    setNameConfirmed(true);
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    Lanjut ke Klaim Sertifikat →
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── SEMUA SELESAI: STEP 2 — KLAIM SERTIFIKAT ── */}
+          {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && nameConfirmed && (
             <div className={styles.claimCard}>
               <div className={styles.claimHeader}>
                 <Trophy size={56} style={{ color: "var(--color-primary)", marginBottom: 16 }} />
-                <h1>Selamat, {userName}!</h1>
+                <h1>Selamat, {certName}!</h1>
                 <p>
-                  Kamu telah menyelesaikan seluruh materi{" "}
-                  <strong>{courseName}</strong>. Klaim sertifikat resmimu sekarang!
+                  Nama <strong>{certName}</strong> akan tercetak di sertifikat.
+                  Klaim sertifikat resmimu sekarang!
                 </p>
               </div>
 
@@ -213,7 +296,7 @@ export default function CertificatePage() {
                     <div className={styles.certInner}>
                       <span className={styles.certLogo}>IODA Academy × Plan Indonesia</span>
                       <p className={styles.certLabel}>SERTIFIKAT PENYELESAIAN</p>
-                      <h2 className={styles.certName}>{userName}</h2>
+                      <h2 className={styles.certName}>{certName}</h2>
                       <p className={styles.certDesc}>Telah berhasil menyelesaikan kursus</p>
                       <p className={styles.certCourse}>{courseName}</p>
                       <div className={styles.certMeta}>
@@ -230,6 +313,17 @@ export default function CertificatePage() {
                   </div>
                 </div>
               </div>
+
+              {/* Ganti nama */}
+              <button
+                onClick={() => setNameConfirmed(false)}
+                style={{
+                  background: "none", border: "none", fontSize: 13, color: "#999",
+                  cursor: "pointer", marginBottom: 12, padding: 0, textDecoration: "underline",
+                }}
+              >
+                ← Ubah nama
+              </button>
 
               {claimError && (
                 <div style={{
@@ -345,6 +439,6 @@ export default function CertificatePage() {
 
         </div>
       </div>
-    </ProtectedRoute>
+    </>
   );
 }

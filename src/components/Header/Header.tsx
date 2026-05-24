@@ -11,7 +11,7 @@ import ProfileDrawer from "@/components/ProfileDrawer";
 import WorkshopBanner from "@/components/WorkshopBanner/WorkshopBanner";
 
 export default function Header() {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, loading } = useAuth();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -85,7 +85,13 @@ export default function Header() {
           <h1>Modul Financial Literacy</h1>
         </div>
         <div className={styles.topbarRight}>
-          {isLoggedIn ? (
+          {loading ? (
+            // Skeleton saat auth loading — cegah flash "login" → "profil"
+            <div style={{
+              width: 100, height: 32, background: "rgba(255,255,255,0.15)",
+              borderRadius: 8, animation: "pulse 1.5s ease-in-out infinite"
+            }} />
+          ) : isLoggedIn ? (
             <>
               {/* Bell Notification — hanya untuk workshop user */}
               {isWorkshopUser && (

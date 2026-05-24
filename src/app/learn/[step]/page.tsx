@@ -2,10 +2,10 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import LMSPlayer from "@/components/LMSPlayer";
 import type { QuizQuestion, LMSScreen } from "@/components/LMSPlayer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import { createSlug } from "@/lib/utils";
 import CourseMenuDrawer from "@/components/CourseMenuDrawer/CourseMenuDrawer";
 import type { StepNavItem } from "@/components/StepNav";
@@ -135,25 +135,22 @@ export default function StepPage() {
     [router, paramStep]
   );
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh", width: "100%" }}>
-          <div className="spinner spinner-lg" />
-        </div>
-      </ProtectedRoute>
-    );
-  }
+  // Beritahu layout bahwa konten sudah siap → overlay hilang
+  const { signalReady } = useLearnLoading();
+  useEffect(() => {
+    if (!loading && courseData) signalReady();
+  }, [loading, courseData, signalReady]);
+
+  // Selama loading, return null — overlay dari layout yang tampil
+  if (loading) return null;
 
   if (error || !courseData) {
     return (
-      <ProtectedRoute>
-        <div style={{ textAlign: "center", padding: "40px", width: "100%" }}>
-          <h2 style={{ color: "var(--color-red-600)" }}>Error</h2>
-          <p>{error}</p>
-          <button onClick={() => window.location.reload()} style={{ padding: "8px 16px", marginTop: "10px" }}>Coba Lagi</button>
-        </div>
-      </ProtectedRoute>
+      <div style={{ textAlign: "center", padding: "40px", width: "100%" }}>
+        <h2 style={{ color: "var(--color-red-600)" }}>Error</h2>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()} style={{ padding: "8px 16px", marginTop: "10px" }}>Coba Lagi</button>
+      </div>
     );
   }
 
@@ -175,7 +172,7 @@ export default function StepPage() {
 
   if (!canAccess) {
     return (
-      <ProtectedRoute>
+      <>
         <div className={styles.lockedWrapper}>
           <div className={styles.lockedCard}>
             <div className={styles.lockedIcon}>🔒</div>
@@ -186,18 +183,18 @@ export default function StepPage() {
             </button>
           </div>
         </div>
-      </ProtectedRoute>
+      </>
     );
   }
 
   if (!activeStep) {
     return (
-      <ProtectedRoute>
+      <>
         <div style={{ textAlign: "center", padding: "40px", width: "100%" }}>
           <h2>Materi Tidak Ditemukan</h2>
           <button onClick={() => router.push("/learn")} style={{ padding: "8px 16px", marginTop: "10px" }}>Kembali</button>
         </div>
-      </ProtectedRoute>
+      </>
     );
   }
 
@@ -247,14 +244,15 @@ export default function StepPage() {
 
       if (shouldNavigate) {
         if (!isLastStep) {
-          const nextStep = steps[stepNumber]; // stepNumber is already 1-indexed
+          const nextStep = steps[stepNumber];
           if (nextStep) {
             router.push(`/learn/${createSlug(nextStep.title)}`);
           } else {
             router.push(`/learn/${stepNumber + 1}`);
           }
         } else {
-          setShowNameModal(true);
+          // Step terakhir selesai — arahkan ke halaman klaim sertifikat
+          router.push("/learn/certificate");
         }
       }
     } catch (e: any) {
@@ -263,32 +261,6 @@ export default function StepPage() {
     }
   }
 
-  async function handleClaimCert() {
-    if (!certName.trim()) return alert("Nama tidak boleh kosong");
-    setClaiming(true);
-    try {
-      const idToken = await user!.getIdToken();
-      const res = await fetch(`/api/enrollments/${enrollment.id}/claim-cert`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ customName: certName })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal klaim sertifikat");
-      }
-
-      router.push("/learn/certificate");
-    } catch (e: any) {
-      console.error("Failed to claim cert", e);
-      alert("Gagal klaim sertifikat: " + (e.message || "Coba ulangi."));
-      setClaiming(false);
-    }
-  }
 
   const questions = (activeStep.hasAssessment && activeStep.assessment?.questions) || [];
   const surveyQuestions = (activeStep.hasSurvey && activeStep.survey?.questions) || [];
@@ -300,13 +272,14 @@ export default function StepPage() {
   const initialSurveyAnswers = currentStepProgress.surveyResult || {};
 
   return (
-    <ProtectedRoute>
+    <>
       <div className={styles.wrapper}>
         {/* Workshop Banner — tampil di atas LMSPlayer jika channelSource=workshop */}
         {workshopData && enrollment?.eventId && (
           <WorkshopBanner
             workshopData={workshopData}
             eventId={enrollment.eventId}
+            enrollmentId={enrollment.id}
           />
         )}
         <LMSPlayer
@@ -358,46 +331,6 @@ export default function StepPage() {
         courseName={courseData?.title || "Modul Financial Literacy"}
       />
 
-      {showNameModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-        }}>
-          <div style={{
-            background: 'white', padding: '30px', borderRadius: '12px',
-            width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-          }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>Konfirmasi Nama Sertifikat</h2>
-            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>
-              Silakan periksa nama yang akan dicetak pada sertifikat. Anda dapat mengubahnya atau menambahkan gelar jika perlu.
-            </p>
-            <input 
-              type="text" 
-              value={certName}
-              onChange={e => setCertName(e.target.value)}
-              style={{
-                width: '100%', padding: '12px', border: '1.5px solid #E5E5E5',
-                borderRadius: '8px', marginBottom: '20px', fontSize: '16px'
-              }}
-              placeholder="Masukkan nama lengkap"
-            />
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={handleClaimCert}
-                disabled={claiming}
-                style={{
-                  padding: '10px 20px', background: '#CC0000', color: 'white',
-                  border: 'none', borderRadius: '8px', cursor: claiming ? 'not-allowed' : 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                {claiming ? "Memproses..." : "Klaim Sertifikat"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </ProtectedRoute>
+    </>
   );
 }

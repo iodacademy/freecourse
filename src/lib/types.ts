@@ -139,6 +139,10 @@ export interface Enrollment {
   certificateId: string | null;
   certificateDriveUrl: string | null;
   certificateEmailSent: boolean;
+  // Sertifikat Kehadiran Workshop (terpisah dari sertifikat utama)
+  workshopCertificateClaimed: boolean;
+  workshopCertificateClaimedAt: Date | null;
+  workshopCertificateId: string | null;
   bonusCourseTopicId: string | null;
   bonusCourseRedeemCode: string | null;
   createdAt: Date;
@@ -237,6 +241,11 @@ export interface AppSettings {
   adminEmails: string[];
   gasWebAppUrl: string;
   profileFields: ProfileField[];
+  // Konfigurasi Sertifikat Utama
+  mainCertTitle: string;           // Judul yang tercetak di sertifikat utama
+  mainCertSlideTemplateId: string; // ID Google Slide template sertifikat utama
+  // Konfigurasi Sertifikat Workshop
+  workshopCertSlideTemplateId: string; // ID Google Slide template sertifikat workshop
   updatedAt: Date;
 }
 

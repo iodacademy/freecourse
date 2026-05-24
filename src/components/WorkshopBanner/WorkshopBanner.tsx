@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Calendar, Clock, Monitor, ExternalLink, MessageCircle } from "lucide-react";
+import { X, Calendar, Clock, Monitor, ExternalLink, MessageCircle, Award, Loader2, CheckCircle } from "lucide-react";
 import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
 import { WorkshopData } from "@/components/LandingTemplate/LandingTemplate";
 import styles from "./WorkshopBanner.module.css";
 
 interface WorkshopBannerProps {
   workshopData: WorkshopData;
   eventId: string;
+  enrollmentId?: string;
   /** Jika true, popup langsung tampil (dipanggil manual dari tombol notifikasi) */
   forceOpen?: boolean;
   onClose?: () => void;
@@ -37,39 +39,92 @@ function isEventPassed(isoDate: string): boolean {
 
 const DISMISS_KEY = (id: string) => `wsBannerDismissed_${id}`;
 
-export default function WorkshopBanner({ workshopData, eventId, forceOpen, onClose }: WorkshopBannerProps) {
+export default function WorkshopBanner({ workshopData, eventId, enrollmentId, forceOpen, onClose }: WorkshopBannerProps) {
+  const { user } = useAuth();
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimError, setClaimError] = useState("");
+  const [claimSuccess, setClaimSuccess] = useState(false);
+  const [claimedCertId, setClaimedCertId] = useState<string | null>(null);
+
+  // Tentukan mode: "upcoming" atau "claim"
+  const isPassed = workshopData.date ? isEventPassed(workshopData.date) : false;
 
   useEffect(() => {
-    // Mode forceOpen: selalu tampil (dari tombol notifikasi)
     if (forceOpen) {
       setVisible(true);
       return;
     }
-    // Mode auto: cek apakah sudah lewat atau sudah di-dismiss
-    if (workshopData.date && isEventPassed(workshopData.date)) return;
+    if (isPassed) {
+      // Mode klaim: selalu tampil jika belum diklaim
+      const dismissed = sessionStorage.getItem(DISMISS_KEY(eventId + "_claim"));
+      if (!dismissed) {
+        const t = setTimeout(() => setVisible(true), 400);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
+    // Mode upcoming: cek apakah sudah di-dismiss
     const dismissed = sessionStorage.getItem(DISMISS_KEY(eventId));
     if (dismissed) return;
     const t = setTimeout(() => setVisible(true), 400);
     return () => clearTimeout(t);
-  }, [workshopData.date, eventId, forceOpen]);
+  }, [workshopData.date, eventId, forceOpen, isPassed]);
 
   const handleDismiss = useCallback(() => {
     setClosing(true);
     setTimeout(() => {
       if (!forceOpen) {
-        sessionStorage.setItem(DISMISS_KEY(eventId), "1");
+        // Simpan dismiss key berbeda untuk mode upcoming vs mode klaim
+        const key = isPassed ? DISMISS_KEY(eventId + "_claim") : DISMISS_KEY(eventId);
+        sessionStorage.setItem(key, "1");
       }
       setVisible(false);
       setClosing(false);
       onClose?.();
     }, 280);
-  }, [eventId, forceOpen, onClose]);
+  }, [eventId, forceOpen, onClose, isPassed]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) handleDismiss();
   };
+
+  const handleClaimWorkshopCert = useCallback(async () => {
+    if (!user || !enrollmentId) return;
+    setIsClaiming(true);
+    setClaimError("");
+
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollmentId}/claim-workshop-cert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setClaimError(data.error || "Gagal mengklaim sertifikat. Coba lagi.");
+        return;
+      }
+
+      setClaimSuccess(true);
+      setClaimedCertId(data.certId);
+
+      // Jika GAS mengembalikan link download langsung
+      if (data.downloadUrl) {
+        window.open(data.downloadUrl, "_blank");
+      }
+    } catch {
+      setClaimError("Terjadi kesalahan. Periksa koneksi internet dan coba lagi.");
+    } finally {
+      setIsClaiming(false);
+    }
+  }, [user, enrollmentId]);
 
   if (!visible) return null;
 
@@ -93,14 +148,24 @@ export default function WorkshopBanner({ workshopData, eventId, forceOpen, onClo
 
           {/* ── KIRI: Info Workshop ── */}
           <div className={styles.leftCol}>
-            {/* Badge */}
-            <div className={styles.badge}>
-              <Calendar size={11} />
-              UPCOMING WORKSHOP
+            {/* Badge — berbeda tergantung mode */}
+            <div className={styles.badge} style={isPassed ? { background: "#e8f5e9", color: "#2e7d32" } : {}}>
+              {isPassed ? (
+                <><Award size={11} />KLAIM SERTIFIKAT KEHADIRAN</>
+              ) : (
+                <><Calendar size={11} />UPCOMING WORKSHOP</>
+              )}
             </div>
 
             {/* Judul besar */}
-            <h2 className={styles.title}>{workshopData.title || "Judul Workshop Akan Tampil Di Sini"}</h2>
+            <h2 className={styles.title}>
+              {isPassed ? "Workshop Selesai! 🎓" : (workshopData.title || "Judul Workshop Akan Tampil Di Sini")}
+            </h2>
+            {isPassed && workshopData.title && (
+              <p style={{ fontSize: 13, color: "var(--color-gray-500)", margin: "0 0 8px 0" }}>
+                {workshopData.title}
+              </p>
+            )}
 
             {/* Meta info list */}
             <div className={styles.metaList}>
@@ -138,32 +203,6 @@ export default function WorkshopBanner({ workshopData, eventId, forceOpen, onClo
                     <div className={styles.metaValue}>{workshopData.platform}</div>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* CTA Buttons */}
-            <div className={styles.ctaRow}>
-              {workshopData.meetingLink && (
-                <a
-                  href={workshopData.meetingLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.ctaBtnPrimary}
-                >
-                  <ExternalLink size={14} />
-                  Gabung Meeting
-                </a>
-              )}
-              {workshopData.waGroupLink && (
-                <a
-                  href={workshopData.waGroupLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.ctaBtnWa}
-                >
-                  <MessageCircle size={14} />
-                  Grup WhatsApp
-                </a>
               )}
             </div>
           </div>
@@ -205,6 +244,97 @@ export default function WorkshopBanner({ workshopData, eventId, forceOpen, onClo
                 </div>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* ── CTA Buttons — di luar layout agar full width & simetris ── */}
+        <div className={styles.ctaRow}>
+          {isPassed ? (
+            // ── Mode Klaim ──
+            <>
+              {claimSuccess ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  background: "#e8f5e9", border: "1px solid #a5d6a7",
+                  borderRadius: 8, padding: "10px 14px", fontSize: 13,
+                  color: "#2e7d32", fontWeight: 600,
+                }}>
+                  <CheckCircle size={16} />
+                  Sertifikat berhasil diklaim!
+                  {claimedCertId && (
+                    <a
+                      href={`/verify/${claimedCertId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ marginLeft: 4, color: "#1b5e20", fontSize: 12, textDecoration: "underline" }}
+                    >
+                      Lihat <ExternalLink size={10} style={{ verticalAlign: "middle" }} />
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {claimError && (
+                    <div style={{
+                      fontSize: 12, color: "#c62828", background: "#ffebee",
+                      border: "1px solid #ef9a9a", borderRadius: 6, padding: "8px 12px",
+                      marginBottom: 6, width: "100%",
+                    }}>
+                      {claimError}
+                    </div>
+                  )}
+                  <button
+                    className={styles.ctaBtnPrimary}
+                    onClick={handleClaimWorkshopCert}
+                    disabled={isClaiming || !enrollmentId}
+                    style={{ opacity: (isClaiming || !enrollmentId) ? 0.7 : 1, cursor: (isClaiming || !enrollmentId) ? "not-allowed" : "pointer" }}
+                  >
+                    {isClaiming ? (
+                      <><Loader2 size={14} className="animate-spin" />Memproses...</>
+                    ) : (
+                      <><Award size={14} />Klaim Sertifikat Kehadiran</>
+                    )}
+                  </button>
+                </>
+              )}
+              {workshopData.waGroupLink && (
+                <a
+                  href={workshopData.waGroupLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.ctaBtnWa}
+                >
+                  <MessageCircle size={14} />
+                  Grup WhatsApp
+                </a>
+              )}
+            </>
+          ) : (
+            // ── Mode Upcoming ──
+            <>
+              {workshopData.meetingLink && (
+                <a
+                  href={workshopData.meetingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.ctaBtnPrimary}
+                >
+                  <ExternalLink size={14} />
+                  Gabung Meeting
+                </a>
+              )}
+              {workshopData.waGroupLink && (
+                <a
+                  href={workshopData.waGroupLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.ctaBtnWa}
+                >
+                  <MessageCircle size={14} />
+                  Grup WhatsApp
+                </a>
+              )}
+            </>
           )}
         </div>
       </div>

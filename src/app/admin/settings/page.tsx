@@ -78,13 +78,63 @@ export default function AdminSettingsPage() {
               <span className={styles.statusOk}><CheckCircle size={16} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Terhubung</span>
             </div>
           </div>
-          
+
+          {/* ── KONFIGURASI SERTIFIKAT UTAMA ── */}
+          <div className={styles.section}>
+            <h2 className={styles.sectionTitle}>🏆 Sertifikat Kursus Utama</h2>
+            <p className={styles.sectionDesc}>Judul dan template Google Slide yang digunakan untuk sertifikat penyelesaian kursus Financial Literacy.</p>
+            <div className={styles.inputGroup}>
+              <div>
+                <label className={styles.label}>Judul Sertifikat</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="Contoh: Sertifikat Literasi Finansial"
+                  style={{ marginTop: 6 }}
+                />
+              </div>
+              <div>
+                <label className={styles.label}>ID Template Google Slide</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                  style={{ marginTop: 6 }}
+                />
+                <p className={styles.sectionDesc} style={{ marginTop: 6, marginBottom: 0 }}>
+                  Salin ID dari URL Google Slide template kamu: docs.google.com/presentation/d/<strong>[ID di sini]</strong>/edit
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── KONFIGURASI SERTIFIKAT WORKSHOP ── */}
+          <div className={styles.section}>
+            <h2 className={styles.sectionTitle}>🎤 Sertifikat Kehadiran Workshop</h2>
+            <p className={styles.sectionDesc}>Template Google Slide yang digunakan untuk sertifikat kehadiran workshop. Data seperti judul dan tanggal diambil otomatis dari data event workshop.</p>
+            <div className={styles.inputGroup}>
+              <div>
+                <label className={styles.label}>ID Template Google Slide (Workshop)</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                  style={{ marginTop: 6 }}
+                />
+                <p className={styles.sectionDesc} style={{ marginTop: 6, marginBottom: 0 }}>
+                  Salin ID dari URL Google Slide template workshop kamu.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className={styles.section}>
             <h2 className={styles.sectionTitle}>Bulk Import Email (Channel 1)</h2>
             <p className={styles.sectionDesc}>Upload file Excel/CSV untuk mendaftarkan email mahasiswa/karyawan yang diizinkan menggunakan Kode Mitra tertentu.</p>
             
             <div className={styles.uploadBox}>
               <span className={styles.uploadIcon}><UploadCloud size={32} style={{ color: 'var(--color-primary)' }} /></span>
+
               <h4>Tarik dan lepas file Excel di sini</h4>
               <p>atau</p>
               <button className="btn btn-secondary">Pilih File</button>

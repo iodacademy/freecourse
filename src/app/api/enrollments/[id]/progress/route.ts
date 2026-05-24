@@ -59,12 +59,43 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const updates: Record<string, any> = {
       [`stepProgress.${stepId}`]: stepData,
       updatedAt: FieldValue.serverTimestamp(),
-      status: "in_progress"
     };
 
     // Update currentStep jika pindah ke step berikutnya
     if (body.nextStepNumber && body.nextStepNumber > (doc.data()?.currentStep || 0)) {
       updates.currentStep = body.nextStepNumber;
+    }
+
+    // Cek apakah SEMUA step sudah selesai → update status ke "completed"
+    if (isCompleted) {
+      const allProgress = {
+        ...doc.data()?.stepProgress,
+        [stepId]: { ...stepData, completed: true },
+      };
+
+      // Ambil total step dari courseSteps
+      const courseId = doc.data()?.courseId;
+      const stepsSnap = await db.collection("courseSteps")
+        .where("courseId", "==", courseId)
+        .get();
+      const totalCourseSteps = stepsSnap.size;
+
+      const completedCount = Object.values(allProgress).filter(
+        (p: any) => p?.completed === true
+      ).length;
+
+      if (totalCourseSteps > 0 && completedCount >= totalCourseSteps) {
+        // Semua step selesai — update status ke "completed"
+        // currentStep TIDAK diubah agar redirect di /learn tetap ke step terakhir yang benar
+        updates.status = "completed";
+      } else {
+        updates.status = "in_progress";
+      }
+    } else {
+      // Tidak ada perubahan selesai, pertahankan status atau set in_progress
+      updates.status = doc.data()?.status === "completed" || doc.data()?.status === "certified"
+        ? doc.data()?.status
+        : "in_progress";
     }
 
     await ref.update(updates);
