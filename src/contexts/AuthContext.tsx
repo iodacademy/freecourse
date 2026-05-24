@@ -176,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = await user.getIdToken();
       const res = await fetch(`/api/users/${user.uid}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,

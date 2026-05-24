@@ -73,6 +73,9 @@ export async function PATCH(
   }
 }
 
+// PUT alias — Hostinger proxy blocks PATCH method with 403
+export const PUT = PATCH;
+
 /**
  * DELETE /api/users/[uid]
  * Hanya admin yang bisa. Menghapus user dari:
