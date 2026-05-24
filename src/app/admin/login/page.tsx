@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
@@ -13,9 +13,15 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Kalau sudah login sebagai admin, redirect
+  // Kalau sudah login sebagai admin, redirect — harus di useEffect, bukan saat render
+  useEffect(() => {
+    if (!loading && profile?.role === "admin") {
+      router.push("/admin");
+    }
+  }, [loading, profile, router]);
+
+  // Tampilkan loading state saat redirect
   if (!loading && profile?.role === "admin") {
-    router.push("/admin");
     return null;
   }
 
