@@ -80,16 +80,22 @@ export default function CertificatesSettingsPage() {
 
   if (loading) return <div style={{ padding: "24px", color: "#9ca3af", fontSize: 14 }}>Memuat...</div>;
 
+  const divider = <div style={{ height: 1, background: '#f3f4f6', margin: '20px 0' }} />;
+
   return (
     <div className={styles.page} style={{ paddingBottom: 80 }}>
 
-      {/* ── 1 KOTAK: GAS + Sertifikat Kursus Utama ── */}
+      {/* ── SATU KOTAK untuk semua konfigurasi sertifikat ── */}
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Google Apps Script & Sertifikat Kursus</h2>
+        <h2 className={styles.sectionTitle}>Konfigurasi Sertifikat</h2>
         <p className={styles.sectionDesc}>
-          Konfigurasi URL GAS dan template sertifikat untuk kursus utama Financial Literacy.
+          URL Google Apps Script, template slide, dan judul untuk setiap jenis sertifikat.
         </p>
 
+        {/* GAS */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>
+          Google Apps Script
+        </p>
         <div className={styles.inputGroup}>
           <label className={styles.label}>GAS Web App URL</label>
           <input
@@ -101,12 +107,12 @@ export default function CertificatesSettingsPage() {
           />
         </div>
 
-        <div style={{ height: 1, background: '#f3f4f6', margin: '20px 0' }} />
+        {divider}
 
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 16px' }}>
+        {/* Kursus Utama */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>
           Sertifikat Kursus Utama
         </p>
-
         <div className={styles.inputGroup}>
           <label className={styles.label}>Judul Sertifikat</label>
           <input
@@ -120,9 +126,8 @@ export default function CertificatesSettingsPage() {
             Tampil pada kalimat <em>"materi modul …"</em> di halaman klaim sertifikat peserta.
           </span>
         </div>
-
         <div className={styles.inputGroup}>
-          <label className={styles.label}>ID Template Google Slide (Kursus Utama)</label>
+          <label className={styles.label}>ID Template Google Slide</label>
           <input
             type="text"
             className={styles.fieldInput}
@@ -131,20 +136,18 @@ export default function CertificatesSettingsPage() {
             placeholder="1BxiMVs0XRA5nFMDkVBdBZjgmUUqptlbs74OgVE2upms"
           />
           <span className={styles.fieldHint}>
-            Salin dari URL Google Slides: docs.google.com/presentation/d/<strong>[ID]</strong>/edit
+            Salin dari URL: docs.google.com/presentation/d/<strong>[ID]</strong>/edit
           </span>
         </div>
-      </div>
 
-      {/* ── KOTAK: Sertifikat Workshop ── */}
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Sertifikat Kehadiran Workshop</h2>
-        <p className={styles.sectionDesc}>
-          Template Google Slide untuk sertifikat kehadiran workshop.
-          Judul dan tanggal diambil otomatis dari data event.
+        {divider}
+
+        {/* Sertifikat Workshop */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>
+          Sertifikat Kehadiran Workshop
         </p>
         <div className={styles.inputGroup}>
-          <label className={styles.label}>ID Template Google Slide (Workshop)</label>
+          <label className={styles.label}>ID Template Google Slide</label>
           <input
             type="text"
             className={styles.fieldInput}
@@ -153,12 +156,12 @@ export default function CertificatesSettingsPage() {
             placeholder="1BxiMVs0XRA5nFMDkVBdBZjgmUUqptlbs74OgVE2upms"
           />
           <span className={styles.fieldHint}>
-            Salin dari URL Google Slides: docs.google.com/presentation/d/<strong>[ID]</strong>/edit
+            Judul dan tanggal diambil otomatis dari data event. Salin dari URL: docs.google.com/presentation/d/<strong>[ID]</strong>/edit
           </span>
         </div>
       </div>
 
-      {/* ── STICKY SAVE BUTTON ── */}
+      {/* ── STICKY SAVE ── */}
       <div style={{
         position: 'fixed',
         bottom: 24,
