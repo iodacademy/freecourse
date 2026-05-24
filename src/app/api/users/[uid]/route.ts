@@ -63,10 +63,12 @@ export async function PATCH(
       }
     }
 
-    await ref.update(updateData);
+    // set dengan merge:true → berfungsi sebagai upsert (create-or-update)
+    await ref.set(updateData, { merge: true });
     const updated = await ref.get();
     return json(updated.data());
   } catch (e) {
+    console.error("[PATCH /api/users/[uid]] Error:", e);
     return handleError(e);
   }
 }
