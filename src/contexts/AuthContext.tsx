@@ -13,7 +13,8 @@ import {
   signInWithPopup,
   signOut,
 } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { auth, googleProvider, db } from "@/lib/firebase";
 import type { UserProfile } from "@/lib/types";
 
 interface AuthContextType {
@@ -172,33 +173,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function updateUserProfile(data: Partial<UserProfile>) {
     if (!user) throw new Error("User belum login");
+    if (!db) throw new Error("Firebase belum dikonfigurasi");
     try {
-      const token = await user.getIdToken();
-      // Gunakan /api/profile/update — endpoint statis yang bypass Hostinger WAF
-      // Token dikirim di body (bukan header) karena Hostinger strip Authorization header
-      const res = await fetch("/api/profile/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ idToken: token, ...data })
-      });
-      
-      if (!res.ok) {
-        const rawText = await res.text();
-        console.error("[updateUserProfile] API error:", res.status, rawText);
-        let errorMsg = `HTTP ${res.status}`;
-        try {
-          const errData = JSON.parse(rawText);
-          errorMsg = errData.error || errorMsg;
-        } catch {
-          errorMsg = `HTTP ${res.status}: ${rawText.substring(0, 200)}`;
-        }
-        throw new Error(errorMsg);
+      const userRef = doc(db, "users", user.uid);
+
+      const updateData: Record<string, unknown> = {
+        updatedAt: serverTimestamp(),
+      };
+
+      // Update profileData
+      if (data.profileData) {
+        updateData.profileData = data.profileData;
+        updateData.profileCompleted = true;
       }
-      
-      const updatedData = await res.json();
-      setProfile(updatedData as UserProfile);
+
+      // Allowed fields
+      const allowedFields = ["displayName", "photoURL", "channelSource", "eventId", "partnerCode", "profileCompleted"];
+      for (const field of allowedFields) {
+        if ((data as Record<string, unknown>)[field] !== undefined) {
+          updateData[field] = (data as Record<string, unknown>)[field];
+        }
+      }
+
+      await setDoc(userRef, updateData, { merge: true });
+
+      // Fetch updated doc
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        setProfile(snap.data() as UserProfile);
+      }
     } catch (err) {
       console.error("Error updating profile:", err);
       throw err;
