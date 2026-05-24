@@ -62,8 +62,8 @@ const STAGES: Record<LandingType, StageConfig[]> = {
     {
       label: "Tahap 4",
       title: "Klaim Beasiswa",
-      sub: "Gunakan kode redeem yang kamu terima untuk masuk ke portal belajar Ioda Academy dan klaim kelas online pilihanmu.",
-      subHtml: 'Gunakan kode redeem yang kamu terima untuk masuk ke <a href="https://app.iodacademy.id/portal-belajar" target="_blank" rel="noopener noreferrer" style="color:inherit;font-weight:600;text-decoration:underline;" onclick="event.stopPropagation()">Portal Belajar Ioda Academy</a> dan klaim kelas online pilihanmu.',
+      sub: "Gunakan kode redeem yang kamu terima untuk masuk ke Portal Belajar Ioda Academy.",
+      subHtml: 'Gunakan kode redeem yang kamu terima untuk masuk ke <a href="https://app.iodacademy.id/portal-belajar" target="_blank" rel="noopener noreferrer" style="color:inherit;font-weight:600;text-decoration:underline;" onclick="event.stopPropagation()">Portal Belajar Ioda Academy</a>.',
     },
   ],
   workshop: [
