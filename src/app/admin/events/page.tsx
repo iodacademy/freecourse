@@ -282,7 +282,7 @@ export default function AdminEventsPage() {
   const openCreate = () => {
     setEditing(null);
     setWizardStep(1);
-    setForm({ name: "", description: "", channelType: "b2c_workshop", status: "draft", startDate: "", partnerCode: "" });
+    setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "" });
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
     setPhotoFile(null);
     setPhotoPreview("");
