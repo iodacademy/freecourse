@@ -170,25 +170,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Update profil user
   async function updateUserProfile(data: Partial<UserProfile>) {
     if (!user) throw new Error("User belum login");
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`/api/users/${user.uid}`, {
+      // Gunakan /api/profile/update — endpoint statis yang bypass Hostinger WAF
+      // Token dikirim di body (bukan header) karena Hostinger strip Authorization header
+      const res = await fetch("/api/profile/update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-          "X-Firebase-Token": token,  // fallback untuk hosting yg strip Authorization
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ idToken: token, ...data })
       });
       
       if (!res.ok) {
         const rawText = await res.text();
         console.error("[updateUserProfile] API error:", res.status, rawText);
-        // Coba parse JSON, kalau gagal tampilkan raw text
         let errorMsg = `HTTP ${res.status}`;
         try {
           const errData = JSON.parse(rawText);

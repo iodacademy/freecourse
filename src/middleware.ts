@@ -8,6 +8,7 @@ const PUBLIC_API_ROUTES = [
   '/api/forms/active',
   '/api/events/public',   // Landing page workshop/beasiswa — tidak butuh auth
   '/api/health',          // Diagnostic endpoint
+  '/api/profile/update',  // Profile update — auth via body token (Hostinger compat)
 ];
 
 export function middleware(request: NextRequest) {
