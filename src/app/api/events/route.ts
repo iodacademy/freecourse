@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       campusName: body.campusName ?? null,
       partnerCode: body.partnerCode ?? null,
       partnerCodeLower: body.partnerCode ? body.partnerCode.toLowerCase() : null,
+      audienceLabel: body.audienceLabel ?? null,
       bulkImportedEmails: body.bulkImportedEmails ?? [],
       // Channel 2 — Beasiswa / Ads
       landingPageConfig: body.landingPageConfig ?? null,

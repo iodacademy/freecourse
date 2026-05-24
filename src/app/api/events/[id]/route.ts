@@ -34,6 +34,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       "name","description","channelType","courseId","status",
       "startDate","endDate","campusName","partnerCode","bulkImportedEmails",
       "landingPageConfig","utmTracking","workshopConfig","workshopData","customProfileFields",
+      "audienceLabel",
     ];
     const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
     for (const k of allowed) {
