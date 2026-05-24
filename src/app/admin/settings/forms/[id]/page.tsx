@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import { ArrowLeft, Plus, Trash2, GripVertical, Settings2, Save, Circle, ChevronDown, ChevronUp, AlignLeft } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor/RichTextEditor";
@@ -294,7 +293,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
   if (!form) return null;
 
   return (
-    <ProtectedRoute requireAdmin>
+    <>
       <div className={styles.page}>
         <header className={styles.header}>
           <div className={styles.headerLeft}>
@@ -702,6 +701,6 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
         confirmText="Hapus"
         confirmStyle={{ background: '#cc0000', borderColor: '#cc0000', color: 'white' }}
       />
-    </ProtectedRoute>
+    </>
   );
 }

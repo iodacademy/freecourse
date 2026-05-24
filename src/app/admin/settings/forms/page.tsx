@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import { Plus, Trash2, Edit, CheckCircle, Circle, Eye } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,10 +46,15 @@ export default function AdminFormsPage() {
     fetchForms();
   }, [user]);
 
+  async function getToken() {
+    if (!user) return "";
+    try { return await (user as any).getIdToken(); } catch { return ""; }
+  }
+
   async function fetchForms() {
     setLoading(true);
     try {
-      const idToken = await user?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch("/api/admin/forms", {
         headers: { Authorization: `Bearer ${idToken}` }
       });
@@ -67,9 +71,8 @@ export default function AdminFormsPage() {
 
   async function createForm(title: string) {
     if (!title) return;
-
     try {
-      const idToken = await user?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch("/api/admin/forms", {
         method: "POST",
         headers: { 
@@ -93,7 +96,7 @@ export default function AdminFormsPage() {
   async function deleteForm() {
     if (!confirmDeleteId) return;
     try {
-      const idToken = await user?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/admin/forms/${confirmDeleteId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${idToken}` }
@@ -109,9 +112,9 @@ export default function AdminFormsPage() {
   }
 
   async function toggleActive(id: string, currentlyActive: boolean) {
-    if (currentlyActive) return; // Cannot deactivate manually, must activate another
+    if (currentlyActive) return;
     try {
-      const idToken = await user?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/admin/forms/${id}`, {
         method: "PUT",
         headers: { 
@@ -129,18 +132,15 @@ export default function AdminFormsPage() {
   }
 
   return (
-    <ProtectedRoute requireAdmin>
+    <>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Form Builder Profil</h1>
-            <p className={styles.subtitle}>Kelola form data diri dan survei awal peserta.</p>
-          </div>
+        <div className={styles.contentTop} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, margin: 0 }}>Daftar Form</h2>
           <button className="btn btn-primary" onClick={() => setShowPrompt(true)}>
             <Plus size={18} style={{ marginRight: 8, display: 'inline' }} />
             Buat Form Baru
           </button>
-        </header>
+        </div>
 
         <div className={styles.content}>
           {loading ? (
@@ -239,6 +239,6 @@ export default function AdminFormsPage() {
           onClose={() => setPreviewForm(null)} 
         />
       )}
-    </ProtectedRoute>
+    </>
   );
 }
