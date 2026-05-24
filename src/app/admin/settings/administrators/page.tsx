@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import styles from "../page.module.css";
-import { Trash2, Plus, Shield } from "lucide-react";
+import { Trash2, Plus, Shield, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmDialog, AlertDialog } from "@/components/Modal/Dialogs";
 
@@ -137,20 +137,33 @@ export default function AdministratorsSettingsPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} style={{ borderBottom: '1px solid #f9fafb' }}>
-                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 500, color: '#111827', fontSize: 13 }}>{u.code}</td>
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 500, color: '#111827', fontSize: 13 }}>
+                    {u.code}
+                    {u.id === 'superadmin' && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '1px 6px', borderRadius: 3, letterSpacing: '0.06em', verticalAlign: 'middle', textTransform: 'uppercase', fontFamily: 'sans-serif' }}>
+                        superadmin
+                      </span>
+                    )}
+                  </td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={roleBadge(u.role)}>{u.role}</span>
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => setConfirmDeleteId(u.id)}
-                      title="Hapus"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: 4, borderRadius: 4, transition: 'color 0.15s', display: 'inline-flex' }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#cc0000')}
-                      onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {u.id === 'superadmin' ? (
+                      <span title="Tidak dapat dihapus" style={{ color: '#d1d5db', display: 'inline-flex', padding: 4 }}>
+                        <Lock size={14} />
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(u.id)}
+                        title="Hapus"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: 4, borderRadius: 4, transition: 'color 0.15s', display: 'inline-flex' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#cc0000')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

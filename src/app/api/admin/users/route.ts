@@ -5,11 +5,22 @@ import { FieldValue } from "firebase-admin/firestore";
 
 // Helper function to fetch all admin users
 async function fetchAdminUsers(db: FirebaseFirestore.Firestore) {
-  const snapshot = await db.collection("admin").orderBy("createdAt", "desc").get();
-  return snapshot.docs.map(doc => ({
+  const snapshot = await db.collection("admin").get();
+  const docs = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
-  }));
+  })) as any[];
+
+  // superadmin selalu paling atas, sisanya urut createdAt desc
+  docs.sort((a, b) => {
+    if (a.id === "superadmin") return -1;
+    if (b.id === "superadmin") return 1;
+    const ta = a.createdAt?._seconds ?? 0;
+    const tb = b.createdAt?._seconds ?? 0;
+    return tb - ta;
+  });
+
+  return docs;
 }
 
 export async function GET(req: NextRequest) {

@@ -13,6 +13,10 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       return json({ error: "ID tidak valid" }, 400);
     }
 
+    if (id === "superadmin") {
+      return json({ error: "Akses superadmin tidak dapat dihapus" }, 403);
+    }
+
     const db = getAdminDb();
     await db.collection("admin").doc(id).delete();
 
