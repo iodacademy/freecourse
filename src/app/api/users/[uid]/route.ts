@@ -73,7 +73,8 @@ export async function PATCH(
   }
 }
 
-// PUT alias — Hostinger proxy blocks PATCH method with 403
+// POST alias — Hostinger proxy blocks PATCH and PUT with 403
+export const POST = PATCH;
 export const PUT = PATCH;
 
 /**
