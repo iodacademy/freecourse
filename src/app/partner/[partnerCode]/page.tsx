@@ -10,12 +10,15 @@ export default function PartnerPage() {
 
   const [partnerName, setPartnerName] = useState<string | undefined>(undefined);
   const [audienceLabel, setAudienceLabel] = useState<string>("Mahasiswa/Karyawan");
-  // eventId = Firestore doc ID (internal), partnerCode = kode pendek (untuk user)
   const [eventId, setEventId] = useState<string>("");
+  const [isReady, setIsReady] = useState(false); // tunggu fetch selesai sebelum render
 
   useEffect(() => {
     async function fetchPartner() {
-      if (!urlPartnerCode) return;
+      if (!urlPartnerCode) {
+        setIsReady(true);
+        return;
+      }
       try {
         const res = await fetch("/api/partner-codes/validate", {
           method: "POST",
@@ -25,15 +28,34 @@ export default function PartnerPage() {
         const data = await res.json();
         if (data.valid) {
           setPartnerName(data.partnerName);
-          setEventId(data.eventId || ""); // Firestore doc ID
+          setEventId(data.eventId || "");
           if (data.audienceLabel) setAudienceLabel(data.audienceLabel);
         }
       } catch (err) {
         console.error("Gagal fetch partner:", err);
+      } finally {
+        setIsReady(true);
       }
     }
     fetchPartner();
   }, [urlPartnerCode]);
+
+  // Jangan render apapun sampai data selesai di-fetch → mencegah flash default title
+  if (!isReady) {
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center",
+        justifyContent: "center", flexDirection: "column", gap: 12,
+      }}>
+        <div style={{
+          width: 32, height: 32, border: "3px solid #eee",
+          borderTop: "3px solid #CC0000", borderRadius: "50%",
+          animation: "spin 0.7s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   const heroTitle = partnerName
     ? `Selamat Datang, ${audienceLabel} ${partnerName}! 🤝`
