@@ -7144,7 +7144,7 @@ small {
 
 .verify-header { margin-bottom: 32px; }
 
-.verify-logo { height: 40px; width: auto; margin-bottom: 16px; }
+.verify-logo { height: 40px; width: auto; margin: 0 auto 16px; display: block; }
 
 .verify-title { font-size: 20px; font-weight: 800; color: #1a1a1a; margin: 0; }
 

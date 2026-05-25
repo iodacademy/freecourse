@@ -98,8 +98,7 @@ export default function VerifyPage() {
         )}
 
         <p className="verify-footer">
-          Program ini diselenggarakan oleh <strong>DBS Foundation</strong> dan <strong>Plan Indonesia</strong> 
-          {" "}melalui platform YouRise.
+          Program ini diselenggarakan oleh <strong>DBS Foundation</strong> dan <strong>Plan Indonesia</strong>
         </p>
       </div>
     </div>
