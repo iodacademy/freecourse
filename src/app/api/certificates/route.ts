@@ -17,19 +17,19 @@ export async function GET(req: NextRequest) {
     const after = searchParams.get("after") || null;
     const search = searchParams.get("search") || "";
 
+    // Query tanpa orderBy untuk menghindari kebutuhan composite index
     let query = db.collection("enrollments")
-      .where("certificateClaimed", "==", true)
-      .orderBy("updatedAt", "desc") as FirebaseFirestore.Query;
+      .where("certificateClaimed", "==", true) as FirebaseFirestore.Query;
 
-    if (after) {
-      const cursorDate = new Date(after);
-      query = query.startAfter(cursorDate);
-    }
-
-    const snap = await query.limit(limit + 1).get();
+    const snap = await query.limit(200).get();
     let docs = snap.docs;
-    const hasNext = docs.length > limit;
-    if (hasNext) docs = docs.slice(0, limit);
+
+    // Sort in-memory by updatedAt desc
+    docs = docs.sort((a, b) => {
+      const aTs = a.data().certificateClaimedAt?._seconds || a.data().updatedAt?._seconds || 0;
+      const bTs = b.data().certificateClaimedAt?._seconds || b.data().updatedAt?._seconds || 0;
+      return bTs - aTs;
+    });
 
     const certs = docs.map(doc => {
       const d = doc.data();
@@ -69,11 +69,7 @@ export async function GET(req: NextRequest) {
         })
       : certs;
 
-    const nextCursor = hasNext && docs.length > 0
-      ? docs[docs.length - 1].data().updatedAt?.toDate?.()?.toISOString() || null
-      : null;
-
-    return json({ certs: filtered, hasNext, nextCursor });
+    return json({ certs: filtered, hasNext: false, nextCursor: null });
   } catch (e) {
     return handleError(e);
   }
