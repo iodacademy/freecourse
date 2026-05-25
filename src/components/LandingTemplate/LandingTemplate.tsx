@@ -313,21 +313,20 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
                   </div>
                 </div>
               </div>
-            </div>
-            <p className="lp-workshop-callout">
-              Ikuti workshop secara <strong className="lp-callout-highlight">Gratis</strong> dan dapatkan <strong className="lp-callout-highlight">Sertifikat</strong> resmi!!!
-            </p>
-            {/* Workshop topic chips */}
-            <div className="lp-topic-chips">
-              {WORKSHOP_CHIPS.map((chip) => (
-                <span key={chip} className="lp-chip">{chip}</span>
-              ))}
-            </div>
-            {/* Workshop CTA */}
-            <div style={{ textAlign: "center", marginTop: "24px" }}>
-              <button type="button" className="lp-hero__cta" onClick={handleDaftarClick} disabled={loginLoading}>
-                {loginLoading ? "Membuka Google..." : "Daftar Sekarang!"} <ArrowRight />
-              </button>
+              {/* Callout + chips + CTA inside banner */}
+              <p className="lp-workshop-callout" style={{ gridColumn: "1 / -1" }}>
+                Ikuti workshop secara <strong className="lp-callout-highlight">Gratis</strong> dan dapatkan <strong className="lp-callout-highlight">Sertifikat</strong> resmi!!!
+              </p>
+              <div className="lp-topic-chips" style={{ gridColumn: "1 / -1" }}>
+                {WORKSHOP_CHIPS.map((chip) => (
+                  <span key={chip} className="lp-chip">{chip}</span>
+                ))}
+              </div>
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", marginTop: "8px" }}>
+                <button type="button" className="lp-hero__cta" onClick={handleDaftarClick} disabled={loginLoading}>
+                  {loginLoading ? "Membuka Google..." : "Daftar Sekarang!"} <ArrowRight />
+                </button>
+              </div>
             </div>
           </section>
         )}
