@@ -44,6 +44,10 @@ export default function CertificatePage() {
   const [reclaimOpen, setReclaimOpen] = useState(false);
   const [reclaimStep, setReclaimStep] = useState(0);
   const [reclaimError, setReclaimError] = useState("");
+  const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editNameInput, setEditNameInput] = useState("");
+  const [editNameSaving, setEditNameSaving] = useState(false);
+  const [editNameError, setEditNameError] = useState("");
 
   // Konfirmasi nama sebelum klaim
   const [certName, setCertName] = useState("");
@@ -167,6 +171,33 @@ export default function CertificatePage() {
     navigator.clipboard.writeText(certId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
+  }
+
+  // ── Edit Nama ──
+  async function handleEditName() {
+    if (!user || !enrollment || !editNameInput.trim()) return;
+    setEditNameSaving(true);
+    setEditNameError("");
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollment.id}/claim-cert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ customName: editNameInput.trim(), reclaim: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setEditNameError(data.error || "Gagal menyimpan"); return; }
+      setCertId(data.certId);
+      if (data.driveUrl) setDriveUrl(data.driveUrl);
+      setCertName(editNameInput.trim());
+      setEnrollment((prev: any) => prev ? { ...prev, certificateId: data.certId, certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl } : prev);
+      setEditNameOpen(false);
+      setEditNameInput("");
+    } catch {
+      setEditNameError("Terjadi kesalahan. Coba lagi.");
+    } finally {
+      setEditNameSaving(false);
+    }
   }
 
   // ── Klaim Ulang ──
@@ -399,6 +430,14 @@ export default function CertificatePage() {
 
               {/* Actions */}
               <div className="cert-actions">
+                {/* Edit Nama — selalu tampil */}
+                <button
+                  className="cert-edit-name-btn"
+                  onClick={() => { setEditNameInput(userName); setEditNameOpen(true); setEditNameError(""); }}
+                >
+                  ✏️ Ubah Nama di Sertifikat
+                </button>
+
                 {daysRemaining !== null && daysRemaining <= 0 && (
                   <button
                     className="cert-reclaim-btn"
@@ -479,6 +518,48 @@ export default function CertificatePage() {
                 <button className="ccm-retry-btn" onClick={() => setReclaimOpen(false)}>Tutup</button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ Edit Nama Modal */}
+      {editNameOpen && (
+        <div className="ccm-overlay" onClick={() => !editNameSaving && setEditNameOpen(false)}>
+          <div className="ccm-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="ccm-title">✏️ Ubah Nama di Sertifikat</h3>
+            <p style={{ fontSize: 13, color: "#666", marginBottom: 16, lineHeight: 1.5 }}>
+              Nama ini akan tercetak di sertifikat kamu. Pastikan sesuai KTP.
+            </p>
+            <input
+              type="text"
+              value={editNameInput}
+              onChange={e => setEditNameInput(e.target.value)}
+              placeholder="Nama lengkap sesuai KTP"
+              disabled={editNameSaving}
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 10,
+                border: "1.5px solid #ddd", fontSize: 15, marginBottom: 12,
+                outline: "none", boxSizing: "border-box",
+              }}
+            />
+            {editNameError && <p style={{ color: "var(--color-primary)", fontSize: 13, marginBottom: 8 }}>{editNameError}</p>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setEditNameOpen(false)}
+                disabled={editNameSaving}
+                style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #ddd", background: "none", cursor: "pointer", fontSize: 14 }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleEditName}
+                disabled={editNameSaving || !editNameInput.trim()}
+                className="cert-reclaim-btn"
+                style={{ flex: 2 }}
+              >
+                {editNameSaving ? "⏳ Menyimpan..." : "✅ Simpan & Generate Ulang"}
+              </button>
+            </div>
           </div>
         </div>
       )}

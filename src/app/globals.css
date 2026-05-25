@@ -4642,6 +4642,24 @@ small {
 }
 
 /* Reclaim button */
+.cert-edit-name-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px dashed #ccc;
+  background: transparent;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.cert-edit-name-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
 .cert-reclaim-btn {
   width: 100%;
   padding: 12px;
