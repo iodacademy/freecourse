@@ -371,7 +371,25 @@ function ProfileContent() {
         profileData: cleanAnswers,
         ...(newDisplayName && { displayName: newDisplayName }),
       });
-      
+
+      // Pre-enroll sekarang agar /learn tidak perlu nunggu lagi
+      try {
+        const idToken = await user?.getIdToken();
+        await fetch("/api/enrollments/auto-enroll", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            channelSource,
+            eventId: profile?.eventId || urlEventId || partnerEventId || null,
+          }),
+        });
+      } catch (enrollErr) {
+        console.warn("[Profile] Pre-enroll failed, /learn will retry:", enrollErr);
+      }
+
       setSaved(true);
       setTimeout(() => {
         router.push("/learn");
