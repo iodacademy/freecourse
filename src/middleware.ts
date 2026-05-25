@@ -10,6 +10,7 @@ const PUBLIC_API_ROUTES = [
   '/api/health',          // Diagnostic endpoint
   '/api/profile/update',  // Profile update — auth via body token (Hostinger compat)
   '/api/verify',          // Verifikasi sertifikat — publik
+  '/api/cron',            // Cron jobs (workshop reminder) — auth via query key
 ];
 
 export function middleware(request: NextRequest) {
