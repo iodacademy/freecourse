@@ -324,15 +324,16 @@ export default function CertificatePage() {
               {/* Cert Info */}
               <div className="cert-info">
                 <div className="cert-info-row">
-                  <span className="cert-info-label">ID Sertifikat</span>
-                  <span className="cert-info-value" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    {certId}
-                    <button
-                      onClick={copyId}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--color-primary)" }}
+                  <span className="cert-info-label">Verifikasi</span>
+                  <span className="cert-info-value">
+                    <a
+                      href={`/verify/${certId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "underline" }}
                     >
-                      {copiedId ? "✓ Tersalin" : "Salin"}
-                    </button>
+                      Cek Keaslian Sertifikat
+                    </a>
                   </span>
                 </div>
                 {driveUrl && (
@@ -350,8 +351,12 @@ export default function CertificatePage() {
                   <span className="cert-info-value">{userName}</span>
                 </div>
                 <div className="cert-info-row">
-                  <span className="cert-info-label">Kursus</span>
-                  <span className="cert-info-value">{courseName}</span>
+                  <span className="cert-info-label">Program</span>
+                  <span className="cert-info-value">Modul Financial Literacy and Job Readiness</span>
+                </div>
+                <div className="cert-info-row">
+                  <span className="cert-info-label">Penyelenggara</span>
+                  <span className="cert-info-value">DBS Foundation & Plan Indonesia</span>
                 </div>
               </div>
 

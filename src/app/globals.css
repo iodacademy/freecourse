@@ -7118,3 +7118,76 @@ small {
   .lg-card { padding: 32px 24px; border-radius: 20px; }
   .lg-title { font-size: var(--font-size-2xl); }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Verify Certificate Page
+   ═══════════════════════════════════════════════════════════════ */
+
+.verify-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #fafafa 0%, #fff5f5 100%);
+}
+
+.verify-card {
+  width: 100%;
+  max-width: 520px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.verify-header { margin-bottom: 32px; }
+
+.verify-logo { height: 40px; width: auto; margin-bottom: 16px; }
+
+.verify-title { font-size: 20px; font-weight: 800; color: #1a1a1a; margin: 0; }
+
+.verify-loading { padding: 40px 0; color: #999; font-size: 14px; }
+
+.verify-spinner { animation: spin 1s linear infinite; margin: 0 auto 12px; display: block; }
+
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.verify-badge--valid { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.verify-badge--invalid { background: #fef2f2; color: #cc0000; border: 1px solid #fecaca; }
+
+.verify-info {
+  text-align: left;
+  background: var(--color-gray-50, #f9fafb);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.verify-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-size: 14px;
+}
+
+.verify-info-row:last-child { border-bottom: none; }
+.verify-info-label { color: #999; font-weight: 500; }
+.verify-info-value { color: #1a1a1a; font-weight: 600; text-align: right; max-width: 60%; }
+
+.verify-error-text { font-size: 14px; color: #666; line-height: 1.6; margin: 0; }
+.verify-footer { font-size: 12px; color: #aaa; margin-top: 24px; line-height: 1.5; }
+
+@media (max-width: 480px) {
+  .verify-card { padding: 28px 20px; }
+}
