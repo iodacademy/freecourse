@@ -122,12 +122,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     if (gasWebAppUrl) {
       try {
+        const now = new Date();
+        const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+        const claimDate = `${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
         const gasPayload = {
           action: "generate_main_cert",
           templateId: mainCertSlideTemplateId,
           certId,
           userName,
           courseName,
+          claimDate,
           email: decoded.email,
         };
 

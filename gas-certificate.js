@@ -25,6 +25,13 @@ var FOLDER_ID              = "11CGGPpHDYBrC2Vfm14BRICnBhOF1O5pB";
 var MAIN_TEMPLATE_ID       = "1E7qirTYtP79RcmM7uwdH9gevaNtutCETZfAsLhx6hfc";
 var WORKSHOP_TEMPLATE_ID   = "1DAMmG7d9c4XXHdAP9EJhD8pVl1mXkW1ADj3mDS-scNk";
 
+// === HELPER: Format tanggal ke "25 Mei 2026" ===
+var BULAN_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+function formatTanggal(date) {
+  if (typeof date === "string") date = new Date(date);
+  return date.getDate() + " " + BULAN_ID[date.getMonth()] + " " + date.getFullYear();
+}
+
 // === WEB APP ENTRY POINT ===
 function doPost(e) {
   try {
@@ -54,6 +61,7 @@ function doPost(e) {
 function generateMainCert(payload) {
   var userName    = payload.userName || "Peserta";
   var certId      = payload.certId  || "CERT-XXXX";
+  var claimDate   = payload.claimDate || formatTanggal(new Date());
   var templateId  = payload.templateId || MAIN_TEMPLATE_ID;
 
   // 1. Copy template
@@ -69,10 +77,11 @@ function generateMainCert(payload) {
 
   for (var i = 0; i < slides.length; i++) {
     var slide = slides[i];
-    // Replace nama peserta — sesuaikan placeholder di template
+    // Replace placeholder di template
     slide.replaceAllText("{{NAMA_PESERTA}}", userName);
     slide.replaceAllText("{{NAMA}}", userName);
     slide.replaceAllText("{{nama}}", userName);
+    slide.replaceAllText("{{TANGGAL}}", claimDate);
     slide.replaceAllText("{{CERT_ID}}", certId);
   }
 
@@ -108,6 +117,7 @@ function generateMainCert(payload) {
 function generateWorkshopCert(payload) {
   var userName       = payload.userName || "Peserta";
   var certId         = payload.certId || "WS-CERT-XXXX";
+  var claimDate      = payload.claimDate || formatTanggal(new Date());
   var workshopTitle  = payload.workshopTitle || "Workshop IODA Academy";
   var workshopDate   = payload.workshopDate || "";
   var workshopDay    = payload.workshopDay || "";
@@ -134,7 +144,8 @@ function generateWorkshopCert(payload) {
     slide.replaceAllText("{{nama}}", userName);
     slide.replaceAllText("{{CERT_ID}}", certId);
     slide.replaceAllText("{{JUDUL_WORKSHOP}}", workshopTitle);
-    slide.replaceAllText("{{TANGGAL}}", workshopDate);
+    slide.replaceAllText("{{TANGGAL}}", claimDate);
+    slide.replaceAllText("{{TANGGAL_WORKSHOP}}", workshopDate);
     slide.replaceAllText("{{HARI}}", workshopDay);
     slide.replaceAllText("{{JAM}}", workshopTime);
     slide.replaceAllText("{{PEMATERI}}", speakerName);

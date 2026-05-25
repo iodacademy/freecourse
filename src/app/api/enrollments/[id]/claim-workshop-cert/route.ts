@@ -122,11 +122,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     let downloadUrl: string | null = null;
     if (gasWebAppUrl) {
       try {
+        const now = new Date();
+        const bulanNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+        const claimDate = `${now.getDate()} ${bulanNames[now.getMonth()]} ${now.getFullYear()}`;
+
         const gasPayload = {
           action: "generate_workshop_cert",
           templateId: workshopCertSlideTemplateId,
           certId: wsCertId,
           userName,
+          claimDate,
           workshopTitle: workshopData.title || "Workshop IODA Academy",
           workshopDate: formatDateID(workshopDate),
           workshopDay: workshopData.dayLabel || "",
