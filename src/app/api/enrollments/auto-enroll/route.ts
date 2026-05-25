@@ -32,17 +32,23 @@ export async function POST(req: NextRequest) {
     const enrollRef = db.collection("enrollments").doc(enrollId);
     const existEnroll = await enrollRef.get();
 
-    if (existEnroll.exists) {
-      return json({ message: "Sudah terdaftar", enrollment: { id: enrollId, ...existEnroll.data() } });
-    }
-
-    // Ambil data dari users collection
+    // Ambil data dari users collection (dibutuhkan di kedua branch)
     const userDoc = await db.collection("users").doc(decoded.uid).get();
     const userData = userDoc.data() || {};
     const displayName = userData.displayName || decoded.name || "";
-
     const channelSource = body.channelSource ?? userData.channelSource ?? null;
     const eventId = body.eventId ?? userData.eventId ?? null;
+
+    if (existEnroll.exists) {
+      // Sudah terdaftar — update channelSource/eventId jika ada info baru dari profile submit
+      const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
+      if (channelSource && !existEnroll.data()?.channelSource) updates.channelSource = channelSource;
+      if (eventId && !existEnroll.data()?.eventId) updates.eventId = eventId;
+      if (displayName && !existEnroll.data()?.displayName) updates.displayName = displayName;
+      await enrollRef.update(updates);
+      return json({ message: "Sudah terdaftar", enrollment: { id: enrollId, ...existEnroll.data() } });
+    }
+
 
     const data = {
       id: enrollId,

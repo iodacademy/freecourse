@@ -372,7 +372,7 @@ function ProfileContent() {
         ...(newDisplayName && { displayName: newDisplayName }),
       });
 
-      // Pre-enroll sekarang agar /learn tidak perlu nunggu lagi
+      // Update enrollment dengan info channel/event (enrollment sudah dibuat saat SSO)
       try {
         const idToken = await user?.getIdToken();
         await fetch("/api/enrollments/auto-enroll", {
@@ -387,7 +387,7 @@ function ProfileContent() {
           }),
         });
       } catch (enrollErr) {
-        console.warn("[Profile] Pre-enroll failed, /learn will retry:", enrollErr);
+        console.warn("[Profile] Enrollment update failed:", enrollErr);
       }
 
       setSaved(true);

@@ -48,20 +48,24 @@ export async function POST(req: NextRequest) {
       };
       await userRef.set(newUser);
 
-      // 3b. Auto-enroll ke kursus utama
+      // 3b. Auto-enroll ke kursus utama saat SSO
       const settingsDoc = await db.collection("appSettings").doc("global").get();
       const mainCourseId = settingsDoc.data()?.mainCourseId;
-      if (mainCourseId) {
-        const enrollId = `${uid}_${mainCourseId}`;
+      if (mainCourseId && email) {
+        // Gunakan email sebagai doc ID (sama dengan auto-enroll) agar bisa di-query by email
+        const enrollId = email;
         const enrollRef = db.collection("enrollments").doc(enrollId);
         const existEnroll = await enrollRef.get();
         if (!existEnroll.exists) {
-          await enrollRef.set({
+          await enrollRef.create({
             id: enrollId,
             userId: uid,
+            email,
+            displayName: displayName ?? "",
             courseId: mainCourseId,
             eventId: eventId ?? null,
             channelSource: channelSource ?? null,
+            partnerCode: partnerCode ?? null,
             status: "enrolled",
             currentStep: 1,
             stepProgress: {},
