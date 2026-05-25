@@ -312,12 +312,32 @@ export default function CertificatePage() {
                 Sertifikat digital kamu sudah tercatat. ID sertifikat bisa digunakan untuk verifikasi.
               </p>
 
-              {/* Certificate Preview */}
-              <div className="cert-preview">
+              {/* Certificate Preview — click to download PDF */}
+              <div className="cert-preview" style={{ cursor: driveUrl ? "pointer" : "default" }} onClick={async () => {
+                if (!driveUrl) return;
+                // Check if file still exists by trying to fetch it
+                try {
+                  // Convert /view to /export?format=pdf for direct download
+                  const fileId = driveUrl.match(/\/d\/([^/]+)/)?.[1];
+                  if (fileId) {
+                    const downloadLink = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                    window.open(downloadLink, "_blank");
+                  } else {
+                    window.open(driveUrl, "_blank");
+                  }
+                } catch {
+                  alert("File sertifikat sudah tidak tersedia. Silahkan klaim ulang sertifikat kamu.");
+                }
+              }}>
                 <div className="cert-preview-img-wrap">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/images/certificate-template.png" alt="Sertifikat" className="cert-preview-img" />
                   <div className="cert-preview-name">{userName}</div>
+                  {driveUrl && (
+                    <div className="cert-download-overlay">
+                      <span>📥 Klik untuk Download PDF</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -325,27 +345,29 @@ export default function CertificatePage() {
               <div className="cert-info">
                 <div className="cert-info-row">
                   <span className="cert-info-label">Verifikasi</span>
-                  <span className="cert-info-value">
+                  <span className="cert-info-value" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <a
                       href={`/verify/${certId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "underline" }}
                     >
-                      Cek Keaslian Sertifikat
+                      Cek Keaslian
                     </a>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const url = `${window.location.origin}/verify/${certId}`;
+                        navigator.clipboard.writeText(url);
+                        setCopiedId(true);
+                        setTimeout(() => setCopiedId(false), 2000);
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: copiedId ? "#15803d" : "var(--color-primary)", fontWeight: 600 }}
+                    >
+                      {copiedId ? "✓ Tersalin" : "📋 Copy Link"}
+                    </button>
                   </span>
                 </div>
-                {driveUrl && (
-                  <div className="cert-info-row">
-                    <span className="cert-info-label">File Sertifikat</span>
-                    <span className="cert-info-value">
-                      <a href={driveUrl} target="_blank" rel="noopener noreferrer" className="cert-drive-link">
-                        📄 Buka di Google Drive
-                      </a>
-                    </span>
-                  </div>
-                )}
                 <div className="cert-info-row">
                   <span className="cert-info-label">Nama</span>
                   <span className="cert-info-value">{userName}</span>
