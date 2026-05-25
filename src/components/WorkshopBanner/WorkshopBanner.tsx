@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Calendar, Clock, Monitor, ExternalLink, MessageCircle, Award, Loader2, CheckCircle } from "lucide-react";
+import { X, Calendar, Clock, Monitor, MessageCircle, Award, Loader2, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { WorkshopData } from "@/components/LandingTemplate/LandingTemplate";
-import styles from "./WorkshopBanner.module.css";
 
 interface WorkshopBannerProps {
   workshopData: WorkshopData;
@@ -44,6 +43,8 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
+  const [claimStep, setClaimStep] = useState(0);
   const [claimError, setClaimError] = useState("");
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [claimedCertId, setClaimedCertId] = useState<string | null>(null);
@@ -92,10 +93,15 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
 
   const handleClaimWorkshopCert = useCallback(async () => {
     if (!user || !enrollmentId) return;
-    setIsClaiming(true);
+    setClaimModalOpen(true);
+    setClaimStep(0);
     setClaimError("");
+    setIsClaiming(true);
 
     try {
+      await new Promise(r => setTimeout(r, 600));
+      setClaimStep(1);
+
       const idToken = await user.getIdToken();
       const res = await fetch(`/api/enrollments/${enrollmentId}/claim-workshop-cert`, {
         method: "POST",
@@ -108,18 +114,24 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
       const data = await res.json();
 
       if (!res.ok) {
+        setClaimStep(-1);
         setClaimError(data.error || "Gagal mengklaim sertifikat. Coba lagi.");
         return;
       }
 
+      setClaimStep(2);
       setClaimSuccess(true);
       setClaimedCertId(data.certId);
 
-      // Jika GAS mengembalikan link download langsung
       if (data.downloadUrl) {
         window.open(data.downloadUrl, "_blank");
       }
+
+      // Auto close modal after success
+      await new Promise(r => setTimeout(r, 1500));
+      setClaimModalOpen(false);
     } catch {
+      setClaimStep(-1);
       setClaimError("Terjadi kesalahan. Periksa koneksi internet dan coba lagi.");
     } finally {
       setIsClaiming(false);
@@ -133,23 +145,23 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
 
   return (
     <div
-      className={`${styles.overlay} ${closing ? styles.overlayOut : ""}`}
+      className={`wb-overlay ${closing ? "wb-overlay--out" : ""}`}
       onClick={handleOverlayClick}
     >
-      <div className={`${styles.modal} ${closing ? styles.modalOut : ""}`}>
+      <div className={`wb-modal ${closing ? "wb-modal--out" : ""}`}>
 
         {/* Tombol close pojok kanan atas */}
-        <button className={styles.closeBtn} onClick={handleDismiss} title="Tutup">
+        <button className="wb-close-btn" onClick={handleDismiss} title="Tutup">
           <X size={18} />
         </button>
 
         {/* Layout 2 kolom: Info (kiri) + Polaroid Photo (kanan) */}
-        <div className={styles.layout}>
+        <div className="wb-layout">
 
           {/* ── KIRI: Info Workshop ── */}
-          <div className={styles.leftCol}>
+          <div className="wb-left">
             {/* Badge — berbeda tergantung mode */}
-            <div className={styles.badge} style={isPassed ? { background: "#e8f5e9", color: "#2e7d32" } : {}}>
+            <div className="wb-badge" style={isPassed ? { background: "#e8f5e9", color: "#2e7d32" } : {}}>
               {isPassed ? (
                 <><Award size={11} />KLAIM SERTIFIKAT KEHADIRAN</>
               ) : (
@@ -158,7 +170,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
             </div>
 
             {/* Judul besar */}
-            <h2 className={styles.title}>
+            <h2 className="wb-title">
               {isPassed ? "Workshop Selesai! 🎓" : (workshopData.title || "Judul Workshop Akan Tampil Di Sini")}
             </h2>
             {isPassed && workshopData.title && (
@@ -168,39 +180,39 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
             )}
 
             {/* Meta info list */}
-            <div className={styles.metaList}>
+            <div className="wb-meta-list">
               {dateDisplay && (
-                <div className={styles.metaRow}>
-                  <div className={styles.metaIconWrap}>
+                <div className="wb-meta-row">
+                  <div className="wb-meta-icon-wrap">
                     <Calendar size={15} />
                   </div>
                   <div>
-                    <div className={styles.metaLabel}>TANGGAL</div>
-                    <div className={styles.metaValue}>{dateDisplay}</div>
+                    <div className="wb-meta-label">TANGGAL</div>
+                    <div className="wb-meta-value">{dateDisplay}</div>
                   </div>
                 </div>
               )}
               {(workshopData.dayLabel || workshopData.time) && (
-                <div className={styles.metaRow}>
-                  <div className={styles.metaIconWrap}>
+                <div className="wb-meta-row">
+                  <div className="wb-meta-icon-wrap">
                     <Clock size={15} />
                   </div>
                   <div>
-                    <div className={styles.metaLabel}>HARI &amp; JAM</div>
-                    <div className={styles.metaValue}>
+                    <div className="wb-meta-label">HARI &amp; JAM</div>
+                    <div className="wb-meta-value">
                       {[workshopData.dayLabel, workshopData.time].filter(Boolean).join(" - ")}
                     </div>
                   </div>
                 </div>
               )}
               {workshopData.platform && (
-                <div className={styles.metaRow}>
-                  <div className={styles.metaIconWrap}>
+                <div className="wb-meta-row">
+                  <div className="wb-meta-icon-wrap">
                     <Monitor size={15} />
                   </div>
                   <div>
-                    <div className={styles.metaLabel}>PLATFORM</div>
-                    <div className={styles.metaValue}>{workshopData.platform}</div>
+                    <div className="wb-meta-label">PLATFORM</div>
+                    <div className="wb-meta-value">{workshopData.platform}</div>
                   </div>
                 </div>
               )}
@@ -209,23 +221,23 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
 
           {/* ── KANAN: Polaroid Photo ── */}
           {hasSpeaker && (
-            <div className={styles.rightCol}>
-              <div className={styles.polaroid}>
+            <div className="wb-right">
+              <div className="wb-polaroid">
                 {/* Red tape di atas */}
-                <div className={styles.tape} />
+                <div className="wb-tape" />
 
                 {/* Foto pemateri */}
-                <div className={styles.photoWrap}>
+                <div className="wb-photo-wrap">
                   {workshopData.speakerPhoto ? (
                     <Image
                       src={workshopData.speakerPhoto}
                       alt={workshopData.speakerName!}
                       fill
-                      className={styles.photo}
+                      className="wb-photo"
                       unoptimized
                     />
                   ) : (
-                    <div className={styles.photoPlaceholder}>
+                    <div className="wb-photo-placeholder">
                       <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
@@ -235,11 +247,11 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
                 </div>
 
                 {/* Nama & jabatan di bawah foto (gaya polaroid caption) */}
-                <div className={styles.polaroidCaption}>
-                  <div className={styles.speakerLabel}>PEMATERI</div>
-                  <div className={styles.speakerName}>{workshopData.speakerName}</div>
+                <div className="wb-polaroid-caption">
+                  <div className="wb-speaker-label">PEMATERI</div>
+                  <div className="wb-speaker-name">{workshopData.speakerName}</div>
                   {workshopData.speakerTitle && (
-                    <div className={styles.speakerTitle}>{workshopData.speakerTitle}</div>
+                    <div className="wb-speaker-title">{workshopData.speakerTitle}</div>
                   )}
                 </div>
               </div>
@@ -248,7 +260,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
         </div>
 
         {/* ── CTA Buttons — di luar layout agar full width & simetris ── */}
-        <div className={styles.ctaRow}>
+        <div className="wb-cta-row">
           {isPassed ? (
             // ── Mode Klaim ──
             <>
@@ -257,52 +269,31 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
                   display: "flex", alignItems: "center", gap: 8,
                   background: "#e8f5e9", border: "1px solid #a5d6a7",
                   borderRadius: 8, padding: "10px 14px", fontSize: 13,
-                  color: "#2e7d32", fontWeight: 600,
+                  color: "#2e7d32", fontWeight: 600, width: "100%",
                 }}>
                   <CheckCircle size={16} />
                   Sertifikat berhasil diklaim!
                   {claimedCertId && (
-                    <a
-                      href={`/verify/${claimedCertId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ marginLeft: 4, color: "#1b5e20", fontSize: 12, textDecoration: "underline" }}
-                    >
-                      Lihat <ExternalLink size={10} style={{ verticalAlign: "middle" }} />
-                    </a>
+                    <span style={{ marginLeft: 4, fontSize: 11, opacity: 0.8 }}>
+                      ID: {claimedCertId}
+                    </span>
                   )}
                 </div>
               ) : (
-                <>
-                  {claimError && (
-                    <div style={{
-                      fontSize: 12, color: "#c62828", background: "#ffebee",
-                      border: "1px solid #ef9a9a", borderRadius: 6, padding: "8px 12px",
-                      marginBottom: 6, width: "100%",
-                    }}>
-                      {claimError}
-                    </div>
-                  )}
-                  <button
-                    className={styles.ctaBtnPrimary}
-                    onClick={handleClaimWorkshopCert}
-                    disabled={isClaiming || !enrollmentId}
-                    style={{ opacity: (isClaiming || !enrollmentId) ? 0.7 : 1, cursor: (isClaiming || !enrollmentId) ? "not-allowed" : "pointer" }}
-                  >
-                    {isClaiming ? (
-                      <><Loader2 size={14} className="animate-spin" />Memproses...</>
-                    ) : (
-                      <><Award size={14} />Klaim Sertifikat Kehadiran</>
-                    )}
-                  </button>
-                </>
+                <button
+                  className="wb-cta-primary"
+                  onClick={handleClaimWorkshopCert}
+                  disabled={isClaiming || !enrollmentId}
+                >
+                  <Award size={14} />Klaim Sertifikat Kehadiran
+                </button>
               )}
               {workshopData.waGroupLink && (
                 <a
                   href={workshopData.waGroupLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.ctaBtnWa}
+                  className="wb-cta-wa"
                 >
                   <MessageCircle size={14} />
                   Grup WhatsApp
@@ -317,9 +308,8 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
                   href={workshopData.meetingLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.ctaBtnPrimary}
+                  className="wb-cta-primary"
                 >
-                  <ExternalLink size={14} />
                   Gabung Meeting
                 </a>
               )}
@@ -328,7 +318,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
                   href={workshopData.waGroupLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.ctaBtnWa}
+                  className="wb-cta-wa"
                 >
                   <MessageCircle size={14} />
                   Grup WhatsApp
@@ -338,6 +328,53 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
           )}
         </div>
       </div>
+
+      {/* ── Claim Modal ── */}
+      {claimModalOpen && (
+        <div className="ccm-overlay" style={{ zIndex: 10001 }}>
+          <div className="ccm-modal">
+            {claimStep >= 0 ? (
+              <>
+                <div className="ccm-icon">
+                  {claimStep < 2 ? (
+                    <div className="ccm-spinner" />
+                  ) : (
+                    <div className="ccm-check">✓</div>
+                  )}
+                </div>
+                <h3 className="ccm-title">
+                  {claimStep === 0 && "Memproses..."}
+                  {claimStep === 1 && "Membuat sertifikat kehadiran..."}
+                  {claimStep === 2 && "Sertifikat berhasil! 🎉"}
+                </h3>
+                <div className="ccm-steps">
+                  <div className={`ccm-step ${claimStep >= 0 ? 'ccm-step--done' : ''}`}>
+                    <span className="ccm-dot">{claimStep > 0 ? '✓' : '⏳'}</span>
+                    Verifikasi kehadiran
+                  </div>
+                  <div className={`ccm-step ${claimStep >= 1 ? (claimStep > 1 ? 'ccm-step--done' : 'ccm-step--active') : ''}`}>
+                    <span className="ccm-dot">{claimStep > 1 ? '✓' : claimStep === 1 ? '⏳' : '○'}</span>
+                    Generate sertifikat kehadiran
+                  </div>
+                  <div className={`ccm-step ${claimStep >= 2 ? 'ccm-step--done' : ''}`}>
+                    <span className="ccm-dot">{claimStep >= 2 ? '✓' : '○'}</span>
+                    Selesai
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="ccm-icon">
+                  <div className="ccm-error-icon">✕</div>
+                </div>
+                <h3 className="ccm-title" style={{ color: 'var(--color-primary)' }}>Gagal</h3>
+                <p className="ccm-error-msg">{claimError}</p>
+                <button className="ccm-retry-btn" onClick={() => setClaimModalOpen(false)}>Tutup</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

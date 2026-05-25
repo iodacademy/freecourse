@@ -10,12 +10,20 @@ export async function GET(req: NextRequest) {
     await requireAuth(req);
     const db = getAdminDb();
 
-    // 1. Dapatkan Course
-    let courseRef = db.collection("courses").doc(MAIN_COURSE_ID);
-    let courseDoc = await courseRef.get();
+    const courseRef = db.collection("courses").doc(MAIN_COURSE_ID);
 
+    // Parallel fetch: course + settings + steps
+    const [courseDoc, settingsDoc, stepsSnap] = await Promise.all([
+      courseRef.get(),
+      db.collection("settings").doc("app").get(),
+      db.collection("courseSteps")
+        .where("courseId", "==", MAIN_COURSE_ID)
+        .get(),
+    ]);
+
+    // Handle missing course
+    let courseData: any;
     if (!courseDoc.exists) {
-      // Bikin course default kalau belum ada
       const defaultCourse = {
         title: "Literasi Finansial Dasar",
         description: "Modul pembelajaran literasi keuangan dasar.",
@@ -34,13 +42,13 @@ export async function GET(req: NextRequest) {
         updatedAt: FieldValue.serverTimestamp(),
       };
       await courseRef.set(defaultCourse);
-      courseDoc = await courseRef.get();
+      const freshDoc = await courseRef.get();
+      courseData = { id: freshDoc.id, ...freshDoc.data() };
+    } else {
+      courseData = { id: courseDoc.id, ...courseDoc.data() };
     }
 
-    const courseData = { id: courseDoc.id, ...courseDoc.data() } as any;
-
-    // 1.5 Ambil settings untuk mainCertTitle
-    const settingsDoc = await db.collection("settings").doc("app").get();
+    // Merge settings
     if (settingsDoc.exists) {
       const settingsData = settingsDoc.data() || {};
       if (settingsData.mainCertTitle) {
@@ -48,11 +56,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Dapatkan Semua Steps
-    const stepsSnap = await db.collection("courseSteps")
-      .where("courseId", "==", MAIN_COURSE_ID)
-      .get();
-    
+    // Process steps
     const steps = stepsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     steps.sort((a: any, b: any) => (a.order as number) - (b.order as number));
 

@@ -4,8 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { GraduationCap, Award, CheckCircle, Loader2, ExternalLink, Lock } from "lucide-react";
-import styles from "./ProfileDrawer.module.css";
+import { GraduationCap, Award, CheckCircle, Loader2, Lock } from "lucide-react";
 
 function getInitials(name: string) {
   return name.split(" ").slice(0, 2).map((w) => w[0] || "").join("").toUpperCase();
@@ -156,8 +155,6 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
   const mainCertClaimed = enrollment?.certificateClaimed ?? false;
   const mainCertId = enrollment?.certificateId ?? null;
   const currentStep = enrollment?.currentStep ?? 1;
-  // Dianggap selesai jika status sudah completed/certified,
-  // ATAU currentStep sudah melampaui total step
   const isAllStepsDone =
     enrollment?.status === "completed" ||
     enrollment?.status === "certified" ||
@@ -167,64 +164,50 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className={`${styles.backdrop} ${open ? styles.backdropOpen : ""}`}
+        className={`pd-backdrop ${open ? "pd-backdrop--open" : ""}`}
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className={`${styles.drawer} ${open ? styles.drawerOpen : ""}`}>
+      <div className={`pd-drawer ${open ? "pd-drawer--open" : ""}`}>
         {/* Cover Banner */}
-        <div className={styles.cover}>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Tutup">
+        <div className="pd-cover">
+          <button className="pd-close-btn" onClick={onClose} aria-label="Tutup">
             <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.5" stroke="white">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
-          <div className={styles.avWrap}>
+          <div className="pd-av-wrap">
             {photoURL ? (
               <Image src={photoURL} alt="Avatar" width={80} height={80} style={{ borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
-              <div className={styles.avInitials}>{initials}</div>
+              <div className="pd-av-initials">{initials}</div>
             )}
-            <div className={styles.avOnline} />
+            <div className="pd-av-online" />
           </div>
         </div>
 
         {/* Body */}
-        <div className={styles.body}>
-          <div className={styles.profName}>{namaLengkap}</div>
+        <div className="pd-body">
+          <div className="pd-prof-name">{namaLengkap}</div>
 
           {/* ── SERTIFIKAT SAYA ── tampil di bawah nama ── */}
           {enrollment && (
-            <div className={styles.section} style={{ marginTop: 10, marginBottom: 4 }}>
-              <div className={styles.sectionTitle}>SERTIFIKAT SAYA</div>
+            <div className="pd-section" style={{ marginTop: 10, marginBottom: 4 }}>
+              <div className="pd-section-title">SERTIFIKAT SAYA</div>
 
               {/* Tombol 1: Sertifikat Kursus Utama */}
               <div style={{ marginBottom: 10 }}>
-                <div className={styles.infoLbl} style={{ marginBottom: 6 }}>Sertifikat Financial Literacy</div>
+                <div className="pd-info-lbl" style={{ marginBottom: 6 }}>Sertifikat Financial Literacy</div>
                 {mainCertClaimed && mainCertId ? (
                   // Sudah diklaim
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      background: "#e8f5e9", border: "1px solid #a5d6a7",
-                      borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
-                    }}>
-                      <CheckCircle size={14} />
-                      Sertifikat sudah diklaim
-                    </div>
-                    <a
-                      href={`/verify/${mainCertId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
-                        fontSize: 12, color: "var(--color-primary)", textDecoration: "none",
-                        border: "1px solid var(--color-primary)", borderRadius: 6, padding: "6px 10px",
-                      }}
-                    >
-                      <ExternalLink size={12} /> Lihat Sertifikat
-                    </a>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    background: "#e8f5e9", border: "1px solid #a5d6a7",
+                    borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
+                  }}>
+                    <CheckCircle size={14} />
+                    Sertifikat sudah diklaim · {mainCertId}
                   </div>
                 ) : isAllStepsDone ? (
                   // Semua materi selesai, belum klaim
@@ -256,32 +239,16 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
               {/* Tombol 2: Sertifikat Workshop — hanya untuk channelSource=workshop */}
               {channelSource === "workshop" && (
                 <div>
-                  <div className={styles.infoLbl} style={{ marginBottom: 6 }}>Sertifikat Kehadiran Workshop</div>
+                  <div className="pd-info-lbl" style={{ marginBottom: 6 }}>Sertifikat Kehadiran Workshop</div>
                   {(workshopClaimed || enrollment?.workshopCertificateClaimed) ? (
                     // Sudah diklaim
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        background: "#e8f5e9", border: "1px solid #a5d6a7",
-                        borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
-                      }}>
-                        <CheckCircle size={14} />
-                        Sertifikat workshop sudah diklaim
-                      </div>
-                      {enrollment?.workshopCertificateId && (
-                        <a
-                          href={`/verify/${enrollment.workshopCertificateId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
-                            fontSize: 12, color: "var(--color-primary)", textDecoration: "none",
-                            border: "1px solid var(--color-primary)", borderRadius: 6, padding: "6px 10px",
-                          }}
-                        >
-                          <ExternalLink size={12} /> Lihat Sertifikat Workshop
-                        </a>
-                      )}
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: "#e8f5e9", border: "1px solid #a5d6a7",
+                      borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
+                    }}>
+                      <CheckCircle size={14} />
+                      Sertifikat workshop sudah diklaim
                     </div>
                   ) : !mainCertClaimed ? (
                     // Sertifikat utama belum diklaim
@@ -334,8 +301,8 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
           )}
 
           {/* Data Diri */}
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>Data Diri</div>
+          <div className="pd-section">
+            <div className="pd-section-title">Data Diri</div>
             {[
               { icon: "user", label: "Nama Lengkap", val: namaLengkap },
               { icon: "gender", label: "Jenis Kelamin", val: jenisKelamin },
@@ -343,52 +310,52 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
               { icon: "mail", label: "Email", val: email },
               { icon: "phone", label: "WhatsApp / Telepon", val: whatsapp },
             ].map(({ label, val }) => (
-              <div key={label} className={styles.infoRow}>
+              <div key={label} className="pd-info-row">
                 <div>
-                  <div className={styles.infoLbl}>{label}</div>
-                  <div className={styles.infoVal}>{val || "—"}</div>
+                  <div className="pd-info-lbl">{label}</div>
+                  <div className="pd-info-val">{val || "—"}</div>
                 </div>
               </div>
             ))}
             {partnerCode && (
-              <div className={styles.infoRow}>
+              <div className="pd-info-row">
                 <div>
-                  <div className={styles.infoLbl}>Kode Mitra</div>
-                  <div className={styles.infoVal} style={{ fontFamily: "monospace", fontWeight: "bold", background: "#f0f4f8", padding: "2px 6px", borderRadius: "4px", color: "#10507a" }}>{partnerCode}</div>
+                  <div className="pd-info-lbl">Kode Mitra</div>
+                  <div className="pd-info-val" style={{ fontFamily: "monospace", fontWeight: "bold", background: "#f0f4f8", padding: "2px 6px", borderRadius: "4px", color: "#10507a" }}>{partnerCode}</div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Asal Daerah */}
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>Asal Daerah</div>
-            <div className={styles.infoRow}>
+          <div className="pd-section">
+            <div className="pd-section-title">Asal Daerah</div>
+            <div className="pd-info-row">
               <div>
-                <div className={styles.infoLbl}>Provinsi</div>
-                <div className={styles.infoVal}>{provinsi}</div>
+                <div className="pd-info-lbl">Provinsi</div>
+                <div className="pd-info-val">{provinsi}</div>
               </div>
             </div>
-            <div className={styles.infoRow}>
+            <div className="pd-info-row">
               <div>
-                <div className={styles.infoLbl}>Kota / Kabupaten</div>
-                <div className={styles.infoVal}>{kota}</div>
+                <div className="pd-info-lbl">Kota / Kabupaten</div>
+                <div className="pd-info-val">{kota}</div>
               </div>
             </div>
           </div>
 
           {/* Status Disabilitas */}
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>Status Disabilitas</div>
-            <div className={styles.infoRow}>
+          <div className="pd-section">
+            <div className="pd-section-title">Status Disabilitas</div>
+            <div className="pd-info-row">
               <div>
-                <div className={styles.infoLbl}>Penyandang Disabilitas</div>
+                <div className="pd-info-lbl">Penyandang Disabilitas</div>
                 <div style={{ marginTop: 4 }}>
                   {disabilitas === "Tidak" || disabilitas === "Bukan Penyandang Disabilitas" ? (
-                    <span className={styles.badgeNo}>✓ Bukan Penyandang Disabilitas</span>
+                    <span className="pd-badge-no">✓ Bukan Penyandang Disabilitas</span>
                   ) : disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas" ? (
                     <>
-                      <span className={styles.badgeYes}>⚡ Penyandang Disabilitas</span>
+                      <span className="pd-badge-yes">⚡ Penyandang Disabilitas</span>
                     </>
                   ) : <span>{disabilitas}</span>}
                 </div>
@@ -400,7 +367,7 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
 
 
           <button
-            className={styles.editBtn}
+            className="pd-edit-btn"
             onClick={() => {
               onClose();
               router.push("/profile?edit=true");

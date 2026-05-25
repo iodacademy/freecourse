@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import type { SurveyQuestion } from "@/lib/types";
-import styles from "./Survey.module.css";
-import { ClipboardList, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Star } from "lucide-react";
 
 interface SurveyProps {
   questions: SurveyQuestion[];
@@ -27,12 +26,10 @@ export default function Survey({
   }
 
   function handleSubmit() {
-    // Cek wajib
     const missing = questions.filter(
       (q) => q.required && (answers[q.id] === undefined || answers[q.id] === "")
     );
     if (missing.length > 0) return;
-
     onSubmit(answers);
     setSubmitted(true);
   }
@@ -43,12 +40,9 @@ export default function Survey({
 
   if (submitted) {
     return (
-      <div className={styles.wrapper}>
-        <div className={styles.header}>
-          <h3 className={styles.title}><ClipboardList size={20} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Survei</h3>
-        </div>
-        <div className={styles.successMessage}>
-          <span className={styles.successEmoji}><CheckCircle2 size={48} style={{ color: 'var(--color-success)' }} /></span>
+      <div className="sv-wrap">
+        <div className="sv-success">
+          <CheckCircle2 size={48} />
           <h4>Terima Kasih!</h4>
           <p>Tanggapan survei kamu telah disimpan.</p>
         </div>
@@ -57,113 +51,120 @@ export default function Survey({
   }
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.header}>
-        <h3 className={styles.title}><ClipboardList size={20} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> Survei</h3>
-        <span className={styles.metaItem}>
-          {questions.length} Pertanyaan
-        </span>
-      </div>
-
-      <div className={styles.questionList}>
-        {questions.map((question, idx) => (
-          <div key={question.id} className={styles.question}>
-            <p className={styles.questionText}>
-              <span className={styles.questionNum}>{idx + 1}.</span>
-              {question.text}
-              {question.required && <span className="required">*</span>}
-            </p>
-
-            {/* Star Rating */}
-            {question.type === "starRating" && (
-              <div className={styles.stars}>
-                {Array.from({ length: question.maxStars || 5 }, (_, i) => i + 1).map(
-                  (star) => (
-                    <button
-                      key={star}
-                      className={`${styles.star} ${
-                        (answers[question.id] as number) >= star
-                          ? styles.starActive
-                          : ""
-                      }`}
-                      onClick={() => handleChange(question.id, star)}
-                      disabled={disabled}
-                      type="button"
-                    >
-                      ★
-                    </button>
-                  )
-                )}
-                {answers[question.id] && (
-                  <span className={styles.starLabel}>
-                    {answers[question.id]} / {question.maxStars || 5}
-                  </span>
-                )}
-              </div>
+    <div className="sv-wrap">
+      {questions.map((question, idx) => (
+        <div key={question.id} className="sv-question">
+          <div className="sv-label">
+            {question.text}
+            {question.required ? (
+              <span className="yr-req">*</span>
+            ) : (
+              <span className="sv-optional">opsional</span>
             )}
+          </div>
 
-            {/* Scale (1-5 / 1-10) */}
-            {question.type === "scale" && (
-              <div className={styles.scaleRow}>
-                {Array.from({ length: question.maxStars || 5 }, (_, i) => i + 1).map(
-                  (num) => (
-                    <button
-                      key={num}
-                      className={`${styles.scaleBtn} ${
-                        answers[question.id] === num ? styles.scaleBtnActive : ""
-                      }`}
-                      onClick={() => handleChange(question.id, num)}
-                      disabled={disabled}
-                      type="button"
-                    >
-                      {num}
-                    </button>
-                  )
-                )}
+          {/* ── Star Rating (REDESIGN) ── */}
+          {question.type === "starRating" && (
+            <>
+              <div className="sv-rating">
+                <div className="sv-rating-scale">
+                  <span>1 — Kurang Bagus</span>
+                  <span>{question.maxStars || 5} — Sangat Bagus</span>
+                </div>
+                <div className="sv-rating-stars">
+                  {Array.from({ length: question.maxStars || 5 }, (_, i) => i + 1).map(
+                    (n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        className={`sv-star ${
+                          (answers[question.id] as number) >= n ? "sv-star--on" : ""
+                        }`}
+                        onClick={() => handleChange(question.id, n)}
+                        disabled={disabled}
+                        aria-label={`${n} bintang`}
+                      >
+                        <span className="sv-star-num">{n}</span>
+                        <Star size={22} />
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-            )}
+            </>
+          )}
 
-            {/* Multiple Choice */}
-            {question.type === "multipleChoice" && question.options && (
-              <div className={styles.choices}>
-                {question.options.map((opt) => (
+          {/* ── Scale (1-5 / 1-10) ── */}
+          {question.type === "scale" && (
+            <div className="sv-scale-row">
+              {Array.from({ length: question.maxStars || 5 }, (_, i) => i + 1).map(
+                (num) => (
                   <button
-                    key={opt}
-                    className={`${styles.choiceBtn} ${
-                      answers[question.id] === opt ? styles.choiceBtnActive : ""
-                    }`}
-                    onClick={() => handleChange(question.id, opt)}
-                    disabled={disabled}
+                    key={num}
                     type="button"
+                    className={`sv-scale-btn ${
+                      answers[question.id] === num ? "sv-scale-btn--active" : ""
+                    }`}
+                    onClick={() => handleChange(question.id, num)}
+                    disabled={disabled}
                   >
-                    {opt}
+                    {num}
                   </button>
-                ))}
-              </div>
-            )}
+                )
+              )}
+            </div>
+          )}
 
-            {/* Short Text */}
-            {question.type === "shortText" && (
+          {/* ── Multiple Choice ── */}
+          {question.type === "multipleChoice" && question.options && (
+            <div className="sv-choices">
+              {question.options.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`sv-choice-btn ${
+                    answers[question.id] === opt ? "sv-choice-btn--active" : ""
+                  }`}
+                  onClick={() => handleChange(question.id, opt)}
+                  disabled={disabled}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Short Text / Textarea ── */}
+          {question.type === "shortText" && (
+            <>
               <textarea
-                className={`form-textarea ${styles.textArea}`}
-                placeholder="Tulis jawaban kamu..."
+                className="sv-textarea"
+                placeholder="cth. Materinya jelas, contohnya relate, tapi pengen lebih banyak studi kasus…"
                 value={(answers[question.id] as string) || ""}
                 onChange={(e) => handleChange(question.id, e.target.value)}
                 disabled={disabled}
-                rows={3}
+                rows={4}
+                maxLength={300}
               />
-            )}
-          </div>
-        ))}
-      </div>
+              <div className="sv-char-count">
+                {((answers[question.id] as string) || "").length} / 300
+              </div>
+            </>
+          )}
+        </div>
+      ))}
 
-      <div className={styles.actions}>
+      <div style={{ marginTop: 16 }}>
         <button
-          className="btn btn-primary btn-lg w-full"
+          type="button"
+          className="step-next-btn"
           onClick={handleSubmit}
           disabled={!allRequired || disabled}
         >
           Kirim Survei
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="18" height="18">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>

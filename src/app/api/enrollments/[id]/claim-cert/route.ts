@@ -23,48 +23,56 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     
     const enrollData = enrollDoc.data()!;
     if (enrollData.email !== decoded.email) return json({ error: "Forbidden" }, 403);
-    if (enrollData.certificateClaimed) return json({ message: "Sertifikat sudah diklaim sebelumnya" });
 
-    // Cek syarat kelulusan
-    const courseStepsSnap = await db.collection("courseSteps")
-      .where("courseId", "==", enrollData.courseId)
-      .get();
-      
-    const requiredSteps = courseStepsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-    const stepProgress = enrollData.stepProgress || {};
+    let reqBody: any = {};
+    try { reqBody = await req.json(); } catch(e) {}
 
-    let isEligible = true;
-    for (const step of requiredSteps) {
-      if (step.hasAssessment && step.assessment?.kkm) {
-        const progress = stepProgress[step.id];
-        const score = progress?.assessmentResult?.score;
-        if (!progress || typeof score !== "number" || score < step.assessment.kkm) {
-          isEligible = false;
-          break;
+    const isReclaim = reqBody.reclaim === true;
+
+    // Sudah diklaim dan bukan reclaim → tolak
+    if (enrollData.certificateClaimed && !isReclaim) {
+      return json({ message: "Sertifikat sudah diklaim sebelumnya", certId: enrollData.certificateId });
+    }
+
+    // Cek syarat kelulusan (hanya untuk klaim pertama)
+    if (!isReclaim) {
+      const courseStepsSnap = await db.collection("courseSteps")
+        .where("courseId", "==", enrollData.courseId)
+        .get();
+        
+      const requiredSteps = courseStepsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      const stepProgress = enrollData.stepProgress || {};
+
+      let isEligible = true;
+      for (const step of requiredSteps) {
+        if (step.hasAssessment && step.assessment?.kkm) {
+          const progress = stepProgress[step.id];
+          const score = progress?.assessmentResult?.score;
+          if (!progress || typeof score !== "number" || score < step.assessment.kkm) {
+            isEligible = false;
+            break;
+          }
+        }
+        
+        if (step.hasSurvey && step.survey) {
+          const progress = stepProgress[step.id];
+          if (!progress || !progress.surveyResult) {
+            isEligible = false;
+            break;
+          }
         }
       }
-      
-      if (step.hasSurvey && step.survey) {
-        const progress = stepProgress[step.id];
-        if (!progress || !progress.surveyResult) {
-          isEligible = false;
-          break;
-        }
+
+      if (!isEligible) {
+        return json({ error: "Syarat belum terpenuhi (belum lulus assessment / belum isi survei)" }, 400);
       }
     }
 
-    if (!isEligible) {
-      return json({ error: "Syarat belum terpenuhi (belum lulus assessment / belum isi survei)" }, 400);
-    }
-
-    // Generate Certificate ID
+    // Generate Certificate ID (new one for reclaim too)
     const year = new Date().getFullYear();
     const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
     const certId = `CERT-${year}-${randomHex}`;
 
-    let reqBody: any = {};
-    try { reqBody = await req.json(); } catch(e) {}
-    
     // Get user and course info for verification record
     const [userDoc, courseDoc] = await Promise.all([
       db.collection("users").doc(enrollData.userId).get(),
@@ -75,40 +83,32 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const courseName = courseDoc.data()?.title || "Kursus";
     const issuerName = courseDoc.data()?.certificateConfig?.issuerName || "IODA Academy";
 
-    const batch = db.batch();
+    // TO-DO: If reclaim, delete old Google Drive file using GAS
+    // const oldDriveFileId = enrollData.certificateDriveFileId;
+    // if (isReclaim && oldDriveFileId) { /* call GAS to delete old file */ }
 
-    // 1. Update enrollment
-    batch.update(enrollRef, {
+    // Update enrollment with certificate data
+    await enrollRef.update({
       certificateClaimed: true,
       certificateClaimedAt: FieldValue.serverTimestamp(),
       certificateId: certId,
+      certificateName: userName,
+      certificateCourseName: courseName,
+      certificateIssuer: issuerName,
       status: "certified",
       updatedAt: FieldValue.serverTimestamp()
     });
 
-    // 2. Buat Verification Record
-    const verifyRef = db.collection("certificateVerifications").doc(certId);
-    batch.set(verifyRef, {
-      certId,
-      userId: enrollData.userId,
-      userName,
-      courseId: enrollData.courseId,
-      courseName,
-      claimedAt: FieldValue.serverTimestamp(),
-      issuerName,
-      isValid: true,
-      verifyUrl: `https://freecourse.iodacademy.id/verify/${certId}`
-    });
-
-    await batch.commit();
-
-    // TO-DO: Call Google Apps Script for PDF generation and Email sending
-    // Karena GAS diskip untuk sprint ini, kita asumsikan sukses.
+    // TO-DO: Call Google Apps Script for PDF generation
+    // When GAS is ready, it will return driveUrl which we pass back
     
     return json({ 
       success: true, 
-      message: "Sertifikat berhasil diklaim (Data tersimpan di Firestore)",
-      certId 
+      message: isReclaim 
+        ? "Sertifikat berhasil di-generate ulang" 
+        : "Sertifikat berhasil diklaim",
+      certId,
+      // driveUrl: "..." // Will be populated when GAS is integrated
     });
   } catch (e) {
     return handleError(e);

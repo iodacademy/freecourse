@@ -6,7 +6,7 @@ import styles from "./page.module.css";
 import { ArrowLeft, Plus, Trash2, GripVertical, Settings2, Save, Circle, ChevronDown, ChevronUp, AlignLeft } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor/RichTextEditor";
 import { useAuth } from "@/contexts/AuthContext";
-import type { DynamicForm, DynamicFormSection, DynamicFormField } from "@/lib/types";
+import type { DynamicForm, DynamicFormSection, DynamicFormField, SkipRule } from "@/lib/types";
 import Link from "next/link";
 import { ConfirmDialog, AlertDialog } from "@/components/Modal/Dialogs";
 
@@ -358,6 +358,127 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                     onChange={e => updateSection(section.id, { description: e.target.value })}
                     placeholder="Deskripsi seksi (opsional)"
                   />
+
+                  {/* ── Per-section settings ── */}
+                  <div className={styles.sectionSettings}>
+                    <div className={styles.sectionSettingsRow}>
+                      <label className={styles.settingInline}>
+                        <span>Tampilan:</span>
+                        <select
+                          className={styles.settingSelect}
+                          value={section.displayMode || 'separate'}
+                          onChange={e => updateSection(section.id, { displayMode: e.target.value as any })}
+                        >
+                          <option value="separate">Pisah halaman</option>
+                          <option value="merged">Gabung dengan seksi berikutnya</option>
+                        </select>
+                      </label>
+                      <label className={styles.settingInline}>
+                        <input
+                          type="checkbox"
+                          checked={section.autoAdvance || false}
+                          onChange={e => updateSection(section.id, { autoAdvance: e.target.checked })}
+                        />
+                        <span>Auto-advance (lanjut otomatis setelah pilih, hanya 1 radio)</span>
+                      </label>
+                    </div>
+
+                    {/* Skip Rules */}
+                    <div className={styles.skipRulesBlock}>
+                      <div className={styles.skipRulesHeader}>
+                        <span className={styles.skipRulesLabel}>⚡ Skip Rules</span>
+                        <button
+                          type="button"
+                          className={styles.addOptionBtn}
+                          onClick={() => {
+                            const newRules: SkipRule[] = [...(section.skipRules || []), { fieldName: '', fieldValue: '', goToSection: 'end' }];
+                            updateSection(section.id, { skipRules: newRules });
+                          }}
+                        >
+                          <Plus size={12} /> Tambah Rule
+                        </button>
+                      </div>
+                      {(section.skipRules || []).map((rule, rIdx) => {
+                        const fieldsInSection = section.fields.filter(f => ['radio', 'select', 'checkbox'].includes(f.type));
+                        const selectedField = fieldsInSection.find(f => f.name === rule.fieldName);
+                        return (
+                          <div key={rIdx} className={styles.skipRuleRow}>
+                            <span className={styles.skipRuleText}>Jika</span>
+                            <select
+                              className={styles.settingSelect}
+                              value={rule.fieldName}
+                              onChange={e => {
+                                const newRules = [...(section.skipRules || [])];
+                                newRules[rIdx] = { ...newRules[rIdx], fieldName: e.target.value, fieldValue: '' };
+                                updateSection(section.id, { skipRules: newRules });
+                              }}
+                            >
+                              <option value="">-- Pilih Field --</option>
+                              {fieldsInSection.map(f => (
+                                <option key={f.name} value={f.name}>{f.label}</option>
+                              ))}
+                            </select>
+                            <span className={styles.skipRuleText}>=</span>
+                            {selectedField && (selectedField.options || []).length > 0 ? (
+                              <select
+                                className={styles.settingSelect}
+                                value={rule.fieldValue}
+                                onChange={e => {
+                                  const newRules = [...(section.skipRules || [])];
+                                  newRules[rIdx] = { ...newRules[rIdx], fieldValue: e.target.value };
+                                  updateSection(section.id, { skipRules: newRules });
+                                }}
+                              >
+                                <option value="">-- Pilih Nilai --</option>
+                                {(selectedField.options || []).map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                className={styles.condInput}
+                                value={rule.fieldValue}
+                                onChange={e => {
+                                  const newRules = [...(section.skipRules || [])];
+                                  newRules[rIdx] = { ...newRules[rIdx], fieldValue: e.target.value };
+                                  updateSection(section.id, { skipRules: newRules });
+                                }}
+                                placeholder="Nilai..."
+                              />
+                            )}
+                            <span className={styles.skipRuleText}>→</span>
+                            <select
+                              className={styles.settingSelect}
+                              value={String(rule.goToSection)}
+                              onChange={e => {
+                                const newRules = [...(section.skipRules || [])];
+                                const val = e.target.value;
+                                newRules[rIdx] = { ...newRules[rIdx], goToSection: val === 'end' ? 'end' : Number(val) };
+                                updateSection(section.id, { skipRules: newRules });
+                              }}
+                            >
+                              <option value="end">⛔ Blokir / Akhiri form</option>
+                              {form.sections.map((s, si) => si !== sIdx && (
+                                <option key={si} value={si}>Lompat ke Seksi {si + 1}: {s.title}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className={styles.iconBtn}
+                              onClick={() => {
+                                const newRules = (section.skipRules || []).filter((_, i) => i !== rIdx);
+                                updateSection(section.id, { skipRules: newRules });
+                              }}
+                              style={{ padding: 4 }}
+                            >
+                              <Trash2 size={14} color="#999" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button className={styles.iconBtn} onClick={() => toggleMinimize(section.id)}>
@@ -448,6 +569,26 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                             <AlignLeft size={13} style={{ opacity: 0.6 }} />
                             Tambah Deskripsi
                           </label>
+                        </div>
+
+                        <div className={styles.settingItem} style={{ flex: 1, minWidth: 180 }}>
+                          <input
+                            type="text"
+                            value={field.note || ""}
+                            onChange={e => updateField(section.id, field.id, { note: e.target.value || undefined })}
+                            placeholder="💡 Catatan / Note (muncul di bawah input)"
+                            style={{
+                              width: '100%',
+                              padding: '4px 10px',
+                              fontSize: '11.5px',
+                              border: '1.5px solid #e5e7eb',
+                              borderRadius: '7px',
+                              background: '#f9fafb',
+                              color: '#374151',
+                              outline: 'none',
+                              fontFamily: 'inherit',
+                            }}
+                          />
                         </div>
 
                         {prevFields.length > 0 && (

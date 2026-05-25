@@ -1,7 +1,5 @@
 "use client";
 
-import styles from "./VideoPlayer.module.css";
-
 interface VideoPlayerProps {
   youtubeId: string;
   title?: string;
@@ -9,10 +7,10 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({ youtubeId, title }: VideoPlayerProps) {
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.container}>
+    <div className="vp-wrapper">
+      <div className="vp-container">
         <iframe
-          className={styles.iframe}
+          className="vp-iframe"
           src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
           title={title || "Video Pembelajaran"}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

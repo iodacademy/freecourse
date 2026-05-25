@@ -609,3 +609,92 @@
   font-size: var(--font-size-lg) !important;
   font-weight: 600 !important;
 }
+
+/* ── Section Settings (displayMode, autoAdvance, skipRules) ── */
+.sectionSettings {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.sectionSettingsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  margin-bottom: 8px;
+}
+
+.settingInline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.settingInline input[type="checkbox"] {
+  accent-color: #dc2626;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.settingSelect {
+  padding: 4px 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 7px;
+  background: #f9fafb;
+  color: #374151;
+  outline: none;
+  cursor: pointer;
+  appearance: auto;
+  transition: border-color 0.15s;
+}
+.settingSelect:hover { border-color: #d1d5db; }
+.settingSelect:focus { border-color: #dc2626; }
+
+.skipRulesBlock {
+  margin-top: 4px;
+}
+
+.skipRulesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.skipRulesLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.skipRuleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+}
+
+.skipRuleText {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
+  white-space: nowrap;
+}

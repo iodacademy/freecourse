@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import GoogleButton from "@/components/GoogleButton";
-import styles from "./page.module.css";
 import { AlertTriangle } from "lucide-react";
 import { Suspense } from "react";
 
@@ -38,7 +37,7 @@ function LoginContent() {
   // Loading state
   if (loading) {
     return (
-      <div className={styles.wrapper}>
+      <div className="lg-wrapper">
         <div className="loading-overlay">
           <div className="spinner spinner-lg" />
           <p>Memuat...</p>
@@ -50,7 +49,7 @@ function LoginContent() {
   // Sudah login dan profile ada → tampilkan loading sementara redirect
   if (user && profile && !error) {
     return (
-      <div className={styles.wrapper}>
+      <div className="lg-wrapper">
         <div className="loading-overlay">
           <div className="spinner spinner-lg" />
           <p>Mengarahkan ke halaman...</p>
@@ -60,25 +59,25 @@ function LoginContent() {
   }
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.card}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>
+    <div className="lg-wrapper">
+      <div className="lg-card">
+        <div className="lg-header">
+          <h1 className="lg-title">
             Modul Financial Literacy
           </h1>
-          <p className={styles.subtitle}>
+          <p className="lg-subtitle">
             Masuk untuk mulai belajar literasi finansial gratis
           </p>
         </div>
 
         {error && (
-          <div className={styles.error}>
+          <div className="alert alert-error" style={{ marginBottom: 16, textAlign: "left" }}>
             <span><AlertTriangle size={18} /></span>
             <span>{error}</span>
           </div>
         )}
 
-          <div className={styles.actions}>
+          <div className="lg-actions">
             <GoogleButton onClick={loginWithGoogle} />
           </div>
       </div>
@@ -89,7 +88,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className={styles.wrapper}>
+      <div className="lg-wrapper">
         <div className="loading-overlay">
           <div className="spinner spinner-lg" />
           <p>Memuat...</p>

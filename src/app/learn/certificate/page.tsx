@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearnLoading } from "@/contexts/LearnLoadingContext";
-import styles from "./page.module.css";
-import { GraduationCap, Trophy, Loader2, AlertCircle, ExternalLink } from "lucide-react";
+import { GraduationCap, Trophy, Loader2, AlertCircle } from "lucide-react";
 
 interface EnrollmentData {
   id: string;
@@ -14,7 +13,8 @@ interface EnrollmentData {
   channelSource?: string;
   certificateClaimed: boolean;
   certificateId?: string;
-  certificateClaimedAt?: string;
+  certificateClaimedAt?: any;
+  certificateDriveUrl?: string;
   bonusCourseRedeemCode?: string;
   stepProgress?: Record<string, any>;
   currentStep?: number;
@@ -40,6 +40,10 @@ export default function CertificatePage() {
   const [claimError, setClaimError] = useState("");
   const [certId, setCertId] = useState("");
   const [copiedId, setCopiedId] = useState(false);
+  const [driveUrl, setDriveUrl] = useState("");
+  const [reclaimOpen, setReclaimOpen] = useState(false);
+  const [reclaimStep, setReclaimStep] = useState(0);
+  const [reclaimError, setReclaimError] = useState("");
 
   // Konfirmasi nama sebelum klaim
   const [certName, setCertName] = useState("");
@@ -53,10 +57,16 @@ export default function CertificatePage() {
         const idToken = await user!.getIdToken();
 
         // 1. Get enrollments
-        const enrollRes = await fetch("/api/enrollments", {
-          headers: { Authorization: `Bearer ${idToken}` },
-          cache: "no-store",
-        });
+        // Parallel fetch: enrollment + course data
+        const [enrollRes, courseRes] = await Promise.all([
+          fetch("/api/enrollments", {
+            headers: { Authorization: `Bearer ${idToken}` },
+          }),
+          fetch("/api/courses/main", {
+            headers: { Authorization: `Bearer ${idToken}` },
+          }),
+        ]);
+
         if (!enrollRes.ok) throw new Error("Gagal memuat enrollment");
         const enrollments: EnrollmentData[] = await enrollRes.json();
         const main = enrollments.find((e) => e.courseId === "course-main");
@@ -64,21 +74,17 @@ export default function CertificatePage() {
           router.push("/learn");
           return;
         }
-        setEnrollment(main);
 
-        // Jika sudah diklaim sebelumnya, langsung set certId
-        if (main.certificateClaimed && main.certificateId) {
-          setCertId(main.certificateId);
+        // Belum klaim → tidak boleh akses halaman ini
+        if (!main.certificateClaimed || !main.certificateId) {
+          router.push("/learn");
+          return;
         }
 
-        // Pre-fill nama dari profil
-        // (diisi via useEffect terpisah setelah profile tersedia)
+        setEnrollment(main);
+        setCertId(main.certificateId);
+        if (main.certificateDriveUrl) setDriveUrl(main.certificateDriveUrl);
 
-        // 2. Get course steps
-        const courseRes = await fetch("/api/courses/main", {
-          headers: { Authorization: `Bearer ${idToken}` },
-          cache: "no-store",
-        });
         if (courseRes.ok) {
           const courseData = await courseRes.json();
           setCourseSteps(courseData.steps || []);
@@ -112,7 +118,6 @@ export default function CertificatePage() {
   const completedSteps = courseSteps.filter((step) => {
     const prog = enrollment?.stepProgress?.[step.id];
     if (!prog) return false;
-    // Dianggap selesai jika video ditonton (videoWatched) atau ada assessmentResult/surveyResult
     return prog.videoWatched || prog.assessmentResult || prog.surveyResult || prog.completed;
   }).length;
 
@@ -164,8 +169,68 @@ export default function CertificatePage() {
     setTimeout(() => setCopiedId(false), 2000);
   }
 
+  // ── Klaim Ulang ──
+  async function handleReclaim() {
+    if (!user || !enrollment) return;
+    setReclaimOpen(true);
+    setReclaimStep(0);
+    setReclaimError("");
+
+    try {
+      await new Promise(r => setTimeout(r, 500));
+      setReclaimStep(1);
+
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollment.id}/claim-cert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ customName: certName.trim() || undefined, reclaim: true }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setReclaimStep(-1);
+        setReclaimError(data.error || "Gagal generate ulang sertifikat");
+        return;
+      }
+
+      setCertId(data.certId);
+      if (data.driveUrl) setDriveUrl(data.driveUrl);
+      setEnrollment((prev: any) => prev ? { ...prev, certificateId: data.certId, certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl } : prev);
+
+      setReclaimStep(2);
+      await new Promise(r => setTimeout(r, 1500));
+      setReclaimOpen(false);
+    } catch {
+      setReclaimStep(-1);
+      setReclaimError("Terjadi kesalahan. Coba lagi.");
+    }
+  }
+
+  // Calculate days remaining
+  function getDaysRemaining(): number | null {
+    const claimedAt = enrollment?.certificateClaimedAt;
+    if (!claimedAt) return null;
+    const claimedDate = typeof claimedAt === 'object' && claimedAt._seconds
+      ? new Date(claimedAt._seconds * 1000)
+      : new Date(claimedAt);
+    if (isNaN(claimedDate.getTime())) return null;
+    const expiresAt = new Date(claimedDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+    const remaining = Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+    return remaining;
+  }
+
+  const daysRemaining = getDaysRemaining();
+
   const userName =
     profile?.profileData?.namaLengkap || profile?.displayName || "Peserta";
+
+  const today = new Date().toLocaleDateString("id-ID", {
+    day: "numeric", month: "long", year: "numeric",
+  });
 
   // Beritahu layout bahwa konten siap
   const { signalReady } = useLearnLoading();
@@ -177,17 +242,15 @@ export default function CertificatePage() {
 
   return (
     <>
-      <div className={styles.wrapper}>
-        <div className={`container ${styles.content}`}>
+      <div className="cert-wrapper">
+        <div className="cert-content">
 
           {/* ── BELUM SELESAI SEMUA MODUL ── */}
           {!isAllCompleted && !isClaimed && (
-            <div className={styles.incompleteCard}>
-              <div className={styles.iconCircle}>
-                <span className={styles.incompleteIcon}>
-                  <GraduationCap size={36} style={{ color: "var(--color-primary)" }} />
-                </span>
-              </div>
+            <div className="cert-incomplete">
+              <span className="cert-incomplete-icon">
+                <GraduationCap size={36} style={{ color: "var(--color-primary)" }} />
+              </span>
               <h2>Belum Bisa Klaim Sertifikat</h2>
               <p>
                 Kamu perlu menyelesaikan semua materi terlebih dahulu. Saat ini
@@ -197,9 +260,9 @@ export default function CertificatePage() {
                 </strong>{" "}
                 langkah selesai.
               </p>
-              <div className={styles.progressBarLg}>
+              <div className="cert-progress-lg">
                 <div
-                  className={styles.progressFillLg}
+                  className="cert-progress-fill"
                   style={{
                     width: `${totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0}%`,
                   }}
@@ -213,80 +276,56 @@ export default function CertificatePage() {
 
           {/* ── SEMUA SELESAI: KLAIM SERTIFIKAT ── */}
           {(isAllCompleted || (totalSteps === 0 && !loading)) && !isClaimed && (
-            <div className={styles.claimCard}>
-              <div className={styles.claimHeader}>
+            <div className="cert-claim">
+              <div className="cert-claim-header">
                 <h1>Selamat, {userName}!</h1>
                 <p>
                   Kamu telah menyelesaikan seluruh materi modul <strong>{courseName}</strong>.
-                  Sebelum klaim, pastikan nama di sertifikatmu sudah benar.
+                  Klik tombol di bawah untuk mengklaim sertifikatmu.
                 </p>
               </div>
 
-              {/* Form konfirmasi nama */}
-              <div style={{ marginTop: 8 }}>
-                <label style={{
-                  display: "block", fontSize: 13, fontWeight: 700,
-                  color: "#555", marginBottom: 8, letterSpacing: "0.3px",
-                }}>
-                  NAMA PADA SERTIFIKAT
-                </label>
-                <input
-                  type="text"
-                  value={certName}
-                  onChange={e => setCertName(e.target.value)}
-                  placeholder="Masukkan nama lengkap"
-                  style={{
-                    width: "100%", padding: "13px 14px",
-                    border: "1.5px solid #E5E5E5", borderRadius: 10,
-                    fontSize: 16, marginBottom: 6,
-                    outline: "none", boxSizing: "border-box",
-                  }}
-                  onFocus={e => e.target.style.borderColor = "#CC0000"}
-                  onBlur={e => e.target.style.borderColor = "#E5E5E5"}
-                />
-                <p style={{ fontSize: 12, color: "#999", margin: "0 0 20px" }}>
-                  Nama ini akan dicetak di sertifikat. Tambahkan gelar jika diperlukan.
-                </p>
+              {claimError && (
+                <div className="cert-error">
+                  <AlertCircle size={14} />{claimError}
+                </div>
+              )}
 
-                {claimError && (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    background: "#fff0f0", border: "1px solid #ffcccc",
-                    borderRadius: 8, padding: "10px 14px", marginBottom: 14,
-                    color: "var(--color-primary)", fontSize: 13,
-                  }}>
-                    <AlertCircle size={14} />{claimError}
-                  </div>
-                )}
-
-                <button
-                  className="btn btn-primary btn-lg w-full"
-                  disabled={claiming}
-                  onClick={handleClaim}
-                >
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    {claiming ? <Loader2 size={18} className="animate-spin" /> : <GraduationCap size={18} />}
-                    {claiming ? "Memproses..." : "Klaim Sertifikat"}
-                  </span>
-                </button>
-              </div>
+              <button
+                className="cert-claim-btn"
+                disabled={claiming}
+                onClick={handleClaim}
+                style={{ marginTop: 16 }}
+              >
+                {claiming ? <Loader2 size={18} className="animate-spin" /> : <GraduationCap size={18} />}
+                {claiming ? "Memproses..." : "Klaim Sertifikat"}
+              </button>
             </div>
           )}
 
           {/* ── SUDAH DIKLAIM ── */}
           {isClaimed && (
-            <div className={styles.successCard}>
-              <div className={styles.confetti}>🎉</div>
-              <h1 className={styles.successTitle}>Sertifikat Berhasil Diklaim!</h1>
-              <p className={styles.successSubtitle}>
+            <div className="cert-success">
+              <div className="cert-confetti">🎉</div>
+              <h1 className="cert-success-title">Sertifikat Berhasil Diklaim!</h1>
+              <p className="cert-success-sub">
                 Sertifikat digital kamu sudah tercatat. ID sertifikat bisa digunakan untuk verifikasi.
               </p>
 
+              {/* Certificate Preview */}
+              <div className="cert-preview">
+                <div className="cert-preview-img-wrap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/images/certificate-template.png" alt="Sertifikat" className="cert-preview-img" />
+                  <div className="cert-preview-name">{userName}</div>
+                </div>
+              </div>
+
               {/* Cert Info */}
-              <div className={styles.certInfo}>
-                <div className={styles.certInfoRow}>
-                  <span className={styles.certInfoLabel}>ID Sertifikat</span>
-                  <span className={styles.certInfoValue} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div className="cert-info">
+                <div className="cert-info-row">
+                  <span className="cert-info-label">ID Sertifikat</span>
+                  <span className="cert-info-value" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {certId}
                     <button
                       onClick={copyId}
@@ -296,32 +335,54 @@ export default function CertificatePage() {
                     </button>
                   </span>
                 </div>
-                <div className={styles.certInfoRow}>
-                  <span className={styles.certInfoLabel}>Nama</span>
-                  <span className={styles.certInfoValue}>{userName}</span>
+                {driveUrl && (
+                  <div className="cert-info-row">
+                    <span className="cert-info-label">File Sertifikat</span>
+                    <span className="cert-info-value">
+                      <a href={driveUrl} target="_blank" rel="noopener noreferrer" className="cert-drive-link">
+                        📄 Buka di Google Drive
+                      </a>
+                    </span>
+                  </div>
+                )}
+                <div className="cert-info-row">
+                  <span className="cert-info-label">Nama</span>
+                  <span className="cert-info-value">{userName}</span>
                 </div>
-                <div className={styles.certInfoRow}>
-                  <span className={styles.certInfoLabel}>Kursus</span>
-                  <span className={styles.certInfoValue}>{courseName}</span>
+                <div className="cert-info-row">
+                  <span className="cert-info-label">Kursus</span>
+                  <span className="cert-info-value">{courseName}</span>
                 </div>
-                <div className={styles.certInfoRow}>
-                  <span className={styles.certInfoLabel}>Verifikasi</span>
-                  <span className={styles.certInfoValue}>
-                    <Link href={`/verify/${certId}`} className={styles.verifyLink} target="_blank">
-                      Cek Sertifikat <ExternalLink size={10} style={{ verticalAlign: "middle" }} />
-                    </Link>
-                  </span>
+              </div>
+
+              {/* 5-day notice */}
+              <div className="cert-expiry-notice">
+                <div>
+                  <p className="cert-expiry-text">
+                    File sertifikat disimpan di server selama <strong>5 hari</strong>.
+                    {daysRemaining !== null && daysRemaining > 0 && (
+                      <> Sisa: <strong>{daysRemaining} hari</strong>.</>
+                    )}
+                    {daysRemaining !== null && daysRemaining <= 0 && (
+                      <> File sudah dihapus otomatis.</>
+                    )}
+                  </p>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className={styles.successActions}>
-                <Link href={`/verify/${certId}`} className="btn btn-primary btn-lg w-full" target="_blank">
-                  <ExternalLink size={16} />
-                  Lihat & Verifikasi Sertifikat
-                </Link>
+              <div className="cert-actions">
+                {daysRemaining !== null && daysRemaining <= 0 && (
+                  <button
+                    className="cert-reclaim-btn"
+                    onClick={handleReclaim}
+                    disabled={claiming}
+                  >
+                    Klaim Ulang Sertifikat
+                  </button>
+                )}
 
-                {/* Tombol Beasiswa Bonus — hanya untuk channel beasiswa dan belum pernah redeem */}
+                {/* Tombol Beasiswa Bonus */}
                 {enrollment?.channelSource === "beasiswa" && !enrollment?.bonusCourseRedeemCode && (
                   <button
                     className="btn btn-secondary w-full"
@@ -331,10 +392,9 @@ export default function CertificatePage() {
                   </button>
                 )}
 
-                {/* Kalau sudah pernah redeem, tampilkan kodenya */}
                 {enrollment?.channelSource === "beasiswa" && enrollment?.bonusCourseRedeemCode && (
                   <div style={{
-                    background: "var(--color-primary-50)", border: "1px solid var(--color-primary-200)",
+                    background: "var(--color-bg-accent)", border: "1px solid rgba(204,0,0,0.15)",
                     borderRadius: 8, padding: "12px 16px", fontSize: 14, textAlign: "left",
                   }}>
                     <div style={{ fontWeight: 600, marginBottom: 4 }}>Kode Kursus Tambahan Kamu:</div>
@@ -349,6 +409,53 @@ export default function CertificatePage() {
 
         </div>
       </div>
+      {/* ── Reclaim Modal ── */}
+      {reclaimOpen && (
+        <div className="ccm-overlay">
+          <div className="ccm-modal">
+            {reclaimStep >= 0 ? (
+              <>
+                <div className="ccm-icon">
+                  {reclaimStep < 2 ? (
+                    <div className="ccm-spinner" />
+                  ) : (
+                    <div className="ccm-check">✓</div>
+                  )}
+                </div>
+                <h3 className="ccm-title">
+                  {reclaimStep === 0 && "Menghapus file lama..."}
+                  {reclaimStep === 1 && "Membuat sertifikat baru..."}
+                  {reclaimStep === 2 && "Sertifikat baru berhasil dibuat! 🎉"}
+                </h3>
+                <div className="ccm-steps">
+                  <div className={`ccm-step ${reclaimStep >= 0 ? 'ccm-step--done' : ''}`}>
+                    <span className="ccm-dot">{reclaimStep > 0 ? '✓' : '⏳'}</span>
+                    Menghapus file sertifikat lama
+                  </div>
+                  <div className={`ccm-step ${reclaimStep >= 1 ? (reclaimStep > 1 ? 'ccm-step--done' : 'ccm-step--active') : ''}`}>
+                    <span className="ccm-dot">{reclaimStep > 1 ? '✓' : reclaimStep === 1 ? '⏳' : '○'}</span>
+                    Generate sertifikat baru
+                  </div>
+                  <div className={`ccm-step ${reclaimStep >= 2 ? 'ccm-step--done' : ''}`}>
+                    <span className="ccm-dot">{reclaimStep >= 2 ? '✓' : '○'}</span>
+                    Selesai
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="ccm-icon">
+                  <div className="ccm-error-icon">✕</div>
+                </div>
+                <h3 className="ccm-title" style={{ color: 'var(--color-primary)' }}>Gagal Membuat Ulang</h3>
+                <p className="ccm-error-msg">{reclaimError}</p>
+                <button className="ccm-retry-btn" onClick={() => setReclaimOpen(false)}>Tutup</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

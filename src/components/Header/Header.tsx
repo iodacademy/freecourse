@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import styles from "./Header.module.css";
 import ProfileDrawer from "@/components/ProfileDrawer";
 import WorkshopBanner from "@/components/WorkshopBanner/WorkshopBanner";
 
@@ -75,16 +74,16 @@ export default function Header() {
 
   return (
     <>
-      <header className={styles.topbar}>
-        <div className={styles.topbarLogo}>
-          <div className={styles.topbarLogoMark}>
+      <header className="hd-topbar">
+        <div className="hd-logo">
+          <div className="hd-logo-mark">
             <svg viewBox="0 0 32 32" fill="white">
               <path d="M4 8h24v3H4zM4 14.5h16v3H4zM4 21h20v3H4z"/>
             </svg>
           </div>
           <h1>Modul Financial Literacy</h1>
         </div>
-        <div className={styles.topbarRight}>
+        <div className="hd-right">
           {loading ? (
             // Skeleton saat auth loading — cegah flash "login" → "profil"
             <div style={{
@@ -96,32 +95,32 @@ export default function Header() {
               {/* Bell Notification — hanya untuk workshop user */}
               {isWorkshopUser && (
                 <button
-                  className={styles.bellBtn}
+                  className="hd-bell-btn"
                   onClick={() => setWorkshopPopupOpen(true)}
                   title="Info Workshop"
                 >
                   <Bell size={17} />
-                  <span className={styles.bellDot} />
+                  <span className="hd-bell-dot" />
                 </button>
               )}
 
               {/* Profile Button */}
-              <button className={styles.profBtn} onClick={() => setDrawerOpen(true)}>
+              <button className="hd-prof-btn" onClick={() => setDrawerOpen(true)}>
                 {profile?.photoURL || user?.photoURL ? (
-                  <Image src={profile?.photoURL || user?.photoURL || ""} alt="Avatar" width={30} height={30} className={styles.profAv} />
+                  <Image src={profile?.photoURL || user?.photoURL || ""} alt="Avatar" width={30} height={30} className="hd-prof-av" />
                 ) : (
-                  <div className={styles.profAvInitial}>
+                  <div className="hd-prof-av-initial">
                     {(profile?.displayName || user?.displayName || "")?.split(" ").slice(0,2).map((w: string) => w[0]).join("").toUpperCase() || "U"}
                   </div>
                 )}
-                <span className={styles.profNm}>{(profile?.displayName || user?.displayName || "")?.split(" ")[0] || "User"}</span>
-                <svg className={styles.profChev} viewBox="0 0 24 24" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <span className="hd-prof-nm">{(profile?.displayName || user?.displayName || "")?.split(" ")[0] || "User"}</span>
+                <svg className="hd-prof-chev" viewBox="0 0 24 24" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
 
               {/* Logout Button */}
-              <button className={styles.logoutBtn} onClick={() => setLogoutModalOpen(true)}>
+              <button className="hd-logout-btn" onClick={() => setLogoutModalOpen(true)}>
                 <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                   <polyline points="16 17 21 12 16 7"></polyline>
@@ -131,7 +130,7 @@ export default function Header() {
               </button>
             </>
           ) : (
-            <Link href="/login" className={styles.loginBtn}>
+            <Link href="/login" className="hd-login-btn">
               Masuk / Login
             </Link>
           )}
@@ -158,22 +157,22 @@ export default function Header() {
 
       {/* ── LOGOUT MODAL ── */}
       {logoutModalOpen && (
-        <div className={styles.modalBg} onClick={() => setLogoutModalOpen(false)}>
-          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalIco}>
+        <div className="hd-modal-bg" onClick={() => setLogoutModalOpen(false)}>
+          <div className="hd-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="hd-modal-ico">
               <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                 <polyline points="16 17 21 12 16 7"></polyline>
                 <line x1="21" y1="12" x2="9" y2="12"></line>
               </svg>
             </div>
-            <div className={styles.modalTitle}>Keluar dari Akun?</div>
-            <div className={styles.modalDesc}>
+            <div className="hd-modal-title">Keluar dari Akun?</div>
+            <div className="hd-modal-desc">
               Sesi belajar kamu akan disimpan otomatis. Kamu bisa melanjutkan kapan saja setelah login kembali.
             </div>
-            <div className={styles.modalBtns}>
-              <button className={styles.mCancel} onClick={() => setLogoutModalOpen(false)}>Batal</button>
-              <button className={styles.mConfirm} onClick={handleLogoutConfirm} disabled={loggingOut}>
+            <div className="hd-modal-btns">
+              <button className="hd-m-cancel" onClick={() => setLogoutModalOpen(false)}>Batal</button>
+              <button className="hd-m-confirm" onClick={handleLogoutConfirm} disabled={loggingOut}>
                 {loggingOut ? "Keluar..." : "Ya, Keluar"}
               </button>
             </div>

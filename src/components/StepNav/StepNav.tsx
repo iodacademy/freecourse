@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import styles from "./StepNav.module.css";
 import { createSlug } from "@/lib/utils";
 
 export interface StepNavItem {
@@ -23,57 +22,57 @@ export default function StepNav({ steps, currentStep, courseName }: StepNavProps
   const progressPercent = Math.round((completedCount / steps.length) * 100);
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.header}>
-        <h3 className={styles.courseName}>{courseName}</h3>
-        <div className={styles.progressInfo}>
-          <span className={styles.progressText}>
+    <div className="sn-wrapper">
+      <div className="sn-header">
+        <h3 className="sn-course-name">{courseName}</h3>
+        <div className="sn-progress-info">
+          <span className="sn-progress-text">
             {completedCount}/{steps.length} selesai
           </span>
-          <div className={styles.progressBar}>
+          <div className="sn-progress-bar">
             <div
-              className={styles.progressFill}
+              className="sn-progress-fill"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
       </div>
 
-      <nav className={styles.stepList}>
+      <nav className="sn-step-list">
         {steps.map((step) => {
           const isCurrent = step.stepNumber === currentStep;
           const isLocked = step.status === "locked";
           const isCompleted = step.status === "completed";
 
           return (
-            <div key={step.stepNumber} className={styles.stepItem}>
+            <div key={step.stepNumber} className="sn-step-item">
               {isLocked ? (
-                <div className={`${styles.step} ${styles.stepLocked}`}>
-                  <div className={styles.stepIndicator}>
-                    <span className={styles.lockIcon}>🔒</span>
+                <div className="sn-step sn-step--locked">
+                  <div className="sn-step-indicator">
+                    <span className="sn-lock-icon">🔒</span>
                   </div>
-                  <div className={styles.stepInfo}>
-                    <span className={styles.stepTitle}>{step.title}</span>
+                  <div className="sn-step-info">
+                    <span className="sn-step-title">{step.title}</span>
                   </div>
                 </div>
               ) : (
                 <Link
                   href={`/learn/${createSlug(step.title)}`}
-                  className={`${styles.step} ${
-                    isCurrent ? styles.stepActive : ""
-                  } ${isCompleted ? styles.stepCompleted : ""}`}
+                  className={`sn-step ${
+                    isCurrent ? "sn-step--active" : ""
+                  } ${isCompleted ? "sn-step--completed" : ""}`}
                 >
-                  <div className={styles.stepIndicator}>
+                  <div className="sn-step-indicator">
                     {isCompleted ? (
-                      <span className={styles.checkIcon}>✓</span>
+                      <span className="sn-check-icon">✓</span>
                     ) : (
-                      <span className={styles.stepNum}>{step.stepNumber}</span>
+                      <span className="sn-step-num">{step.stepNumber}</span>
                     )}
                   </div>
-                  <div className={styles.stepInfo}>
-                    <span className={styles.stepTitle}>{step.title}</span>
+                  <div className="sn-step-info">
+                    <span className="sn-step-title">{step.title}</span>
                     {step.hasAssessment && isCompleted && step.assessmentPassed && (
-                      <span className={styles.assessmentBadge}>Lulus ✓</span>
+                      <span className="sn-assessment-badge">Lulus ✓</span>
                     )}
                   </div>
                 </Link>

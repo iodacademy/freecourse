@@ -1,14 +1,50 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckCircle2, ShieldCheck, Building2 } from "lucide-react";
 import { WILAYAH_INDONESIA } from "@/lib/wilayah";
 import SearchableSelect from "@/components/SearchableSelect";
-import styles from "./page.module.css";
-import type { DynamicForm, DynamicFormSection, DynamicFormField } from "@/lib/types";
+import type { DynamicForm, DynamicFormField, DynamicFormSection, SkipRule } from "@/lib/types";
+
+// ─── Helpers ───
+/** Given a section index, find the "page" it belongs to. Consecutive "merged" sections form one page. */
+function buildPages(sections: DynamicFormSection[]): number[][] {
+  const pages: number[][] = [];
+  let current: number[] = [];
+
+  for (let i = 0; i < sections.length; i++) {
+    current.push(i);
+    // If next section is NOT merged into this one, finalize the page
+    const nextIsMerged = i + 1 < sections.length && sections[i + 1].displayMode === "merged";
+    if (!nextIsMerged) {
+      pages.push(current);
+      current = [];
+    }
+  }
+  if (current.length > 0) pages.push(current);
+  return pages;
+}
+
+/** Check if a section qualifies for auto-advance: has autoAdvance=true AND exactly 1 radio field */
+function canAutoAdvance(section: DynamicFormSection): boolean {
+  if (!section.autoAdvance) return false;
+  const radioFields = section.fields.filter(f => f.type === "radio");
+  return radioFields.length === 1 && section.fields.length === 1;
+}
+
+/** Evaluate skip rules for a section given current answers */
+function evaluateSkipRules(section: DynamicFormSection, answers: Record<string, any>): number | "end" | null {
+  if (!section.skipRules || section.skipRules.length === 0) return null;
+  for (const rule of section.skipRules) {
+    const val = answers[rule.fieldName];
+    if (String(val) === rule.fieldValue) {
+      return rule.goToSection;
+    }
+  }
+  return null;
+}
 
 function ProfileContent() {
   const router = useRouter();
@@ -23,12 +59,13 @@ function ProfileContent() {
   // Form State
   const [activeForm, setActiveForm] = useState<DynamicForm | null>(null);
   const [loadingForm, setLoadingForm] = useState(true);
-  const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
-  
+  const [currentPageIdx, setCurrentPageIdx] = useState(0);
+  const [blocked, setBlocked] = useState<string | null>(null); // non-null = form blocked (e.g. consent "Tidak")
+
   // Answers State
   const [answers, setAnswers] = useState<Record<string, any>>({});
   
-  // Partner Code State (Hardcoded logic)
+  // Partner Code State
   const [partnerCode, setPartnerCode] = useState("");
   const [validatingCode, setValidatingCode] = useState(false);
   const [partnerCodeValid, setPartnerCodeValid] = useState(false);
@@ -40,6 +77,12 @@ function ProfileContent() {
 
   const userEmail = user?.email || "";
   const isEditMode = searchParams.get("edit") === "true";
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Computed: pages
+  const pages = activeForm ? buildPages(activeForm.sections) : [];
+  const currentSectionIndices = pages[currentPageIdx] || [];
+  const isLastPage = currentPageIdx === pages.length - 1;
 
   // 1. Redirect if not logged in or already completed (unless editing)
   useEffect(() => {
@@ -50,7 +93,6 @@ function ProfileContent() {
       if (profile.role === "admin") {
         router.push("/admin");
       } else if (profile.profileCompleted && profile.channelSource && !isEditMode) {
-        // Jika profile sudah lengkap dan bukan sedang mode edit, arahkan ke /learn
         router.push("/learn");
       }
     }
@@ -80,22 +122,17 @@ function ProfileContent() {
       if (profile.profileData) {
         setAnswers(profile.profileData);
       }
-      // Jika partnerCode sudah tersimpan di profil, langsung anggap valid
       if (profile.partnerCode) {
         setPartnerCode(profile.partnerCode);
         setPartnerCodeValid(true);
       }
     }
-    // CATATAN: partnerCode TIDAK di-auto-fill dari URL atau eventId.
-    // User harus memasukkan sendiri kode mitra dari institusi mereka.
   }, [profile]);
 
   // Auto-fill & auto-validasi partnerCode dari URL ?partnerCode=XXX
   useEffect(() => {
     if (!isKemitraan || !urlPartnerCode || partnerCodeValid) return;
-    // Isi field dulu
     setPartnerCode(urlPartnerCode.toUpperCase());
-    // Langsung validasi otomatis
     const autoValidate = async () => {
       setValidatingCode(true);
       try {
@@ -110,7 +147,6 @@ function ProfileContent() {
           setPartnerEventId(data.eventId || "");
           setErrors((p) => { const next = {...p}; delete next.partnerCode; return next; });
         } else {
-          // Kode dari URL tidak valid — biarkan user isi manual
           setPartnerCode("");
           setErrors((p) => ({ ...p, partnerCode: data.error || "Kode mitra dari URL tidak valid" }));
         }
@@ -140,6 +176,20 @@ function ProfileContent() {
       if (changed) setAnswers(nextAnswers);
     }
   }, [activeForm, userEmail, answers]);
+
+  // Skip to correct page in edit mode (skip consent if already filled)
+  useEffect(() => {
+    if (isEditMode && profile?.profileCompleted && activeForm && pages.length > 1) {
+      // Find first "data diri" page (skip consent sections)
+      const dataPageIdx = pages.findIndex(page =>
+        page.some(si => {
+          const sec = activeForm.sections[si];
+          return sec.fields.some(f => ["text", "tel", "date", "email", "province_city"].includes(f.type));
+        })
+      );
+      if (dataPageIdx > 0) setCurrentPageIdx(dataPageIdx);
+    }
+  }, [isEditMode, profile, activeForm, pages.length]);
 
   const validatePartnerCode = async () => {
     if (!partnerCode.trim()) {
@@ -171,89 +221,111 @@ function ProfileContent() {
     }
   };
 
-  const validateCurrentSection = () => {
+  const validateSectionsOnPage = () => {
     const errs: Record<string, string> = {};
     
-    // Partner code validation on first section if kemitraan
-    if (currentSectionIdx === 0 && isKemitraan && !partnerCodeValid && !profile?.partnerCode) {
+    // Partner code validation (only on first page for kemitraan)
+    if (currentPageIdx === 0 && isKemitraan && !partnerCodeValid && !profile?.partnerCode) {
       errs.partnerCode = "Kode mitra wajib divalidasi";
     }
 
     if (!activeForm) return errs;
-    const section = activeForm.sections[currentSectionIdx];
-    
-    section.fields.forEach(field => {
-      // ── Skip field yang tersembunyi (dependsOn tidak terpenuhi) ──
-      if (field.dependsOn) {
-        const depVal = answers[field.dependsOn];
-        if (Array.isArray(depVal)) {
-          if (!depVal.includes(field.dependsOnValue)) return;
-        } else {
-          if (depVal !== field.dependsOnValue) return;
-        }
-      }
 
-      if (field.required) {
-        const val = answers[field.name];
-        if (field.type === 'province_city') {
-          if (!val?.province) errs[field.name] = `${field.label} (Provinsi) wajib diisi`;
-          else if (!val?.city) errs[field.name] = `${field.label} (Kota) wajib diisi`;
-        } else if (field.type === 'checkbox') {
-          // Checkbox: minimal satu dipilih, dan jika "Lainnya" dipilih → teks wajib diisi
-          const arr: string[] = Array.isArray(val) ? val : [];
-          const withoutOther = arr.filter(v => v !== '__other__');
-          const hasOther = arr.includes('__other__');
-          const otherText = (answers[`${field.name}__other`] || '').trim();
-
-          if (arr.length === 0) {
-            errs[field.name] = `${field.label} wajib dipilih minimal satu`;
-          } else if (hasOther && !otherText) {
-            errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
-          } else if (withoutOther.length === 0 && !otherText) {
-            errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+    for (const sectionIdx of currentSectionIndices) {
+      const section = activeForm.sections[sectionIdx];
+      section.fields.forEach(field => {
+        if (field.dependsOn) {
+          const depVal = answers[field.dependsOn];
+          if (Array.isArray(depVal)) {
+            if (!depVal.includes(field.dependsOnValue)) return;
+          } else {
+            if (depVal !== field.dependsOnValue) return;
           }
-        } else if (field.type === 'radio') {
-          // Radio: jika __other__ dipilih → teks wajib diisi
-          if (!val || String(val).trim() === '') {
-            errs[field.name] = `${field.label} wajib diisi`;
-          } else if (val === '__other__') {
+        }
+
+        if (field.required) {
+          const val = answers[field.name];
+          if (field.type === 'province_city') {
+            if (!val?.province) errs[field.name] = `${field.label} (Provinsi) wajib diisi`;
+            else if (!val?.city) errs[field.name] = `${field.label} (Kota) wajib diisi`;
+          } else if (field.type === 'checkbox') {
+            const arr: string[] = Array.isArray(val) ? val : [];
+            const withoutOther = arr.filter(v => v !== '__other__');
+            const hasOther = arr.includes('__other__');
             const otherText = (answers[`${field.name}__other`] || '').trim();
-            if (!otherText) errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
+            if (arr.length === 0) errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+            else if (hasOther && !otherText) errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
+            else if (withoutOther.length === 0 && !otherText) errs[field.name] = `${field.label} wajib dipilih minimal satu`;
+          } else if (field.type === 'radio') {
+            if (!val || String(val).trim() === '') errs[field.name] = `${field.label} wajib diisi`;
+            else if (val === '__other__') {
+              const otherText = (answers[`${field.name}__other`] || '').trim();
+              if (!otherText) errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
+            }
+          } else {
+            if (!val || String(val).trim() === "") errs[field.name] = `${field.label} wajib diisi`;
           }
-        } else {
-          if (!val || String(val).trim() === "") errs[field.name] = `${field.label} wajib diisi`;
         }
-      }
-    });
+      });
+    }
 
     return errs;
   };
 
+  const goToNextPage = useCallback(() => {
+    if (!activeForm) return;
+
+    // Check skip rules for current sections
+    for (const sectionIdx of currentSectionIndices) {
+      const section = activeForm.sections[sectionIdx];
+      const skipTarget = evaluateSkipRules(section, answers);
+      if (skipTarget === "end") {
+        // Block the form
+        setBlocked("Form tidak bisa dilanjutkan karena jawaban Anda. Anda bisa mengubah jawaban kapan saja.");
+        return;
+      }
+      if (typeof skipTarget === "number") {
+        // Jump to target section's page
+        const targetPageIdx = pages.findIndex(page => page.includes(skipTarget));
+        if (targetPageIdx >= 0) {
+          setCurrentPageIdx(targetPageIdx);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
+    }
+
+    // Normal next page
+    if (currentPageIdx < pages.length - 1) {
+      setCurrentPageIdx(prev => prev + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeForm, currentPageIdx, currentSectionIndices, pages, answers]);
+
   const handleNext = () => {
-    const errs = validateCurrentSection();
+    const errs = validateSectionsOnPage();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setErrors({});
-    if (activeForm && currentSectionIdx < activeForm.sections.length - 1) {
-      setCurrentSectionIdx(prev => prev + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    setBlocked(null);
+    goToNextPage();
   };
 
   const handlePrev = () => {
-    if (currentSectionIdx > 0) {
-      setCurrentSectionIdx(prev => prev - 1);
+    if (currentPageIdx > 0) {
+      setCurrentPageIdx(prev => prev - 1);
       setErrors({});
+      setBlocked(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validateCurrentSection();
+    const errs = validateSectionsOnPage();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -274,15 +346,15 @@ function ProfileContent() {
       else if (answers["name"]) newDisplayName = answers["name"];
       else if (answers["full_name"]) newDisplayName = answers["full_name"];
 
-      // ── Resolve "Lainnya" answers sebelum disimpan ──
+      // Resolve "Lainnya" answers sebelum disimpan
       const cleanAnswers: Record<string, any> = {};
       for (const [key, value] of Object.entries(answers)) {
-        if (key.endsWith('__other')) continue; // skip helper keys
+        if (key.endsWith('__other')) continue;
+        // Strip temp date display prefix
+        if (typeof value === 'string' && value.startsWith('__display:')) continue; // incomplete date, skip
         if (value === '__other__') {
-          // radio: replace dengan teks yang diketik
           cleanAnswers[key] = answers[`${key}__other`] || 'Lainnya';
         } else if (Array.isArray(value) && value.includes('__other__')) {
-          // checkbox: replace __other__ di array dengan teks yang diketik
           cleanAnswers[key] = value.map((v: string) =>
             v === '__other__' ? (answers[`${key}__other`] || 'Lainnya') : v
           );
@@ -313,45 +385,111 @@ function ProfileContent() {
     }
   };
 
-  const setAnswer = (key: string, value: any) => {
+  const setAnswer = useCallback((key: string, value: any) => {
     setAnswers(prev => ({ ...prev, [key]: value }));
     setErrors(prev => { const next = {...prev}; delete next[key]; return next; });
+    setBlocked(null); // Clear any block when user changes answer
+  }, []);
+
+  // ─── Auto-advance handler ───
+  const handleAutoAdvanceAnswer = useCallback((field: DynamicFormField, value: string, section: DynamicFormSection) => {
+    setAnswer(field.name, value);
+    
+    // Clear any existing timer
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+    }
+
+    // Check skip rules first
+    const newAnswers = { ...answers, [field.name]: value };
+    const skipTarget = evaluateSkipRules(section, newAnswers);
+    
+    if (skipTarget === "end") {
+      autoAdvanceTimerRef.current = setTimeout(() => {
+        setBlocked("Form tidak bisa dilanjutkan karena jawaban Anda. Anda bisa mengubah jawaban kapan saja.");
+      }, 400);
+      return;
+    }
+
+    // Auto-advance after short delay
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      if (skipTarget !== null && typeof skipTarget === "number") {
+        const targetPageIdx = pages.findIndex(page => page.includes(skipTarget));
+        if (targetPageIdx >= 0) {
+          setCurrentPageIdx(targetPageIdx);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
+      // Normal advance
+      if (currentPageIdx < pages.length - 1) {
+        setCurrentPageIdx(prev => prev + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 400);
+  }, [answers, currentPageIdx, pages, setAnswer]);
+
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    };
+  }, []);
+
+  // ─── Progress percentage ───
+  const getProgressPct = () => {
+    if (!activeForm || pages.length === 0) return 0;
+    return Math.round(((currentPageIdx + 1) / pages.length) * 100);
   };
 
-  const renderField = (field: DynamicFormField) => {
-    const val = answers[field.name];
+  // ─── Determine if a radio field should be segmented (2 options = segmented) ───
+  const isSegmentedField = (field: DynamicFormField) => {
+    if (field.type !== 'radio') return false;
+    const opts = field.options || [];
+    return opts.length === 2 && !field.allowOther;
+  };
 
+  // ─── Determine if a radio/checkbox field should be pill chips ───
+  const isPillField = (field: DynamicFormField) => {
+    if (field.type === 'radio' && !isSegmentedField(field)) return true;
+    if (field.type === 'checkbox') return true;
+    return false;
+  };
+
+  const renderField = (field: DynamicFormField, parentSection?: DynamicFormSection) => {
+    const val = answers[field.name];
+    const isAutoAdvanceSection = parentSection && canAutoAdvance(parentSection);
+
+    // ── Email (SSO) ──
     if (field.type === 'email') {
       return (
-        <div className={styles.gmailField}>
-          <div className={styles.gmailIco}>
+        <div className="pf-gmail">
+          <div className="pf-gmail__icon">
             <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 23.5L4 12v28h40V12z"/><path fill="#FBBC04" d="M4 12l20 11.5L44 12"/><path fill="#34A853" d="M44 12v28H4"/><path fill="#4285F4" d="M4 40V12l20 11.5z"/><path fill="#1967D2" d="M24 23.5L44 12v28z"/></svg>
           </div>
-          <div className={styles.gmailInfo}>
-            <div className={styles.gmailEmail}>{userEmail || "—"}</div>
-            <span className={styles.gmailBadge}>✓ Terautentikasi via Google</span>
+          <div className="pf-gmail__info">
+            <div className="pf-gmail__email">{userEmail || "—"}</div>
+            <span className="pf-gmail__badge">✓ Terautentikasi via Google</span>
           </div>
         </div>
       );
     }
 
+    // ── Province / City ──
     if (field.type === 'province_city') {
       const prov = val?.province || "";
       const city = val?.city || "";
-      
       const isManual = field.regionSource === 'manual';
       const regionData = isManual ? (field.customRegions || []) : WILAYAH_INDONESIA;
-      
       const provList = isManual ? regionData.map((r: any) => r.province).filter(Boolean) : regionData.map((r: any) => r.name);
       const selectedProvObj = regionData.find((w: any) => (isManual ? w.province : w.name) === prov);
       const kotaList = selectedProvObj ? (selectedProvObj.cities || []) : [];
-
       return (
-        <div className={styles.fieldRow}>
-          <div className={styles.fieldGroup} style={{ marginBottom: 0 }}>
-            <label className={styles.fieldLabel}>Provinsi{field.required && <span className={styles.req}>*</span>}</label>
+        <div className="pf-field-row">
+          <div className="pf-field-group" style={{ marginBottom: 0 }}>
+            <label className="pf-label">Provinsi{field.required && <span className="yr-req">*</span>}</label>
             <SearchableSelect 
-              className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`}
+              className={`pf-input ${errors[field.name] ? 'pf-input--error' : ''}`}
               options={provList}
               value={prov}
               onChange={(val) => setAnswer(field.name, { province: val, city: "" })}
@@ -359,10 +497,10 @@ function ProfileContent() {
               error={!!errors[field.name]}
             />
           </div>
-          <div className={styles.fieldGroup} style={{ marginBottom: 0 }}>
-            <label className={styles.fieldLabel}>Kota / Kabupaten{field.required && <span className={styles.req}>*</span>}</label>
+          <div className="pf-field-group" style={{ marginBottom: 0 }}>
+            <label className="pf-label">Kota / Kabupaten{field.required && <span className="yr-req">*</span>}</label>
             <SearchableSelect 
-              className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`}
+              className={`pf-input ${errors[field.name] ? 'pf-input--error' : ''}`}
               options={kotaList}
               value={city}
               onChange={(val) => setAnswer(field.name, { province: prov, city: val })}
@@ -375,41 +513,91 @@ function ProfileContent() {
       );
     }
 
-    if (field.type === 'radio') {
-      const otherText = answers[`${field.name}__other`] || "";
+    // ── Segmented Control (radio with exactly 2 options, no "Lainnya") ──
+    if (isSegmentedField(field)) {
+      const opts = field.options || [];
       return (
-        <div className={styles.radioGroup}>
-          {(field.options || []).map((opt) => (
-            <div key={opt} className={`${styles.radioOpt} ${val === opt ? styles.radioSel : ""}`} onClick={() => setAnswer(field.name, opt)}>
-              <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
-              <span className={styles.radioLabel}>{opt}</span>
-            </div>
-          ))}
-          {field.allowOther && (
-            <div
-              className={`${styles.radioOpt} ${val === '__other__' ? styles.radioSel : ""}`}
-              onClick={() => setAnswer(field.name, '__other__')}
+        <div className="pf-segmented" role="radiogroup">
+          {opts.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              className={`pf-segmented__opt ${val === opt ? 'pf-segmented__opt--active' : ''}`}
+              onClick={() => {
+                if (isAutoAdvanceSection && parentSection) {
+                  handleAutoAdvanceAnswer(field, opt, parentSection);
+                } else {
+                  setAnswer(field.name, opt);
+                }
+              }}
             >
-              <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
-              {val === '__other__' ? (
-                <input
-                  type="text"
-                  className={styles.otherInlineInput}
-                  placeholder="Sebutkan..."
-                  value={otherText}
-                  onClick={e => e.stopPropagation()}
-                  onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
-                  autoFocus
-                />
-              ) : (
-                <span className={styles.radioLabel}>Lainnya</span>
-              )}
-            </div>
-          )}
+              {opt}
+            </button>
+          ))}
         </div>
       );
     }
 
+    // ── Pill Chips for radio (3+ options) ──
+    if (field.type === 'radio' && isPillField(field)) {
+      const otherText = answers[`${field.name}__other`] || "";
+      return (
+        <>
+          <div className={`pf-pills ${(field.options || []).length <= 9 ? 'pf-pills--grid3' : ''}`} role="radiogroup">
+            {(field.options || []).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={`pf-pill ${val === opt ? 'pf-pill--active' : ''}`}
+                onClick={() => {
+                  if (isAutoAdvanceSection && parentSection) {
+                    handleAutoAdvanceAnswer(field, opt, parentSection);
+                  } else {
+                    setAnswer(field.name, opt);
+                  }
+                }}
+              >
+                {val === opt && (
+                  <svg className="pf-pill__check" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3,8.5 7,12 13,4" />
+                  </svg>
+                )}
+                {opt}
+              </button>
+            ))}
+            {field.allowOther && (
+              <button
+                type="button"
+                className={`pf-pill ${val === '__other__' ? 'pf-pill--active' : ''}`}
+                onClick={() => setAnswer(field.name, '__other__')}
+              >
+                {val === '__other__' && (
+                  <svg className="pf-pill__check" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3,8.5 7,12 13,4" />
+                  </svg>
+                )}
+                Lainnya
+              </button>
+            )}
+          </div>
+          {val === '__other__' && (
+            <div className="pf-other-input">
+              <label>Tulis di sini</label>
+              <input
+                className="pf-input"
+                type="text"
+                placeholder="Sebutkan..."
+                value={otherText}
+                onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
+                autoFocus
+              />
+            </div>
+          )}
+        </>
+      );
+    }
+
+    // ── Pill Chips for checkbox ──
     if (field.type === 'checkbox') {
       const selected = Array.isArray(val) ? val : [];
       const otherText = answers[`${field.name}__other`] || "";
@@ -418,74 +606,155 @@ function ProfileContent() {
         else setAnswer(field.name, [...selected, opt]);
       };
       return (
-        <div className={styles.checkboxList}>
-          {(field.options || []).map((opt) => (
-            <div key={opt} className={`${styles.chkItem} ${selected.includes(opt) ? styles.chkSel : ""}`} onClick={() => toggleCheck(opt)}>
-              <div className={styles.chkBox}><svg className={styles.chkTick} viewBox="0 0 12 12"><polyline points="1.5 6 4.5 9 10.5 3" /></svg></div>
-              <span className={styles.chkLabel}>{opt}</span>
-            </div>
-          ))}
-          {field.allowOther && (
-            <div
-              className={`${styles.chkItem} ${selected.includes('__other__') ? styles.chkSel : ""}`}
-              onClick={() => toggleCheck('__other__')}
-            >
-              <div className={styles.chkBox}><svg className={styles.chkTick} viewBox="0 0 12 12"><polyline points="1.5 6 4.5 9 10.5 3" /></svg></div>
-              {selected.includes('__other__') ? (
-                <input
-                  type="text"
-                  className={styles.otherInlineInput}
-                  placeholder="Sebutkan..."
-                  value={otherText}
-                  onClick={e => e.stopPropagation()}
-                  onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
-                  autoFocus
-                />
-              ) : (
-                <span className={styles.chkLabel}>Lainnya</span>
-              )}
+        <>
+          <div className={`pf-pills ${(field.options || []).length <= 9 ? 'pf-pills--grid3' : ''}`}>
+            {(field.options || []).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={`pf-pill ${selected.includes(opt) ? 'pf-pill--active' : ''}`}
+                onClick={() => toggleCheck(opt)}
+              >
+                {selected.includes(opt) && (
+                  <svg className="pf-pill__check" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3,8.5 7,12 13,4" />
+                  </svg>
+                )}
+                {opt}
+              </button>
+            ))}
+            {field.allowOther && (
+              <button
+                type="button"
+                className={`pf-pill ${selected.includes('__other__') ? 'pf-pill--active' : ''}`}
+                onClick={() => toggleCheck('__other__')}
+              >
+                {selected.includes('__other__') && (
+                  <svg className="pf-pill__check" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3,8.5 7,12 13,4" />
+                  </svg>
+                )}
+                Lainnya
+              </button>
+            )}
+          </div>
+          {selected.includes('__other__') && (
+            <div className="pf-other-input">
+              <label>Tulis di sini</label>
+              <input
+                className="pf-input"
+                type="text"
+                placeholder="Sebutkan..."
+                value={otherText}
+                onChange={e => setAnswer(`${field.name}__other`, e.target.value)}
+                autoFocus
+              />
             </div>
           )}
-        </div>
+        </>
       );
     }
 
+    // ── Select dropdown ──
     if (field.type === 'select') {
       return (
-        <select className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`} value={val || ""} onChange={(e) => setAnswer(field.name, e.target.value)}>
+        <select className={`pf-input ${errors[field.name] ? 'pf-input--error' : ''}`} value={val || ""} onChange={(e) => setAnswer(field.name, e.target.value)}>
           <option value="">-- Pilih --</option>
           {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       );
     }
 
+    // ── Textarea ──
     if (field.type === 'textarea') {
       return (
-        <textarea className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`} placeholder={field.placeholder} rows={4} value={val || ""} onChange={(e) => setAnswer(field.name, e.target.value)} />
+        <textarea className={`pf-input ${errors[field.name] ? 'pf-input--error' : ''}`} placeholder={field.placeholder} rows={4} value={val || ""} onChange={(e) => setAnswer(field.name, e.target.value)} />
       );
     }
 
+    // ── WhatsApp / Tel (special: +62 prefix) ──
+    if (field.type === 'tel') {
+      return (
+        <div className={`pf-wa-affix ${errors[field.name] ? 'pf-wa-affix--error' : ''}`}>
+          <div className="pf-wa-prefix">+62</div>
+          <input
+            className="pf-input"
+            type="tel"
+            inputMode="numeric"
+            maxLength={13}
+            placeholder=""
+            value={val || ""}
+            onChange={(e) => setAnswer(field.name, e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 13))}
+          />
+        </div>
+      );
+    }
+
+    // ── Date (dd/mm/yyyy text input) ──
+    if (field.type === 'date') {
+      // Internal storage = yyyy-mm-dd, display = dd/mm/yyyy
+      const isoToDisplay = (iso: string) => {
+        if (!iso) return '';
+        const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+      };
+      const displayToIso = (display: string) => {
+        const m = display.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+      };
+      const handleDateInput = (raw: string) => {
+        // Strip non-digits
+        let digits = raw.replace(/\D/g, '');
+        if (digits.length > 8) digits = digits.slice(0, 8);
+        // Auto-insert slashes
+        let formatted = '';
+        if (digits.length > 4) {
+          formatted = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+        } else if (digits.length > 2) {
+          formatted = digits.slice(0, 2) + '/' + digits.slice(2);
+        } else {
+          formatted = digits;
+        }
+        // If complete dd/mm/yyyy, save as ISO
+        const iso = displayToIso(formatted);
+        if (iso) {
+          setAnswer(field.name, iso);
+        } else {
+          // Store temp display value
+          setAnswer(field.name, '__display:' + formatted);
+        }
+      };
+      const currentDisplay = val?.startsWith?.('__display:') ? val.slice(10) : isoToDisplay(val || '');
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          className={`pf-input ${errors[field.name] ? 'pf-input--error' : ''}`}
+          placeholder="dd/mm/yyyy"
+          value={currentDisplay}
+          onChange={(e) => handleDateInput(e.target.value)}
+          maxLength={10}
+        />
+      );
+    }
+
+    // ── Default: text, number, etc ──
     return (
       <input 
         type={field.type} 
-        className={`${styles.fieldInput} ${errors[field.name] ? styles.fieldError : ""}`} 
+        className={`pf-input ${errors[field.name] ? 'pf-input--error' : ''}`} 
         placeholder={field.placeholder || "Jawaban Anda..."} 
         value={val || ""} 
         onChange={(e) => setAnswer(field.name, e.target.value)} 
-        onClick={(e) => {
-          if (field.type === 'date' && 'showPicker' in HTMLInputElement.prototype) {
-            try { (e.target as HTMLInputElement).showPicker(); } catch(err) {}
-          }
-        }}
       />
     );
   };
 
   if (authLoading || loadingForm || !user) {
     return (
-      <div className={styles.page}>
+      <div className="pf-page">
         <div style={{ textAlign: "center", marginTop: "100px" }}>
-           <div className={styles.spinner} style={{width: 40, height: 40, borderTopColor: "#cc0000", margin: "0 auto 20px"}}/>
+           <div className="pf-spinner" style={{width: 40, height: 40, borderTopColor: "#cc0000", margin: "0 auto 20px"}}/>
            <p>Memuat profil...</p>
         </div>
       </div>
@@ -494,7 +763,7 @@ function ProfileContent() {
 
   if (!activeForm) {
     return (
-      <div className={styles.page}>
+      <div className="pf-page">
         <div style={{ textAlign: "center", marginTop: "100px", color: "#666" }}>
            <h2>Mohon Maaf</h2>
            <p>Formulir pendaftaran sedang tidak tersedia atau belum dikonfigurasi oleh Admin.</p>
@@ -503,173 +772,205 @@ function ProfileContent() {
     );
   }
 
-  const currentSection = activeForm.sections[currentSectionIdx];
-  const isLastSection = currentSectionIdx === activeForm.sections.length - 1;
+  const progressPct = getProgressPct();
 
-  return (
-    <div className={styles.page}>
-      <div className={styles.regHeader}>
-        <h1 className={styles.regTitle}>
-          {profile?.profileCompleted ? "Perbarui informasi data diri Anda" : "Lengkapi data diri untuk memulai program"}
-        </h1>
+  // Render fields for a single section (no card wrapper)
+  const renderSectionFields = (sectionIdx: number) => {
+    const section = activeForm!.sections[sectionIdx];
+    return (
+      <div key={section.id}>
+        {/* Partner Code — selalu tampil di section pertama untuk kemitraan */}
+        {sectionIdx === 0 && isKemitraan && (
+          <div className="pf-partner-block">
+            <label className="pf-label">
+              <Building2 size={18} color="#64748b" />
+              <span>Kode Mitra Kampus / Institusi <span className="yr-req">*</span></span>
+            </label>
+            <div className="pf-partner-row">
+              <div className="pf-partner-input-wrap">
+                <input 
+                  className={`pf-input ${errors.partnerCode ? 'pf-input--error' : ''}`} 
+                  type="text" 
+                  placeholder="Contoh: UNJ2024" 
+                  value={partnerCode} 
+                  onChange={(e) => { setPartnerCode(e.target.value.toUpperCase()); setPartnerCodeValid(false); setErrors((p) => ({ ...p, partnerCode: "" })); }} 
+                  disabled={partnerCodeValid}
+                  style={partnerCodeValid ? { backgroundColor: "#f1f5f9", color: "#737373", borderColor: "#cbd5e1" } : undefined}
+                />
+                {partnerCodeValid && (
+                  <div className="pf-partner-check">
+                    <CheckCircle2 size={20} color="#10b981" />
+                  </div>
+                )}
+              </div>
+              {!partnerCodeValid ? (
+                <button type="button" className="pf-partner-validate-btn" onClick={validatePartnerCode} disabled={validatingCode || !partnerCode}>
+                  {validatingCode ? "Memeriksa..." : "Validasi"}
+                </button>
+              ) : (
+                <div className="pf-partner-verified">
+                  <ShieldCheck size={18} />
+                  Terverifikasi
+                </div>
+              )}
+            </div>
+            {errors.partnerCode && <div className="pf-error" data-field-error>{errors.partnerCode}</div>}
+            {partnerCodeValid && <div className="pf-partner-msg pf-partner-msg--success">✨ Bagus! Kamu telah terhubung dengan mitra yang sah.</div>}
+            {!partnerCodeValid && partnerCode && !errors.partnerCode && <div className="pf-partner-msg pf-partner-msg--info">ℹ️ Pastikan untuk menekan tombol &quot;Validasi&quot; agar kodemu diverifikasi.</div>}
+          </div>
+        )}
+
+        {section.fields.map((field) => {
+          if (isEditMode) {
+            const allowedEditFields = [
+              "nama_lengkap", "nama", "name", "full_name",
+              "jenis_kelamin", 
+              "tanggal_lahir", 
+              "alamat_email", "email",
+              "nomor_whatsapp", "whatsapp", "phone",
+              "asal_daerah", "provinsi", "kota",
+              "disabilitas",
+              "jenis_disabilitas", "kategori_disabilitas"
+            ];
+            if (!allowedEditFields.includes(field.name)) return null;
+          }
+
+          if (field.dependsOn) {
+            const dependentVal = answers[field.dependsOn];
+            if (Array.isArray(dependentVal)) {
+              if (!dependentVal.includes(field.dependsOnValue)) return null;
+            } else {
+              if (dependentVal !== field.dependsOnValue) return null;
+            }
+          }
+
+          const isConditional = !!field.dependsOn;
+
+          return (
+            <div key={field.id} className="pf-field-group">
+              {isConditional ? (
+                <div className="pf-reveal">
+                  <div className="pf-reveal__head">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 13.5s-5-3-5-7a3 3 0 0 1 5-2.2A3 3 0 0 1 13 6.5c0 4-5 7-5 7z" />
+                    </svg>
+                    {field.label} {field.required && <span className="yr-req">*</span>}
+                  </div>
+                  {field.description && (
+                    <div className="pf-field-desc" dangerouslySetInnerHTML={{ __html: field.description }} />
+                  )}
+                  {renderField(field, section)}
+                  {field.note && <div className="pf-field-note">{field.note}</div>}
+                  {errors[field.name] && <div className="pf-error" data-field-error>{errors[field.name]}</div>}
+                </div>
+              ) : (
+                <>
+                  <label className="pf-label">
+                    {field.label} {field.required && <span className="yr-req">*</span>}
+                  </label>
+                  {field.description && (
+                    <div className="pf-field-desc" dangerouslySetInnerHTML={{ __html: field.description }} />
+                  )}
+                  {renderField(field, section)}
+                  {field.note && <div className="pf-field-note">{field.note}</div>}
+                  {errors[field.name] && <div className="pf-error" data-field-error>{errors[field.name]}</div>}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
+    );
+  };
 
-      <form className={styles.card} onSubmit={isLastSection ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} noValidate>
-        <div className={styles.cardHead}>
-          <h2>{currentSection.title}</h2>
-          {currentSection.description && <p>{currentSection.description}</p>}
+  // Render current page — all sections in ONE card
+  const renderCurrentPage = () => {
+    if (currentSectionIndices.length === 0) return null;
+    const firstSection = activeForm!.sections[currentSectionIndices[0]];
+
+    return (
+      <div className="pf-card" style={{ marginBottom: 16 }}>
+        <div className="pf-card__head">
+          <h2>{firstSection.title}</h2>
+          {firstSection.description && <p>{firstSection.description}</p>}
         </div>
         
-        <div className={styles.cardBody}>
+        <div className="pf-card__body">
           {saved && (
-            <div style={{ padding: "12px", backgroundColor: "#dcfce7", color: "#166534", borderRadius: "8px", marginBottom: "20px", fontWeight: 600 }}>
+            <div className="pf-success">
               ✅ Data berhasil disimpan! Mengarahkan ke kursus...
             </div>
           )}
 
-          {/* Partner Code — selalu tampil di section 1 untuk kemitraan */}
-          {/* Partner Code — selalu tampil di section 1 untuk kemitraan */}
-          {currentSectionIdx === 0 && isKemitraan && (
-            <div className={styles.fieldGroup} style={{ backgroundColor: "#f8fafc", padding: "24px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-              <label className={styles.fieldLabel} style={{ display: "flex", alignItems: "center", gap: "8px", color: "#334155", marginBottom: "12px" }}>
-                <Building2 size={18} color="#64748b" />
-                <span>Kode Mitra Kampus / Institusi <span className={styles.req}>*</span></span>
-              </label>
-              <div style={{ display: "flex", gap: "12px", alignItems: "stretch" }}>
-                <div style={{ position: "relative", flex: 1 }}>
-                  <input 
-                    className={`${styles.fieldInput} ${errors.partnerCode ? styles.fieldError : ""}`} 
-                    type="text" 
-                    placeholder="Contoh: UNJ2024" 
-                    value={partnerCode} 
-                    onChange={(e) => { setPartnerCode(e.target.value.toUpperCase()); setPartnerCodeValid(false); setErrors((p) => ({ ...p, partnerCode: "" })); }} 
-                    disabled={partnerCodeValid}
-                    style={{ 
-                      width: "100%", 
-                      height: "48px", 
-                      fontSize: "16px",
-                      textTransform: "uppercase", 
-                      letterSpacing: "1px",
-                      fontWeight: 600,
-                      backgroundColor: partnerCodeValid ? "#f1f5f9" : "white",
-                      color: partnerCodeValid ? "#737373" : "#171717",
-                      border: partnerCodeValid ? "1px solid #cbd5e1" : undefined
-                    }}
-                  />
-                  {partnerCodeValid && (
-                    <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>
-                      <CheckCircle2 size={20} color="#10b981" />
-                    </div>
-                  )}
-                </div>
-                {!partnerCodeValid ? (
-                  <button type="button" onClick={validatePartnerCode} disabled={validatingCode || !partnerCode} 
-                    style={{ 
-                      padding: "0 24px", 
-                      backgroundColor: (validatingCode || !partnerCode) ? "#94a3b8" : "#CC0000", 
-                      color: "white", 
-                      borderRadius: "8px", 
-                      fontWeight: 600, 
-                      border: "none", 
-                      cursor: (validatingCode || !partnerCode) ? "not-allowed" : "pointer",
-                      height: "48px",
-                      transition: "all 0.2s",
-                      whiteSpace: "nowrap"
-                    }}>
-                    {validatingCode ? "Memeriksa..." : "Validasi"}
-                  </button>
-                ) : (
-                  <div style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: "6px", 
-                    padding: "0 20px", 
-                    backgroundColor: "#ecfdf5", 
-                    color: "#059669", 
-                    borderRadius: "8px", 
-                    fontWeight: 600,
-                    border: "1px solid #a7f3d0",
-                    height: "48px",
-                    whiteSpace: "nowrap"
-                  }}>
-                    <ShieldCheck size={18} />
-                    Terverifikasi
-                  </div>
-                )}
-              </div>
-              {errors.partnerCode && <div className={styles.errMsg} data-field-error style={{ marginTop: "8px" }}>{errors.partnerCode}</div>}
-              {partnerCodeValid && <div style={{ fontSize: "13px", color: "#059669", marginTop: "12px", display: "flex", alignItems: "center", gap: "6px" }}>✨ Bagus! Kamu telah terhubung dengan mitra yang sah.</div>}
-              {!partnerCodeValid && partnerCode && !errors.partnerCode && <div style={{ fontSize: "13px", color: "#64748b", marginTop: "10px" }}>ℹ️ Pastikan untuk menekan tombol "Validasi" agar kodemu diverifikasi.</div>}
+          {currentSectionIndices.map(sectionIdx => renderSectionFields(sectionIdx))}
+
+          {/* Blocked info — inline inside card */}
+          {blocked && (
+            <div className="pf-blocked-inline">
+              <p className="pf-blocked-inline__title">Form tidak bisa dilanjutkan</p>
+              <p className="pf-blocked-inline__body">
+                Tidak apa-apa. Kami butuh persetujuanmu dulu sebelum lanjut. Kamu bisa balik kapan saja.
+              </p>
             </div>
           )}
+        </div>
+      </div>
+    );
+  };
 
-          <div className={styles.sectionBody}>
-          {activeForm.sections[currentSectionIdx].fields.map((field) => {
-            // Check if edit mode and filter fields
-            if (isEditMode) {
-              const allowedEditFields = [
-                "nama_lengkap", "nama", "name", "full_name",
-                "jenis_kelamin", 
-                "tanggal_lahir", 
-                "alamat_email", "email",
-                "nomor_whatsapp", "whatsapp", "phone",
-                "asal_daerah", "provinsi", "kota",
-                "disabilitas",
-                "jenis_disabilitas", "kategori_disabilitas"
-              ];
-              if (!allowedEditFields.includes(field.name)) return null;
-            }
+  // Check if current page is auto-advance (all sections on this page must be auto-advance)
+  const isCurrentPageAutoAdvance = currentSectionIndices.length === 1 && 
+    canAutoAdvance(activeForm.sections[currentSectionIndices[0]]);
 
-            // Check conditional logic
-            if (field.dependsOn) {
-              const dependentVal = answers[field.dependsOn];
-              // If it's an array (checkboxes), check if value is included
-              if (Array.isArray(dependentVal)) {
-                if (!dependentVal.includes(field.dependsOnValue)) return null;
-              } else {
-                if (dependentVal !== field.dependsOnValue) return null;
-              }
-            }
+  return (
+    <div className="pf-page">
+      {/* ─── Progress Bar ─── */}
+      <div className="pf-progress">
+        <span className="pf-progress__bar"><span style={{ width: `${progressPct}%` }} /></span>
+        <span className="pf-progress__label">{progressPct}%</span>
+      </div>
 
-            return (
-              <div key={field.id} className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>
-                  {field.label} {field.required && <span className={styles.req}>*</span>}
-                </label>
-                {field.description && (
-                  <div
-                    className={styles.fieldDesc}
-                    dangerouslySetInnerHTML={{ __html: field.description }}
-                  />
-                )}
-                {renderField(field)}
-                {errors[field.name] && <div className={styles.errorMsg} data-field-error>{errors[field.name]}</div>}
-              </div>
-            );
-          })}
-        </div>   {errors.submit && <div className={styles.errMsg} style={{ display: "block", marginTop: "12px" }}>{errors.submit}</div>}
+      <div className="pf-header">
+        <h1 className="pf-title">
+          {profile?.profileCompleted ? "Perbarui Informasi Data Diri" : "Lengkapi Pendaftaran"}
+        </h1>
+        {currentPageIdx === 0 && !profile?.profileCompleted && (
+          <p className="pf-subtitle" style={{ fontSize: "12px", color: "var(--color-gray-500)", marginTop: 4 }}>
+            Isi formulir di bawah ini. ~30 detik.
+          </p>
+        )}
+      </div>
 
-          <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
-            {currentSectionIdx > 0 && (
-              <button type="button" className={styles.backBtn} onClick={handlePrev} style={{ flex: 1 }}>
+      {/* ═══ FORM SECTIONS ═══ */}
+      <form onSubmit={isLastPage ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} noValidate>
+        {renderCurrentPage()}
+
+        {errors.submit && <div className="pf-error" style={{ display: "block", marginTop: "12px", maxWidth: 600, width: "100%" }}>{errors.submit}</div>}
+
+        {/* Navigation buttons — hide for auto-advance sections or when blocked */}
+        {!isCurrentPageAutoAdvance && !blocked && (
+          <div className="pf-btn-row" style={{ maxWidth: 600, width: "100%" }}>
+            {currentPageIdx > 0 && (
+              <button type="button" className="pf-back-btn" onClick={handlePrev}>
                 Kembali
               </button>
             )}
-            <button className={styles.submitBtn} type="submit" disabled={submitting} style={{ flex: 2 }}>
-              {submitting ? (<><div className={styles.spinner} />Menyimpan...</>) : (
-                <>{isLastSection ? (profile?.profileCompleted ? "Simpan Perubahan" : "Simpan & Mulai Belajar") : "Selanjutnya"} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>
+            <button className="pf-submit-btn" type="submit" disabled={submitting}>
+              {submitting ? (<><div className="pf-spinner" />Menyimpan...</>) : (
+                <>{isLastPage ? (profile?.profileCompleted ? "Simpan Perubahan" : "Simpan & Mulai Belajar") : "Selanjutnya"} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>
               )}
             </button>
           </div>
-        </div>
+        )}
       </form>
 
-      {activeForm.sections.length > 1 && (
-        <div className={styles.stepProgress}>
-          {activeForm.sections.map((sec, idx) => (
-            <div key={idx} className={styles.stepPill}>
-              <div className={`${styles.stepBar} ${idx <= currentSectionIdx ? styles.stepBarActive : ''}`} />
-              <span className={`${styles.stepNum} ${idx <= currentSectionIdx ? styles.stepNumActive : ''}`}>
+      {/* Page indicator dots */}
+      {pages.length > 1 && (
+        <div className="pf-step-progress">
+          {pages.map((_, idx) => (
+            <div key={idx} className="pf-step-pill">
+              <div className={`pf-step-bar ${idx <= currentPageIdx ? 'pf-step-bar--active' : ''}`} />
+              <span className={`pf-step-num ${idx <= currentPageIdx ? 'pf-step-num--active' : ''}`}>
                 {idx + 1}
               </span>
             </div>
@@ -683,9 +984,9 @@ function ProfileContent() {
 export default function ProfilePage() {
   return (
     <Suspense fallback={
-      <div className={styles.page}>
+      <div className="pf-page">
         <div style={{ textAlign: "center", marginTop: "100px" }}>
-          <div className={styles.spinner} style={{width: 40, height: 40, borderTopColor: "#cc0000", margin: "0 auto 20px"}}/>
+          <div className="pf-spinner" style={{width: 40, height: 40, borderTopColor: "#cc0000", margin: "0 auto 20px"}}/>
           <p>Memuat halaman...</p>
         </div>
       </div>

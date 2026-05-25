@@ -20,11 +20,6 @@ export function middleware(request: NextRequest) {
     if (PUBLIC_API_ROUTES.some(route => pathname.startsWith(route))) {
       return NextResponse.next();
     }
-    
-    // Rute verifikasi sertifikat publik: /api/verify/[certId]
-    if (pathname.startsWith('/api/verify/')) {
-      return NextResponse.next();
-    }
 
     // Cek keberadaan header Authorization ATAU X-Firebase-Token (fallback)
     // Hostinger strip header Authorization, jadi kita juga cek X-Firebase-Token

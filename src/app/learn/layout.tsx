@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { LearnLoadingProvider, useLearnLoading } from "@/contexts/LearnLoadingContext";
-import styles from "./layout.module.css";
 import Header from "@/components/Header";
 
 /**
@@ -30,11 +29,11 @@ function LearnLayoutInner({ children }: { children: React.ReactNode }) {
   const showOverlay = loading || !user || !contentReady;
 
   return (
-    <div className={styles.container}>
+    <div className="ll-container">
       {/* Header selalu tampil */}
       <Header />
 
-      <div className={styles.layout} style={{ position: "relative" }}>
+      <div className="ll-layout" style={{ position: "relative" }}>
         {/* Children SELALU dirender di belakang overlay → data bisa load di latar belakang */}
         {!loading && user && children}
 

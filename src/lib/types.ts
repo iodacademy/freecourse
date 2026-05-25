@@ -259,6 +259,7 @@ export interface DynamicFormField {
   placeholder?: string;
   options?: string[]; // for select, radio, checkbox
   description?: string;
+  note?: string; // catatan/caption kecil di bawah input
   dependsOn?: string;
   dependsOnValue?: string;
   regionSource?: "auto" | "manual";
@@ -266,11 +267,20 @@ export interface DynamicFormField {
   allowOther?: boolean; // aktifkan opsi "Lainnya" untuk radio & checkbox
 }
 
+export interface SkipRule {
+  fieldName: string;       // nama field yang jadi trigger
+  fieldValue: string;      // nilai yang memicu skip
+  goToSection: number | "end"; // index section tujuan (0-based), atau "end" untuk selesai/block
+}
+
 export interface DynamicFormSection {
   id: string;
   title: string;
   description?: string;
   fields: DynamicFormField[];
+  displayMode?: "separate" | "merged"; // default: "separate"
+  autoAdvance?: boolean;               // otomatis next jika section punya tepat 1 radio field
+  skipRules?: SkipRule[];              // custom navigation rules
 }
 
 export interface DynamicForm {

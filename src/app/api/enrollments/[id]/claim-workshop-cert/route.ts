@@ -107,36 +107,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
     const wsCertId = `WS-CERT-${year}-${randomHex}`;
 
-    const verifyUrl = `https://freecourse.iodacademy.id/verify/${wsCertId}`;
 
-    // Batch write ke Firestore
-    const batch = db.batch();
-
-    // 1. Update enrollment
-    batch.update(enrollRef, {
+    // Update enrollment
+    await enrollRef.update({
       workshopCertificateClaimed: true,
       workshopCertificateClaimedAt: FieldValue.serverTimestamp(),
       workshopCertificateId: wsCertId,
+      workshopCertificateName: userName,
+      workshopTitle: workshopData.title || "Workshop IODA Academy",
       updatedAt: FieldValue.serverTimestamp(),
     });
-
-    // 2. Buat record verifikasi
-    const verifyRef = db.collection("certificateVerifications").doc(wsCertId);
-    batch.set(verifyRef, {
-      certId: wsCertId,
-      type: "workshop",
-      userId: enrollData.userId,
-      userName,
-      eventId,
-      workshopTitle: workshopData.title || "Workshop IODA Academy",
-      workshopDate: workshopDate,
-      speakerName: workshopData.speakerName || "",
-      claimedAt: FieldValue.serverTimestamp(),
-      isValid: true,
-      verifyUrl,
-    });
-
-    await batch.commit();
 
     // 3. Panggil GAS untuk generate PDF sertifikat dan kirim email
     let downloadUrl: string | null = null;
@@ -154,7 +134,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           speakerName: workshopData.speakerName || "",
           speakerTitle: workshopData.speakerTitle || "",
           email: decoded.email,
-          verifyUrl,
         };
 
         const gasRes = await fetch(gasWebAppUrl, {
@@ -177,7 +156,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       success: true,
       message: "Sertifikat kehadiran workshop berhasil diklaim!",
       certId: wsCertId,
-      verifyUrl,
       downloadUrl,
     });
   } catch (e) {

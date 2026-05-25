@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import styles from "./LMSPlayer.module.css";
-import { PartyPopper, GraduationCap, X, FileText } from "lucide-react";
-import Draggable from "react-draggable";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { PartyPopper, GraduationCap, X, FileText, Check, Star } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────
 export interface QuizQuestion {
@@ -20,10 +18,12 @@ export interface SurveyQuestion {
   id: string;
   type: "shortText" | "multipleChoice" | "scale" | "starRating";
   text: string;
+  description?: string;
   options?: string[];
   required?: boolean;
   minLabel?: string;
   maxLabel?: string;
+  maxStars?: number;
 }
 
 export type LMSScreen = "quiz" | "review" | "survey" | "additional";
@@ -43,8 +43,7 @@ export interface LMSPlayerProps {
   alreadyCompleted?: boolean;
   onProceedToNext?: (results?: { assessment?: any; survey?: any; }, shouldNavigate?: boolean) => void;
   onOpenMenu?: () => void;
-  // ── URL routing ──
-  stepId: string;                   // unique key for sessionStorage, e.g. "step-2"
+  stepId: string;
   initialScreen?: LMSScreen;
   initialQIdx?: number;
   initialRevIdx?: number;
@@ -59,69 +58,34 @@ export interface LMSPlayerProps {
   };
 }
 
+// ── Seeded shuffle (Fisher-Yates) ──
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const a = [...arr];
+  let s = seed;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 16807 + 0) % 2147483647;
+    const j = s % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // ─── Sub-renders ─────────────────────────────────
 
 function VideoEmbed({ youtubeId }: { youtubeId: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const nodeRef = useRef<HTMLDivElement>(null);
-  const [isPip, setIsPip] = useState(false);
-  const [userClosedPip, setUserClosedPip] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting && entry.boundingClientRect.bottom < 0) {
-          setIsPip(true);
-          setUserClosedPip(false);
-        } else {
-          setIsPip(false);
-        }
-      },
-      { threshold: 0 }
-    );
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const showPip = isPip && !userClosedPip;
-
   return (
-    <div ref={containerRef} className={styles.videoWrapper}>
-      <Draggable
-        nodeRef={nodeRef}
-        disabled={!showPip}
-        handle=".drag-handle"
-        position={showPip ? undefined : { x: 0, y: 0 }}
-      >
-        <div ref={nodeRef} className={`${styles.player} ${showPip ? styles.pipPlayer : ""}`}>
-          {showPip && (
-            <>
-              {/* Overlay transparan agar bisa digeser */}
-              <div className={`drag-handle ${styles.pipDragOverlay}`} />
-              
-              {/* Tombol Close floating */}
-              <button
-                className={styles.pipCloseFloating}
-                onClick={() => setUserClosedPip(true)}
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                aria-label="Tutup PIP"
-              >
-                <X size={14} strokeWidth={3} />
-              </button>
-            </>
-          )}
-          <div className={styles.playerInner}>
-            <iframe
-              src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
-              title="Video Pembelajaran"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className={styles.playerIframe}
-            />
-          </div>
+    <div className="lms-video-wrap">
+      <div className="lms-player">
+        <div className="lms-player-inner">
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
+            title="Video Pembelajaran"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="lms-player-iframe"
+          />
         </div>
-      </Draggable>
+      </div>
     </div>
   );
 }
@@ -137,7 +101,7 @@ function DonutChart({ score, pass }: { score: number; pass: boolean }) {
   }, [targetOffset]);
   const color = pass ? "#CC0000" : "#DC2626";
   return (
-    <div className={styles.donutWrap}>
+    <div className="lms-donut-wrap">
       <svg width="140" height="140" viewBox="0 0 140 140">
         <circle cx="70" cy="70" r={R} fill="none" stroke="#E5E5E5" strokeWidth="10" />
         <circle
@@ -186,7 +150,18 @@ export default function LMSPlayer({
   const hasSurvey = surveyEnabled && surveyQuestions.length > 0;
   const hasAdditionalMaterial = !!additionalMaterial;
 
-  // Determine starting screen based on what's available
+  // ── Randomize soal & opsi sekali saat mount ──
+  const sessionSeed = useMemo(() => Math.floor(Math.random() * 1000000), []);
+
+  const shuffledQuestions = useMemo(() => {
+    if (Object.keys(initialAnswers).length > 0) return questions; // keep order if resuming
+    const shuffledQ = seededShuffle(questions, sessionSeed);
+    return shuffledQ.map((q, i) => ({
+      ...q,
+      options: seededShuffle(q.options, sessionSeed + i + 1),
+    }));
+  }, [questions, sessionSeed, initialAnswers]);
+
   const defaultScreen: LMSScreen = alreadyCompleted
     ? (hasAdditionalMaterial ? "additional" : hasSurvey ? "survey" : hasAssessment ? "review" : "quiz")
     : (hasAssessment ? "quiz" : hasSurvey ? "survey" : hasAdditionalMaterial ? "additional" : "quiz");
@@ -195,14 +170,14 @@ export default function LMSPlayer({
   const [revIdx, setRevIdx] = useState(initialRevIdx);
   const [survSec, setSurvSec] = useState(initialSurvSec);
 
-  // Survey answers stored by question id
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, any>>(initialSurveyAnswers);
-
   const scrollRef = useRef<HTMLDivElement>(null);
-
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
+  
+  // ── Quiz REDESIGN state (per-question check like REDESIGN) ──
+  const [quizResults, setQuizResults] = useState<Record<string, "correct" | "wrong">>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
 
-  // Sync initial props to state when they arrive/change
   useEffect(() => {
     if (Object.keys(initialAnswers).length > 0) {
       setAnswers(initialAnswers);
@@ -215,52 +190,49 @@ export default function LMSPlayer({
     }
   }, [initialSurveyAnswers]);
 
-  // ── Scroll right panel to top on relevant changes ──
   useEffect(() => {
     scrollRef.current?.scrollTo(0, 0);
   }, [screen, qIdx, revIdx, survSec]);
 
-  const currentQ = questions[qIdx];
-  const isFirstQ = qIdx === 0;
-  const isLastQ = qIdx === questions.length - 1;
-
-  const currentSurv = surveyQuestions?.[survSec];
-  const isLastSurv = surveyQuestions && survSec === surveyQuestions.length - 1;
-
-  // ── Score calc ──
-  const correctCount = questions.filter((q) => answers[q.id] === q.correctAnswer).length;
-  const score = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+  const correctCount = shuffledQuestions.filter((q) => answers[q.id] === q.correctAnswer).length;
+  const score = shuffledQuestions.length > 0 ? Math.round((correctCount / shuffledQuestions.length) * 100) : 0;
   const passed = score >= kkm;
 
-  // ── State-change helper — updates state AND notifies parent for URL sync ──
+  // REDESIGN quiz results
+  const qzCorrectCount = Object.values(quizResults).filter(r => r === "correct").length;
+  const qzAllAnswered = shuffledQuestions.every(q => answers[q.id]);
+  const qzPassed = quizSubmitted && qzCorrectCount === shuffledQuestions.length;
+  const qzFailed = quizSubmitted && qzCorrectCount < shuffledQuestions.length;
+
   function nav(s: LMSScreen, q = qIdx, r = revIdx, sec = survSec) {
     onStateChange?.(s, q, r, sec);
   }
 
-  // ── Quiz actions ──
-  function pickAnswer(optId: string) {
-    if (!currentQ) return;
-    setAnswers((prev) => ({ ...prev, [currentQ.id]: optId }));
-  }
-
-  function goNext() {
-    if (!isLastQ) {
-      const next = qIdx + 1;
-      setQIdx(next);
-      nav("quiz", next, revIdx, survSec);
+  function handleQuizPick(qid: string, oid: string) {
+    if (quizResults[qid] === "correct") return;
+    setAnswers(a => ({ ...a, [qid]: oid }));
+    if (quizResults[qid] === "wrong") {
+      setQuizResults(r => { const x = { ...r }; delete x[qid]; return x; });
     }
   }
 
-  function goPrev() {
-    if (!isFirstQ) {
-      const prev = qIdx - 1;
-      setQIdx(prev);
-      nav("quiz", prev, revIdx, survSec);
+  function handleQuizCheck() {
+    const newResults = { ...quizResults };
+    for (const q of shuffledQuestions) {
+      if (newResults[q.id] === "correct") continue;
+      newResults[q.id] = answers[q.id] === q.correctAnswer ? "correct" : "wrong";
+    }
+    setQuizResults(newResults);
+    setQuizSubmitted(true);
+
+    const newCorrect = Object.values(newResults).filter(r => r === "correct").length;
+    const newScore = shuffledQuestions.length > 0 ? Math.round((newCorrect / shuffledQuestions.length) * 100) : 0;
+    if (newScore >= kkm) {
+      onPass?.(newScore);
     }
   }
 
-  function submitQuiz() {
-    if (passed) onPass?.(score);
+  function goToReview() {
     setRevIdx(0);
     setScreen("review");
     nav("review", qIdx, 0, survSec);
@@ -268,6 +240,8 @@ export default function LMSPlayer({
 
   function retry() {
     setAnswers({});
+    setQuizResults({});
+    setQuizSubmitted(false);
     setQIdx(0);
     setScreen("quiz");
     nav("quiz", 0, 0, survSec);
@@ -318,22 +292,23 @@ export default function LMSPlayer({
   // ══════════════════════════════════
   // LEFT COLUMN
   // ══════════════════════════════════
-  // ── Min correct answers calc ──
-  const minCorrect = Math.ceil((kkm / 100) * questions.length);
+  const minCorrect = Math.ceil((kkm / 100) * shuffledQuestions.length);
 
   function renderLeft() {
-    // Quiz, Survey, Review, Additional: always show video
     if (screen === "quiz" || screen === "survey" || screen === "review" || screen === "additional") {
       return (
         <>
-          <div className={styles.videoLabel}>Selamat Menonton Video!</div>
+          <div className="lms-video-label">Selamat Menonton Video!</div>
           <VideoEmbed youtubeId={youtubeId} />
-          <div className={styles.videoFooter}>
-            <span className={styles.stepCounter}>Materi {stepNumber || 1} dari {totalSteps || 1}</span>
-            <button className={styles.btnMenu} onClick={onOpenMenu}>
+          <div className="lms-video-footer">
+            <span className="lms-step-counter">Materi {stepNumber || 1} dari {totalSteps || 1}</span>
+            <button className="lms-btn-menu" onClick={onOpenMenu}>
                ☰ Daftar Materi
             </button>
           </div>
+
+
+
         </>
       );
     }
@@ -348,7 +323,6 @@ export default function LMSPlayer({
     if (screen === "additional") return "MATERI TAMBAHAN";
     if (screen === "survey") return "SURVEY";
     if (screen === "quiz" || screen === "review") return "UJI PEMAHAMAN";
-    // Fallback based on what's available
     if (hasAdditionalMaterial && !hasSurvey && !hasAssessment) return "MATERI TAMBAHAN";
     if (hasSurvey && !hasAssessment) return "SURVEY";
     return "UJI PEMAHAMAN";
@@ -358,30 +332,105 @@ export default function LMSPlayer({
   // RIGHT PANEL — scroll content
   // ══════════════════════════════════
   function renderRight() {
-    // ── QUIZ: ALL questions, no blue box ──
+    // ── QUIZ (REDESIGN: card per soal, pellets, banner, retry hint) ──
     if (screen === "quiz") {
       return (
         <>
-          {questions.map((q, i) => {
-            const sel = answers[q.id];
+          {/* Score + Pellets */}
+          <div className="qz-score">
+            <span>Skor sementara <b>{qzCorrectCount} / {shuffledQuestions.length}</b></span>
+            <span className="qz-pellets">
+              {shuffledQuestions.map(q => (
+                <span
+                  key={q.id}
+                  className={`qz-pellet ${
+                    quizResults[q.id] === "correct" ? "qz-pellet--correct" :
+                    quizResults[q.id] === "wrong" ? "qz-pellet--wrong" : ""
+                  }`}
+                />
+              ))}
+            </span>
+          </div>
+
+          {/* Banner pass/fail */}
+          {quizSubmitted && (
+            <div className={`qz-banner ${qzPassed ? "qz-banner--pass" : "qz-banner--fail"}`}>
+              <span className="qz-banner-icon">
+                {qzPassed ? <Check size={14} /> : <X size={14} />}
+              </span>
+              <div>
+                {qzPassed ? (
+                  <><b>Kamu benar {qzCorrectCount} dari {shuffledQuestions.length}.</b> Mantap. Siap lanjut ke materi berikutnya.</>
+                ) : (
+                  <>
+                    <b>Kamu benar {qzCorrectCount} dari {shuffledQuestions.length}.</b> Pilih jawaban baru di soal merah
+                    <span className="qb-arrow">↓</span> lalu klik <b>Cek Jawaban Lagi</b>.
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Cards per soal */}
+          {shuffledQuestions.map((q, idx) => {
+            const r = quizResults[q.id];
+
             return (
-              <div key={q.id} className={styles.quizBlock}>
-                <div className={styles.qNum}>Soal {i + 1} dari {questions.length}</div>
-                <div className={styles.qText}>{q.text}</div>
-                <div className={styles.optionList}>
-                  {q.options.map((opt) => (
-                    <div
-                      key={opt.id}
-                      className={`${styles.option} ${sel === opt.id ? styles.optSel : ""}`}
-                      onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: opt.id }))}
-                    >
-                      <div className={`${styles.optBadge} ${sel === opt.id ? styles.optBadgeSel : ""}`}>
-                        {opt.id.toUpperCase()}
-                      </div>
-                      <div className={styles.optText}>{opt.text}</div>
-                    </div>
-                  ))}
+              <div key={q.id} className="qz-item">
+                {idx > 0 && <hr className="qz-separator" />}
+
+                <div className="qz-head">
+                  <span className="qz-num">Soal {idx + 1}</span>
+                  {r === "correct" && (
+                    <span className="qz-badge qz-badge--correct"><Check size={10} />Benar</span>
+                  )}
+                  {r === "wrong" && (
+                    <span className="qz-badge qz-badge--wrong"><X size={10} />Salah</span>
+                  )}
                 </div>
+
+                {r === "wrong" && (
+                  <div className="qz-retry-hint">
+                    <X size={12} />
+                    Ganti jawabanmu, lalu cek lagi.
+                    <span className="qz-retry-tap">Pilih jawaban</span>
+                  </div>
+                )}
+
+                <p className="qz-q">{q.text}</p>
+
+                <div className="qz-options">
+                  {q.options.map(o => {
+                    const isPicked = answers[q.id] === o.id;
+                    const optClass = `qz-option ${
+                      isPicked && !r ? "qz-option--selected" : ""
+                    } ${r === "correct" && isPicked ? "qz-option--correct" : ""
+                    } ${r === "wrong" && isPicked ? "qz-option--wrong" : ""}`;
+                    const locked = r === "correct";
+
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        className={optClass}
+                        disabled={locked}
+                        onClick={() => handleQuizPick(q.id, o.id)}
+                      >
+                        <span className="qz-radio">
+                          {r === "correct" && isPicked ? <Check size={8} /> :
+                           r === "wrong" && isPicked ? <X size={8} /> : null}
+                        </span>
+                        <span>{o.text}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {r === "correct" && (
+                  <div className="qz-locked-note">
+                    <Check size={11} />Terkunci. Jawaban benar.
+                  </div>
+                )}
               </div>
             );
           })}
@@ -389,45 +438,45 @@ export default function LMSPlayer({
       );
     }
 
-    // ── REVIEW: donut + stats + ALL feedback scrollable ──
+    // ── REVIEW ──
     if (screen === "review") {
       return (
         <>
           <DonutChart score={score} pass={passed} />
 
-          <div className={styles.statGrid}>
-            <div className={styles.statCard}>
-              <div className={styles.statLbl}>Jawaban Benar</div>
-              <div className={`${styles.statVal} ${styles.statGreen}`}>{correctCount} Soal</div>
+          <div className="lms-stat-grid">
+            <div className="lms-stat-card">
+              <div className="lms-stat-lbl">Jawaban Benar</div>
+              <div className={`lms-stat-val lms-stat-green`}>{correctCount} Soal</div>
             </div>
-            <div className={styles.statCard}>
-              <div className={styles.statLbl}>Status (KKM {kkm})</div>
-              <div className={`${styles.statVal} ${passed ? styles.statGreen : styles.statRed}`}>
+            <div className="lms-stat-card">
+              <div className="lms-stat-lbl">Status (KKM {kkm})</div>
+              <div className={`lms-stat-val ${passed ? "lms-stat-green" : "lms-stat-red"}`}>
                 {passed ? "LULUS ✓" : "TIDAK LULUS"}
               </div>
             </div>
           </div>
 
-          <div className={styles.navDivider}>Review Semua Soal</div>
+          <div className="lms-nav-divider">Review Semua Soal</div>
 
-          {questions.map((q, i) => {
+          {shuffledQuestions.map((q, i) => {
             const ua = answers[q.id];
             const isRight = ua === q.correctAnswer;
             const chosenOpt = q.options.find((o) => o.id === ua);
             return (
-              <div key={q.id} className={styles.reviewCard} style={{ marginTop: i === 0 ? 0 : 12 }}>
-                <div className={styles.reviewTag}>SOAL {i + 1}</div>
-                <div className={styles.reviewQ}>{q.text}</div>
-                <div className={`${styles.ansBox} ${isRight ? styles.ansOk : styles.ansErr}`}>
+              <div key={q.id} className="lms-review-card" style={{ marginTop: i === 0 ? 0 : 12 }}>
+                <div className="lms-review-tag">SOAL {i + 1}</div>
+                <div className="lms-review-q">{q.text}</div>
+                <div className={`lms-ans-box ${isRight ? "lms-ans-ok" : "lms-ans-err"}`}>
                   Jawaban Kamu: {ua ? `${ua.toUpperCase()}. ${chosenOpt?.text ?? ""}` : "— Tidak dijawab"}
                 </div>
-                <div className={styles.fbBox}>
-                  <div className={`${styles.fbTitle} ${isRight ? styles.fbOk : styles.fbErr}`}>
+                <div className="lms-fb-box">
+                  <div className={`lms-fb-title ${isRight ? "lms-fb-ok" : "lms-fb-err"}`}>
                     Feedback &amp; Review Materi
                   </div>
-                  <div className={styles.fbBody}>{isRight ? q.feedbackCorrect : q.feedbackWrong}</div>
-                  <div className={styles.fbKey}>Kunci Jawaban: {q.correctAnswer.toUpperCase()}</div>
-                  {q.explanation && <div className={styles.fbExp}>{q.explanation}</div>}
+                  <div className="lms-fb-body">{isRight ? q.feedbackCorrect : q.feedbackWrong}</div>
+                  <div className="lms-fb-key">Kunci Jawaban: {q.correctAnswer.toUpperCase()}</div>
+                  {q.explanation && <div className="lms-fb-exp">{q.explanation}</div>}
                 </div>
               </div>
             );
@@ -436,11 +485,11 @@ export default function LMSPlayer({
       );
     }
 
-    // ── SURVEY: ALL questions, no card box ──
+    // ── SURVEY (REDESIGN: star rating, textarea, scale, choices) ──
     if (screen === "survey") {
       if (!surveyQuestions || surveyQuestions.length === 0) {
         return (
-          <div className={styles.survQ}>Survei tidak tersedia.</div>
+          <div style={{ textAlign: "center", padding: 24, color: "var(--color-gray-500)" }}>Survei tidak tersedia.</div>
         );
       }
       return (
@@ -448,80 +497,95 @@ export default function LMSPlayer({
           {surveyQuestions.map((sq, i) => {
             const survAns = surveyAnswers[sq.id] || "";
             return (
-              <div key={sq.id || i} className={styles.quizBlock}>
-                <div className={styles.survTag}>PERTANYAAN {i + 1} / {surveyQuestions.length}</div>
-                <div className={styles.survQ}>{sq.text}</div>
+              <div key={sq.id || i} className="sv-question">
+                <div className="sv-label">
+                  {sq.text}
+                  {sq.required !== false ? (
+                    <span className="yr-req">*</span>
+                  ) : (
+                    <span className="sv-optional">opsional</span>
+                  )}
+                </div>
 
-                {sq.type === "shortText" && (
-                  <textarea
-                    className={styles.survTextarea}
-                    placeholder="Tuliskan jawaban kamu di sini..."
-                    value={survAns}
-                    onChange={(e) => setSurveyAnswers(p => ({ ...p, [sq.id]: e.target.value }))}
-                  />
-                )}
-
-                {sq.type === "multipleChoice" && (
-                  <div className={styles.optionList}>
-                    {(sq.options || []).map((opt, j) => (
-                      <div
-                        key={j}
-                        className={`${styles.option} ${survAns === opt ? styles.optSel : ""}`}
-                        onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: opt }))}
-                      >
-                        <div className={`${styles.optBadge} ${survAns === opt ? styles.optBadgeSel : ""}`}>
-                          {String.fromCharCode(65 + j)}
-                        </div>
-                        <div className={styles.optText}>{opt}</div>
-                      </div>
-                    ))}
+                {/* Star Rating (REDESIGN) */}
+                {sq.type === "starRating" && (
+                  <div className="sv-rating">
+                    <div className="sv-rating-scale">
+                      <span>{sq.minLabel || "1 — Kurang Bagus"}</span>
+                      <span>{sq.maxLabel || `${sq.maxStars || 5} — Sangat Bagus`}</span>
+                    </div>
+                    <div className="sv-rating-stars">
+                      {Array.from({ length: sq.maxStars || 5 }, (_, i) => i + 1).map(n => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`sv-star ${(survAns as number) >= n ? "sv-star--on" : ""}`}
+                          onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: n }))}
+                          aria-label={`${n} bintang`}
+                        >
+                          <span className="sv-star-num">{n}</span>
+                          <Star size={22} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
+                {/* Scale */}
                 {sq.type === "scale" && (
-                  <div>
-                    <div className={styles.emojiRow}>
-                      {[1, 2, 3, 4, 5].map(n => (
+                  <>
+                    <div className="sv-scale-row">
+                      {Array.from({ length: sq.maxStars || 5 }, (_, i) => i + 1).map(n => (
                         <button
                           key={n}
-                          className={`${styles.emBtn} ${survAns === n ? styles.emPicked : ""}`}
+                          type="button"
+                          className={`sv-scale-btn ${survAns === n ? "sv-scale-btn--active" : ""}`}
                           onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: n }))}
-                          style={{ width: '40px', height: '40px', fontSize: '14px' }}
                         >
                           {n}
                         </button>
                       ))}
                     </div>
                     {(sq.minLabel || sq.maxLabel) && (
-                      <div className={styles.scaleLabels}>
+                      <div className="lms-scale-labels">
                         <span>{sq.minLabel}</span>
                         <span>{sq.maxLabel}</span>
                       </div>
                     )}
+                  </>
+                )}
+
+                {/* Multiple Choice */}
+                {sq.type === "multipleChoice" && (
+                  <div className="sv-choices">
+                    {(sq.options || []).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className={`sv-choice-btn ${survAns === opt ? "sv-choice-btn--active" : ""}`}
+                        onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: opt }))}
+                      >
+                        {opt}
+                      </button>
+                    ))}
                   </div>
                 )}
 
-                {sq.type === "starRating" && (
-                  <div>
-                    <div className={styles.stars}>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          className={styles.starBtn}
-                          onClick={() => setSurveyAnswers(p => ({ ...p, [sq.id]: n }))}
-                          style={{ color: n <= (survAns as number || 0) ? "#F59E0B" : "#E5E5E5" }}
-                        >
-                          ★
-                        </button>
-                      ))}
+                {/* Short Text (REDESIGN textarea) */}
+                {sq.type === "shortText" && (
+                  <>
+                    <textarea
+                      className="sv-textarea"
+                      placeholder="cth. Materinya jelas, contohnya relate, tapi pengen lebih banyak studi kasus…"
+                      value={survAns as string}
+                      onChange={(e) => setSurveyAnswers(p => ({ ...p, [sq.id]: e.target.value }))}
+                      rows={4}
+                      maxLength={300}
+                    />
+                    <div className="sv-char-count">
+                      {(survAns as string || "").length} / 300
                     </div>
-                    {(sq.minLabel || sq.maxLabel) && (
-                      <div className={styles.scaleLabels}>
-                        <span>{sq.minLabel}</span>
-                        <span>{sq.maxLabel}</span>
-                      </div>
-                    )}
-                  </div>
+                  </>
                 )}
               </div>
             );
@@ -533,10 +597,10 @@ export default function LMSPlayer({
     // ── ADDITIONAL MATERIAL ──
     if (screen === "additional" && additionalMaterial) {
       return (
-        <div className={styles.additionalMaterialBox}>
+        <div className="lms-am-box">
           <div style={{ marginBottom: '16px' }}>
             {additionalMaterial.description && (
-              <p className={styles.amDesc}>{additionalMaterial.description}</p>
+              <p className="lms-am-desc">{additionalMaterial.description}</p>
             )}
           </div>
           {additionalMaterial.linkUrl && additionalMaterial.linkTitle && (
@@ -544,7 +608,7 @@ export default function LMSPlayer({
               href={additionalMaterial.linkUrl} 
               target="_blank" 
               rel="noopener noreferrer" 
-              className={styles.amLink}
+              className="lms-am-link"
             >
               <FileText size={16} />
               <span>{additionalMaterial.linkTitle}</span>
@@ -560,13 +624,12 @@ export default function LMSPlayer({
   // ══════════════════════════════════
   // FOOTER
   // ══════════════════════════════════
-  const allQuizAnswered = questions.length > 0 && questions.every((q) => answers[q.id]);
+  const allQuizAnswered = shuffledQuestions.length > 0 && shuffledQuestions.every((q) => answers[q.id]);
 
-  // Survey: hanya cek pertanyaan yang required
   const allRequiredSurveyAnswered = (() => {
     if (!surveyQuestions || surveyQuestions.length === 0) return true;
     return surveyQuestions
-      .filter((sq) => sq.required !== false) // default required = true
+      .filter((sq) => sq.required !== false)
       .every((sq) => {
         const ans = surveyAnswers[sq.id];
         return ans !== undefined && ans !== "" && ans !== null;
@@ -575,9 +638,27 @@ export default function LMSPlayer({
 
   function renderFooter() {
     if (screen === "quiz") {
+      if (qzPassed) {
+        // Already passed — show proceed button
+        return (
+          <button
+            className="lms-btn-red"
+            onClick={hasSurvey ? showSurvey : (hasAdditionalMaterial ? saveProgressAndShowAdditional : proceedNext)}
+          >
+            {hasSurvey 
+              ? "Isi Survei →" 
+              : hasAdditionalMaterial
+                ? "Materi Tambahan →"
+                : isLastStep 
+                  ? "Klaim Sertifikat" 
+                  : "Materi Selanjutnya →"}
+          </button>
+        );
+      }
+      
       return (
-        <button className={styles.btnRed} onClick={submitQuiz} disabled={!allQuizAnswered}>
-          Kirim Jawaban
+        <button className="lms-btn-red" onClick={handleQuizCheck} disabled={!allQuizAnswered}>
+          {qzFailed ? "Cek Jawaban Lagi" : "Cek Jawaban"}
         </button>
       );
     }
@@ -585,9 +666,9 @@ export default function LMSPlayer({
     if (screen === "review") {
       return (
         <>
-          <button className={styles.btnDark} onClick={retry}>Kerjakan Ulang</button>
+          <button className="lms-btn-dark" onClick={retry}>Kerjakan Ulang</button>
           <button
-            className={styles.btnRed}
+            className="lms-btn-red"
             onClick={hasSurvey ? showSurvey : (hasAdditionalMaterial ? saveProgressAndShowAdditional : proceedNext)}
             disabled={!passed}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -606,7 +687,7 @@ export default function LMSPlayer({
 
     if (screen === "survey") {
       return (
-        <button className={styles.btnRed} onClick={sendSurvey} disabled={!allRequiredSurveyAnswered}>
+        <button className="lms-btn-red" onClick={sendSurvey} disabled={!allRequiredSurveyAnswered}>
           {hasAdditionalMaterial
             ? "Kirim Jawaban"
             : isLastStep 
@@ -618,7 +699,7 @@ export default function LMSPlayer({
 
     if (screen === "additional") {
       return (
-        <button className={styles.btnRed} onClick={proceedNext}>
+        <button className="lms-btn-red" onClick={proceedNext}>
           {isLastStep 
             ? "Klaim Sertifikat"
             : "Materi Selanjutnya →"}
@@ -633,29 +714,29 @@ export default function LMSPlayer({
   const noRightPanel = !hasAssessment && !hasSurvey && !hasAdditionalMaterial;
 
   return (
-    <div className={`${styles.layout} ${(noVideo || noRightPanel) ? styles.layoutNoVideo : ""}`}>
-      <div className={noRightPanel ? styles.leftColFull : (noVideo ? undefined : styles.leftCol)} style={noRightPanel ? undefined : undefined}>
+    <div className={`lms-layout ${(noVideo || noRightPanel) ? "lms-layout--no-video" : ""}`}>
+      <div className={noRightPanel ? "lms-left--full" : (noVideo ? undefined : "lms-left")} style={noRightPanel ? undefined : undefined}>
         {!noVideo && renderLeft()}
       </div>
       {!noRightPanel && (
-        <div className={`${styles.rightCol} ${noVideo ? styles.rightColFull : ""}`}>
-          <div className={styles.sHead}>
+        <div className={`lms-right ${noVideo ? "lms-right--full" : ""}`}>
+          <div className="lms-s-head">
             <h2>{panelTitle()}</h2>
             {screen === "quiz" && hasAssessment && (
-              <p className={styles.sHeadDesc}>
-                Anda harus benar minimal <strong>{minCorrect} soal</strong> untuk bisa dapat sertifikat!
+              <p className="lms-s-head-desc">
+                {shuffledQuestions.length} soal singkat. Jawab benar semua untuk dapat sertifikat.
               </p>
             )}
             {screen === "survey" && (
-              <p className={styles.sHeadDesc}>
-                Setelah mengisi survey, Anda akan mendapatkan sertifikat.
+              <p className="lms-s-head-desc">
+                Terima kasih sudah menyelesaikan! Kasih kami feedback singkat di bawah.
               </p>
             )}
           </div>
-          <div className={styles.sScroll} ref={scrollRef}>
+          <div className="lms-s-scroll" ref={scrollRef}>
             {renderRight()}
           </div>
-          <div className={styles.sFoot}>
+          <div className="lms-s-foot">
             {renderFooter()}
           </div>
         </div>

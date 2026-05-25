@@ -11,7 +11,6 @@ import CourseMenuDrawer from "@/components/CourseMenuDrawer/CourseMenuDrawer";
 import type { StepNavItem } from "@/components/StepNav";
 import WorkshopBanner from "@/components/WorkshopBanner/WorkshopBanner";
 import type { WorkshopData } from "@/components/LandingTemplate/LandingTemplate";
-import styles from "./page.module.css";
 
 // ─── Helpers ─────────────────────────────────────────────────────
 function clamp(val: number, min: number, max: number) {
@@ -44,6 +43,11 @@ export default function StepPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [workshopData, setWorkshopData] = useState<WorkshopData | null>(null);
 
+  // Claim modal
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
+  const [claimStep, setClaimStep] = useState(0); // 0=saving, 1=generating, 2=done, -1=error
+  const [claimErrorMsg, setClaimErrorMsg] = useState("");
+
   useEffect(() => {
     if (profile) {
       setCertName(profile.profileData?.namaLengkap || profile.displayName || "");
@@ -67,16 +71,38 @@ export default function StepPage() {
         const idToken = await user.getIdToken();
         const headers = { Authorization: `Bearer ${idToken}` };
 
-        // Load Course
-        const cRes = await fetch("/api/courses/main", { headers, cache: 'no-store' });
-        if (!cRes.ok) throw new Error("Gagal memuat materi");
-        const cData = await cRes.json();
+        // ── Try sessionStorage cache for course data ──
+        let cachedCourse: any = null;
+        try {
+          const raw = sessionStorage.getItem("__courseData");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            // Cache valid for 5 minutes
+            if (parsed._ts && Date.now() - parsed._ts < 5 * 60 * 1000) {
+              cachedCourse = parsed.data;
+            }
+          }
+        } catch {}
+
+        // ── Parallel fetch: course (if not cached) + enrollment ──
+        const coursePromise = cachedCourse
+          ? Promise.resolve(cachedCourse)
+          : fetch("/api/courses/main", { headers }).then(async (r) => {
+              if (!r.ok) throw new Error("Gagal memuat materi");
+              const d = await r.json();
+              try { sessionStorage.setItem("__courseData", JSON.stringify({ data: d, _ts: Date.now() })); } catch {}
+              return d;
+            });
+
+        const enrollPromise = fetch("/api/enrollments", { headers }).then(async (r) => {
+          if (!r.ok) throw new Error("Gagal memuat progress belajar");
+          return r.json();
+        });
+
+        const [cData, eData] = await Promise.all([coursePromise, enrollPromise]);
+
         setCourseData(cData);
 
-        // Load Enrollment
-        const eRes = await fetch("/api/enrollments", { headers, cache: 'no-store' });
-        if (!eRes.ok) throw new Error("Gagal memuat progress belajar");
-        const eData = await eRes.json();
         let mainEn = eData.find((e: any) => e.courseId === "course-main");
         
         if (!mainEn) {
@@ -97,20 +123,17 @@ export default function StepPage() {
         const enChannelSource = mainEn.channelSource || "";
         const enEventId = mainEn.eventId || "";
         if (enChannelSource === "workshop" && enEventId) {
-          try {
-            const wsRes = await fetch(`/api/events/public/${enEventId}`);
-            if (wsRes.ok) {
-              const wsData = await wsRes.json();
-              if (wsData.workshopData) {
+          // Fire and forget — don't block rendering
+          fetch(`/api/events/public/${enEventId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(wsData => {
+              if (wsData?.workshopData) {
                 setWorkshopData(wsData.workshopData);
-                // Simpan ke localStorage agar Header bell bisa baca
                 localStorage.setItem("activeWorkshopData", JSON.stringify(wsData.workshopData));
                 localStorage.setItem("activeWorkshopEventId", enEventId);
               }
-            }
-          } catch {
-            // Workshop data gagal load — tidak fatal
-          }
+            })
+            .catch(() => {});
         }
 
         setLoading(false);
@@ -173,12 +196,12 @@ export default function StepPage() {
   if (!canAccess) {
     return (
       <>
-        <div className={styles.lockedWrapper}>
-          <div className={styles.lockedCard}>
-            <div className={styles.lockedIcon}>🔒</div>
+        <div className="step-locked-wrap">
+          <div className="step-locked-card">
+            <div className="step-locked-icon">🔒</div>
             <h2>Materi Terkunci</h2>
             <p>Selesaikan materi sebelumnya terlebih dahulu untuk membuka materi ini.</p>
-            <button className={styles.backBtn} onClick={() => router.push("/learn")}>
+            <button className="step-back-btn" onClick={() => router.push("/learn")}>
               Kembali ke Materi Terakhir
             </button>
           </div>
@@ -209,7 +232,6 @@ export default function StepPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
-        cache: 'no-store',
         body: JSON.stringify({
           stepId: activeStep.id,
           assessmentResult: results?.assessment,
@@ -251,8 +273,39 @@ export default function StepPage() {
             router.push(`/learn/${stepNumber + 1}`);
           }
         } else {
-          // Step terakhir selesai — arahkan ke halaman klaim sertifikat
-          router.push("/learn/certificate");
+          // ── LAST STEP: Show modal + claim cert ──
+          setClaimModalOpen(true);
+          setClaimStep(0); // saving progress
+
+          // Small delay for visual feedback
+          await new Promise(r => setTimeout(r, 600));
+          setClaimStep(1); // generating cert
+
+          try {
+            const claimRes = await fetch(`/api/enrollments/${enrollment.id}/claim-cert`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({ customName: certName.trim() || undefined }),
+            });
+            const claimData = await claimRes.json();
+
+            if (!claimRes.ok) {
+              setClaimStep(-1);
+              setClaimErrorMsg(claimData.error || "Gagal generate sertifikat");
+              return;
+            }
+
+            setClaimStep(2); // done!
+            await new Promise(r => setTimeout(r, 1200));
+            router.push("/learn/certificate");
+          } catch {
+            setClaimStep(-1);
+            setClaimErrorMsg("Terjadi kesalahan. Coba lagi.");
+          }
+          return; // don't fall through
         }
       }
     } catch (e: any) {
@@ -273,7 +326,7 @@ export default function StepPage() {
 
   return (
     <>
-      <div className={styles.wrapper}>
+      <div className="step-wrapper">
         {/* Workshop Banner — tampil di atas LMSPlayer jika channelSource=workshop */}
         {workshopData && enrollment?.eventId && (
           <WorkshopBanner
@@ -330,6 +383,53 @@ export default function StepPage() {
         currentStep={stepNumber}
         courseName={courseData?.title || "Modul Financial Literacy"}
       />
+
+      {/* ── Claim Certificate Modal ── */}
+      {claimModalOpen && (
+        <div className="ccm-overlay">
+          <div className="ccm-modal">
+            {claimStep >= 0 ? (
+              <>
+                <div className="ccm-icon">
+                  {claimStep < 2 ? (
+                    <div className="ccm-spinner" />
+                  ) : (
+                    <div className="ccm-check">✓</div>
+                  )}
+                </div>
+                <h3 className="ccm-title">
+                  {claimStep === 0 && "Menyimpan progress..."}
+                  {claimStep === 1 && "Membuat sertifikat..."}
+                  {claimStep === 2 && "Sertifikat berhasil dibuat! 🎉"}
+                </h3>
+                <div className="ccm-steps">
+                  <div className={`ccm-step ${claimStep >= 0 ? 'ccm-step--done' : ''}`}>
+                    <span className="ccm-dot">{claimStep > 0 ? '✓' : '⏳'}</span>
+                    Menyimpan progress materi
+                  </div>
+                  <div className={`ccm-step ${claimStep >= 1 ? (claimStep > 1 ? 'ccm-step--done' : 'ccm-step--active') : ''}`}>
+                    <span className="ccm-dot">{claimStep > 1 ? '✓' : claimStep === 1 ? '⏳' : '○'}</span>
+                    Generate sertifikat digital
+                  </div>
+                  <div className={`ccm-step ${claimStep >= 2 ? 'ccm-step--done' : ''}`}>
+                    <span className="ccm-dot">{claimStep >= 2 ? '✓' : '○'}</span>
+                    Selesai
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="ccm-icon">
+                  <div className="ccm-error-icon">✕</div>
+                </div>
+                <h3 className="ccm-title" style={{ color: 'var(--color-primary)' }}>Gagal Membuat Sertifikat</h3>
+                <p className="ccm-error-msg">{claimErrorMsg}</p>
+                <button className="ccm-retry-btn" onClick={() => { setClaimModalOpen(false); }}>Tutup</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
     </>
   );

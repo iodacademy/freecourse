@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import styles from "./CourseMenuDrawer.module.css";
 import StepNav, { StepNavItem } from "@/components/StepNav";
 
 interface CourseMenuDrawerProps {
@@ -44,19 +43,19 @@ export default function CourseMenuDrawer({
   return (
     <>
       <div
-        className={`${styles.backdrop} ${open ? styles.backdropOpen : ""}`}
+        className={`cmd-backdrop ${open ? "cmd-backdrop--open" : ""}`}
         onClick={onClose}
       />
-      <div className={`${styles.drawer} ${open ? styles.drawerOpen : ""}`}>
-        <div className={styles.header}>
+      <div className={`cmd-drawer ${open ? "cmd-drawer--open" : ""}`}>
+        <div className="cmd-header">
           <h2>Daftar Materi</h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Tutup">
+          <button className="cmd-close-btn" onClick={onClose} aria-label="Tutup">
             <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.5" stroke="currentColor">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className={styles.content}>
+        <div className="cmd-content">
           <StepNav steps={steps} currentStep={currentStep} courseName={courseName} />
         </div>
       </div>

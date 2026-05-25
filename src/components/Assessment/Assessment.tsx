@@ -1,23 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { AssessmentQuestion } from "@/lib/types";
-import styles from "./Assessment.module.css";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 interface AssessmentProps {
   questions: AssessmentQuestion[];
   kkm: number;
   onPass: (score: number) => void;
-  disabled?: boolean; // sudah klaim sertifikat
+  disabled?: boolean;
   previousScore?: number | null;
   previousPassed?: boolean;
+  initialAnswers?: Record<string, string>;
 }
 
-interface QuestionResult {
-  questionId: string;
-  selectedAnswer: string;
-  isCorrect: boolean;
+// ── Seeded shuffle (Fisher-Yates) — consistent per session ──
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const a = [...arr];
+  let s = seed;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 16807 + 0) % 2147483647;
+    const j = s % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export default function Assessment({
@@ -27,219 +33,173 @@ export default function Assessment({
   disabled = false,
   previousScore = null,
   previousPassed = false,
+  initialAnswers = {},
 }: AssessmentProps) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [results, setResults] = useState<QuestionResult[]>([]);
-  const [score, setScore] = useState(0);
-  const [passed, setPassed] = useState(previousPassed);
-  const [showHints, setShowHints] = useState<Record<string, boolean>>({});
-  const [attempts, setAttempts] = useState(0);
+  // ── Randomize soal & opsi sekali saat mount ──
+  const sessionSeed = useMemo(() => Math.floor(Math.random() * 1000000), []);
 
-  function handleSelect(questionId: string, optionId: string) {
-    if (submitted && passed) return; // sudah lulus, terkunci
-    if (disabled) return;
-    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
-  }
-
-  function handleSubmit() {
-    // Hitung hasil per soal
-    const questionResults: QuestionResult[] = questions.map((q) => ({
-      questionId: q.id,
-      selectedAnswer: answers[q.id] || "",
-      isCorrect: answers[q.id] === q.correctAnswer,
+  const shuffledQuestions = useMemo(() => {
+    const shuffledQ = seededShuffle(questions, sessionSeed);
+    return shuffledQ.map((q, i) => ({
+      ...q,
+      _originalIdx: questions.indexOf(q),
+      options: seededShuffle(q.options, sessionSeed + i + 1),
     }));
+  }, [questions, sessionSeed]);
 
-    const correctCount = questionResults.filter((r) => r.isCorrect).length;
-    const calculatedScore = Math.round((correctCount / questions.length) * 100);
+  const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
+  const [results, setResults] = useState<Record<string, "correct" | "wrong">>({});
+  const [submitted, setSubmitted] = useState(false);
 
-    setResults(questionResults);
-    setScore(calculatedScore);
-    setSubmitted(true);
-    setAttempts((prev) => prev + 1);
+  const correctCount = Object.values(results).filter(r => r === "correct").length;
+  const allAnswered = shuffledQuestions.every(q => answers[q.id]);
+  const passed = submitted && correctCount === shuffledQuestions.length;
+  const failed = submitted && correctCount < shuffledQuestions.length;
 
-    if (calculatedScore >= kkm) {
-      setPassed(true);
-      onPass(calculatedScore);
+  function handlePick(qid: string, oid: string) {
+    if (results[qid] === "correct") return; // locked
+    if (disabled) return;
+    setAnswers(a => ({ ...a, [qid]: oid }));
+    // Clear previous wrong result if user re-picks
+    if (results[qid] === "wrong") {
+      setResults(r => { const x = { ...r }; delete x[qid]; return x; });
     }
   }
 
-  function handleRetry() {
-    setAnswers({});
-    setSubmitted(false);
-    setResults([]);
-    setScore(0);
-    setShowHints({});
+  function handleCheck() {
+    const newResults = { ...results };
+    for (const q of shuffledQuestions) {
+      if (newResults[q.id] === "correct") continue;
+      newResults[q.id] = answers[q.id] === q.correctAnswer ? "correct" : "wrong";
+    }
+    setResults(newResults);
+    setSubmitted(true);
+
+    const newCorrect = Object.values(newResults).filter(r => r === "correct").length;
+    if (newCorrect === shuffledQuestions.length) {
+      const score = 100;
+      onPass(score);
+    }
   }
 
-  function toggleHint(questionId: string) {
-    setShowHints((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
-  }
-
-  function getResult(questionId: string) {
-    return results.find((r) => r.questionId === questionId);
-  }
-
-  const allAnswered = questions.every((q) => answers[q.id]);
-
-  // Sudah pernah lulus sebelumnya (dari data enrollment)
+  // Locked (already passed before)
   if (disabled && previousPassed) {
     return (
-      <div className={styles.wrapper}>
-        <div className={styles.header}>
-          <h3 className={styles.title}>📝 Assessment</h3>
-          <div className={`${styles.scoreBadge} ${styles.scorePass}`}>
-            Nilai: {previousScore} ✓
+      <div className="qz-wrap">
+        <div className="qz-locked-wrap">
+          <div className="qz-badge qz-badge--correct" style={{ fontSize: 12, padding: "4px 12px", margin: "0 auto 8px" }}>
+            <Check size={12} /> Nilai: {previousScore}
           </div>
-        </div>
-        <div className={styles.lockedMessage}>
-          <span>🔒</span>
-          <p>Assessment sudah selesai dan terkunci.</p>
+          <p style={{ fontSize: 12, color: "var(--color-gray-500)", margin: 0 }}>
+            🔒 Assessment sudah selesai dan terkunci.
+          </p>
         </div>
       </div>
     );
   }
+
   return (
-    <div className={styles.wrapper}>
-      {/* KKM & Soal info strip */}
-      <div className={styles.infoStrip}>
-        <span className={styles.metaItem}>{questions.length} Soal</span>
-        <span className={styles.metaItem}>KKM: {kkm}</span>
-        {attempts > 0 && (
-          <span className={styles.metaItem}>Percobaan: {attempts}x</span>
-        )}
+    <div className="qz-wrap">
+      {/* ── Score + Pellets ── */}
+      <div className="qz-score">
+        <span>Skor sementara <b>{correctCount} / {shuffledQuestions.length}</b></span>
+        <span className="qz-pellets">
+          {shuffledQuestions.map(q => (
+            <span
+              key={q.id}
+              className={`qz-pellet ${
+                results[q.id] === "correct" ? "qz-pellet--correct" :
+                results[q.id] === "wrong" ? "qz-pellet--wrong" : ""
+              }`}
+            />
+          ))}
+        </span>
       </div>
 
-      {/* Score Display (setelah submit) */}
+      {/* ── Banner pass / fail ── */}
       {submitted && (
-        <div className={`${styles.scoreCard} ${passed ? styles.scoreCardPass : styles.scoreCardFail}`}>
-          <div className={styles.scoreMain}>
-            <span className={styles.scoreValue}>{score}</span>
-            <span className={styles.scoreLabel}>/ 100</span>
-          </div>
-          <div className={styles.scoreInfo}>
+        <div className={`qz-banner ${passed ? "qz-banner--pass" : "qz-banner--fail"}`}>
+          <span className="qz-banner-icon">
+            {passed ? <Check size={14} /> : <X size={14} />}
+          </span>
+          <div>
             {passed ? (
-              <>
-                <span className={styles.scoreStatus}><CheckCircle2 size={16} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> LULUS</span>
-                <p>Selamat! Kamu sudah mencapai KKM. Klik Next untuk lanjut.</p>
-              </>
+              <><b>Kamu benar {correctCount} dari {shuffledQuestions.length}.</b> Mantap. Siap lanjut ke materi berikutnya.</>
             ) : (
               <>
-                <span className={styles.scoreStatusFail}><XCircle size={16} style={{ display: 'inline-block', verticalAlign: 'text-bottom' }} /> BELUM LULUS</span>
-                <p>Nilai belum mencapai KKM ({kkm}). Lihat hint di bawah dan coba lagi!</p>
+                <b>Kamu benar {correctCount} dari {shuffledQuestions.length}.</b> Pilih jawaban baru di soal merah
+                <span className="qb-arrow">↓</span> lalu klik <b>Cek Jawaban Lagi</b>.
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* Questions */}
-      <div className={styles.questionList}>
-        {questions.map((question, idx) => {
-          const result = getResult(question.id);
-          const isCorrect = result?.isCorrect;
-          const hasResult = !!result;
+      {/* ── Cards per soal ── */}
+      {shuffledQuestions.map((q, idx) => {
+        const r = results[q.id];
+        const cardClass = `qz-card ${
+          r === "correct" ? "qz-card--correct" :
+          r === "wrong" ? "qz-card--wrong" : ""
+        }`;
 
-          return (
-            <div
-              key={question.id}
-              className={`${styles.question} ${
-                hasResult
-                  ? isCorrect
-                    ? styles.questionCorrect
-                    : styles.questionWrong
-                  : ""
-              }`}
-            >
-              <div className={styles.questionHeader}>
-                <span className={styles.questionNum}>
-                  {hasResult ? (isCorrect ? <CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} /> : <XCircle size={16} style={{ color: 'var(--color-error)' }} />) : `${idx + 1}.`}
-                </span>
-                <p className={styles.questionText}>{question.text}</p>
-              </div>
-
-              {/* Options */}
-              <div className={styles.options}>
-                {question.options.map((opt) => {
-                  const isSelected = answers[question.id] === opt.id;
-                  const isCorrectOpt = submitted && opt.id === question.correctAnswer;
-                  const isWrongSelected = submitted && isSelected && !isCorrect;
-
-                  return (
-                    <button
-                      key={opt.id}
-                      className={`${styles.option} ${
-                        isSelected ? styles.optionSelected : ""
-                      } ${isCorrectOpt ? styles.optionCorrect : ""} ${
-                        isWrongSelected ? styles.optionWrong : ""
-                      }`}
-                      onClick={() => handleSelect(question.id, opt.id)}
-                      disabled={disabled || (submitted && passed)}
-                    >
-                      <span className={styles.optionMarker}>
-                        {isCorrectOpt ? "✓" : isWrongSelected ? "✗" : opt.id.toUpperCase()}
-                      </span>
-                      <span className={styles.optionText}>{opt.text}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Feedback (setelah submit) */}
-              {hasResult && (
-                <div className={`${styles.feedback} ${isCorrect ? styles.feedbackCorrect : styles.feedbackWrong}`}>
-                  <p>
-                    {isCorrect ? question.feedbackCorrect : question.feedbackWrong}
-                  </p>
-                </div>
+        return (
+          <div key={q.id} className={cardClass}>
+            <div className="qz-head">
+              <span className="qz-num">Soal {idx + 1}</span>
+              {r === "correct" && (
+                <span className="qz-badge qz-badge--correct"><Check size={10} />Benar</span>
               )}
-
-              {/* Hint (hanya muncul jika salah) */}
-              {hasResult && !isCorrect && (
-                <div className={styles.hintSection}>
-                  <button
-                    className={styles.hintToggle}
-                    onClick={() => toggleHint(question.id)}
-                  >
-                    💡 {showHints[question.id] ? "Sembunyikan Hint" : "Lihat Hint"}
-                  </button>
-                  {showHints[question.id] && (
-                    <div className={styles.hintContent}>
-                      <p>{question.hint}</p>
-                    </div>
-                  )}
-                </div>
+              {r === "wrong" && (
+                <span className="qz-badge qz-badge--wrong"><X size={10} />Salah</span>
               )}
             </div>
-          );
-        })}
-      </div>
 
-      {/* Action Buttons */}
-      <div className={styles.actions}>
-        {!submitted ? (
-          <button
-            className="btn btn-primary btn-lg w-full"
-            onClick={handleSubmit}
-            disabled={!allAnswered || disabled}
-          >
-            Kirim Jawaban
-          </button>
-        ) : !passed ? (
-          <button
-            className="btn btn-primary btn-lg w-full"
-            onClick={handleRetry}
-          >
-            🔄 Coba Lagi
-          </button>
-        ) : null}
+            {r === "wrong" && (
+              <div className="qz-retry-hint">
+                <X size={12} />
+                Ganti jawabanmu, lalu cek lagi.
+                <span className="qz-retry-tap">Pilih jawaban</span>
+              </div>
+            )}
 
-        {!allAnswered && !submitted && (
-          <p className={styles.hint}>
-            Jawab semua {questions.length} soal untuk mengirim jawaban.
-          </p>
-        )}
-      </div>
+            <p className="qz-q">{q.text}</p>
+
+            <div className="qz-options">
+              {q.options.map(o => {
+                const isPicked = answers[q.id] === o.id;
+                const optClass = `qz-option ${
+                  isPicked && !r ? "qz-option--selected" : ""
+                } ${r === "correct" && isPicked ? "qz-option--correct" : ""
+                } ${r === "wrong" && isPicked ? "qz-option--wrong" : ""}`;
+                const locked = r === "correct";
+
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={optClass}
+                    disabled={locked || disabled}
+                    onClick={() => handlePick(q.id, o.id)}
+                  >
+                    <span className="qz-radio">
+                      {r === "correct" && isPicked ? <Check size={8} /> :
+                       r === "wrong" && isPicked ? <X size={8} /> : null}
+                    </span>
+                    <span>{o.text}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {r === "correct" && (
+              <div className="qz-locked-note">
+                <Check size={11} />Terkunci. Jawaban benar.
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

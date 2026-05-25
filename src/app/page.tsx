@@ -7,8 +7,6 @@ export default function HomePage() {
     <LandingTemplate
       type="umum"
       eventId=""
-      heroTitle="Selamat Datang di Program YouRise! 🌟"
-      heroSubtitle="Program literasi finansial <strong>100% gratis</strong> dari <strong>Plan Indonesia</strong> × <strong>DBS Foundation</strong> untuk 100.000 kaum muda Indonesia usia 18–29 tahun."
     />
   );
 }

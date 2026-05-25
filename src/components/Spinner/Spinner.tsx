@@ -1,4 +1,4 @@
-import styles from "./Spinner.module.css";
+
 
 interface SpinnerProps {
   size?: "sm" | "md" | "lg";
@@ -10,9 +10,9 @@ export default function Spinner({ size = "md", label }: SpinnerProps) {
     size === "sm" ? "spinner-sm" : size === "lg" ? "spinner-lg" : "";
 
   return (
-    <div className={styles.wrapper}>
+    <div className="sp-wrapper">
       <div className={`spinner ${sizeClass}`} role="status" />
-      {label && <p className={styles.label}>{label}</p>}
+      {label && <p className="sp-label">{label}</p>}
     </div>
   );
 }

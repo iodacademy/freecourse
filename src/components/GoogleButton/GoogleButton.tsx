@@ -1,7 +1,5 @@
 "use client";
 
-import styles from "./GoogleButton.module.css";
-
 interface GoogleButtonProps {
   onClick: () => void;
   loading?: boolean;
@@ -15,7 +13,7 @@ export default function GoogleButton({
 }: GoogleButtonProps) {
   return (
     <button
-      className={styles.button}
+      className="gb-button"
       onClick={onClick}
       disabled={loading}
       type="button"
@@ -24,7 +22,7 @@ export default function GoogleButton({
         <div className="spinner spinner-sm" />
       ) : (
         <svg
-          className={styles.icon}
+          className="gb-icon"
           viewBox="0 0 24 24"
           width="20"
           height="20"

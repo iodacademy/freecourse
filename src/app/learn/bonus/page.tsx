@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearnLoading } from "@/contexts/LearnLoadingContext";
-import { Loader2, Check, Copy, ExternalLink, ChevronRight } from "lucide-react";
-import styles from "./page.module.css";
+import { Loader2, Check, Copy, ExternalLink } from "lucide-react";
 
 interface BonusTopic {
   id: string;
@@ -109,58 +108,58 @@ export default function BonusCoursePage() {
 
   return (
     <>
-      <div className={styles.wrapper}>
-        <div className={styles.container}>
+      <div className="bonus-wrapper">
+        <div className="bonus-container">
 
           {/* ── PILIH TOPIK ── */}
           {!showSuccess && (
-            <div className={styles.pickSection}>
-              <div className={styles.pageHead}>
-                <p className={styles.eyebrow}>KURSUS TAMBAHAN GRATIS</p>
-                <h1 className={styles.pageTitle}>Pilih Satu Kursus Untukmu</h1>
-                <p className={styles.pageDesc}>
+            <div className="bonus-pick">
+              <div className="bonus-head">
+                <p className="bonus-eyebrow">KURSUS TAMBAHAN GRATIS</p>
+                <h1 className="bonus-title">Pilih Satu Kursus Untukmu</h1>
+                <p className="bonus-desc">
                   Selamat telah menyelesaikan Kursus Literasi Finansial! Sebagai hadiah,
                   kamu berhak memilih <strong>satu kursus tambahan gratis</strong> di portal IODA Academy.
                   Pilihan ini <strong>tidak bisa diubah</strong> setelah dikonfirmasi.
                 </p>
               </div>
 
-              {error && <p className={styles.errorMsg}>{error}</p>}
+              {error && <p className="bonus-error">{error}</p>}
 
               {topics.length === 0 ? (
-                <div className={styles.emptyState}>
+                <div className="bonus-empty">
                   Tidak ada kursus tersedia. Hubungi admin.
                 </div>
               ) : (
-                <div className={styles.topicList}>
+                <div className="bonus-topics">
                   {topics.map((topic, index) => {
                     const isSelected = selectedTopic === topic.id;
                     return (
                       <button
                         key={topic.id}
-                        className={`${styles.topicRow} ${isSelected ? styles.topicRowSelected : ""}`}
+                        className={`bonus-topic ${isSelected ? "bonus-topic--sel" : ""}`}
                         onClick={() => setSelectedTopic(topic.id)}
                       >
-                        <span className={styles.topicNumber}>{index + 1}</span>
-                        <span className={styles.topicRowName}>{topic.name}</span>
+                        <span className="bonus-topic-num">{index + 1}</span>
+                        <span className="bonus-topic-name">{topic.name}</span>
                       </button>
                     );
                   })}
                 </div>
               )}
 
-              <div className={styles.confirmArea}>
+              <div className="bonus-confirm">
                 <button
-                  className={styles.confirmBtn}
+                  className="bonus-confirm-btn"
                   disabled={!selectedTopic || confirming}
                   onClick={handleConfirm}
                 >
                   {confirming
-                    ? <><Loader2 size={16} className={styles.spinner} /> Memproses...</>
+                    ? <><Loader2 size={16} className="animate-spin" /> Memproses...</>
                     : "Konfirmasi Pilihan"}
                 </button>
                 {!selectedTopic && (
-                  <p className={styles.hint}>Pilih salah satu kursus di atas</p>
+                  <p className="bonus-hint">Pilih salah satu kursus di atas</p>
                 )}
               </div>
             </div>
@@ -168,28 +167,28 @@ export default function BonusCoursePage() {
 
           {/* ── SUKSES ── */}
           {showSuccess && (
-            <div className={styles.successSection}>
-              <div className={styles.successBanner}>
-                <div className={styles.successBadge}>
+            <div className="bonus-success">
+              <div className="bonus-banner">
+                <div className="bonus-badge">
                   <Check size={22} />
                 </div>
-                <h1 className={styles.successTitle}>Kursus Siap Diakses!</h1>
-                <p className={styles.successDesc}>
+                <h1 className="bonus-success-title">Kursus Siap Diakses!</h1>
+                <p className="bonus-success-desc">
                   {selectedTopicName || "Kursus kamu"} sudah siap. Gunakan kode di bawah
                   untuk masuk ke portal belajar.
                 </p>
               </div>
 
-              <div className={styles.codeCard}>
-                <p className={styles.codeLabel}>KODE REDEEM</p>
-                <div className={styles.codeRow}>
-                  <code className={styles.codeText}>{redeemCode}</code>
-                  <button className={styles.copyBtn} onClick={copyCode}>
+              <div className="bonus-code-card">
+                <p className="bonus-code-label">KODE REDEEM</p>
+                <div className="bonus-code-row">
+                  <code className="bonus-code-text">{redeemCode}</code>
+                  <button className="bonus-copy-btn" onClick={copyCode}>
                     {copied ? <Check size={15} /> : <Copy size={15} />}
                     {copied ? "Tersalin" : "Salin"}
                   </button>
                 </div>
-                <p className={styles.codeNote}>
+                <p className="bonus-code-note">
                   Email konfirmasi sudah dikirim ke {profile?.email}
                 </p>
               </div>
@@ -198,15 +197,15 @@ export default function BonusCoursePage() {
                 href={portalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={styles.portalBtn}
+                className="bonus-portal-btn"
               >
                 Buka Portal Belajar
                 <ExternalLink size={15} />
               </a>
 
-              <div className={styles.steps}>
-                <p className={styles.stepsTitle}>Cara penggunaan</p>
-                <ol className={styles.stepsList}>
+              <div className="bonus-steps">
+                <p className="bonus-steps-title">Cara penggunaan</p>
+                <ol className="bonus-steps-list">
                   <li>Klik tombol di atas untuk membuka portal belajar</li>
                   <li>Masukkan kode redeem di halaman login</li>
                   <li>Akses materi kursus langsung</li>
