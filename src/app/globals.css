@@ -2267,6 +2267,7 @@ small {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 40px;
   background: linear-gradient(135deg, #fff5f5 0%, #ffffff 50%, #fafafa 100%);
   border: 1px solid #ffe5e5;
@@ -2275,6 +2276,14 @@ small {
   margin-bottom: 32px;
   text-align: left;
   box-shadow: 0 8px 32px rgba(204, 0, 0, 0.06);
+}
+
+/* Callout, chips, CTA inside banner — full width */
+.lp-workshop-banner > .lp-workshop-callout,
+.lp-workshop-banner > .lp-topic-chips,
+.lp-workshop-banner > div:last-child {
+  flex-basis: 100%;
+  text-align: center;
 }
 
 .lp-workshop-banner__left {
