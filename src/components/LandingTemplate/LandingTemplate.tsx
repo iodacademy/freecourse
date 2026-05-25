@@ -386,16 +386,27 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
       </main>
 
       {/* ─── WhatsApp FAB ─── */}
-      <a
-        className="lp-wa-fab"
-        href="https://wa.me/6281234567890?text=Halo%20Admin%20IODA%2C%20saya%20ingin%20bertanya%20tentang%20program%20ini."
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Hubungi Admin via WhatsApp"
-      >
-        <WhatsAppIcon />
-        Hubungi Admin
-      </a>
+      {(() => {
+        const waMessages: Record<LandingType, string> = {
+          umum: "Hai kak, mau tanya tentang program YouRise",
+          beasiswa: "Hai kak, mau tanya tentang program beasiswa YouRise",
+          kemitraan: "Hai kak, mau tanya tentang program YouRise",
+          workshop: "Hai kak, mau tanya tentang workshop YouRise",
+        };
+        const waText = encodeURIComponent(waMessages[type] || waMessages.umum);
+        return (
+          <a
+            className="lp-wa-fab"
+            href={`https://wa.me/6289529109313?text=${waText}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Hubungi Admin via WhatsApp"
+          >
+            <WhatsAppIcon />
+            Hubungi Admin
+          </a>
+        );
+      })()}
 
       {/* ─── Modal Pop-up Info Program ─── */}
       {showModal && (
