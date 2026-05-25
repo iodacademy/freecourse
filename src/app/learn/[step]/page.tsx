@@ -299,7 +299,22 @@ export default function StepPage() {
             }
 
             setClaimStep(2); // done!
-            await new Promise(r => setTimeout(r, 1200));
+
+            // Auto-download PDF jika ada driveUrl
+            const driveUrl = claimData.driveUrl || claimData.downloadUrl;
+            if (driveUrl) {
+              try {
+                const fileId = driveUrl.match(/\/d\/([^/]+)/)?.[1];
+                const downloadLink = fileId
+                  ? `https://drive.google.com/uc?export=download&id=${fileId}`
+                  : driveUrl;
+                window.open(downloadLink, "_blank");
+              } catch {
+                // download gagal, tidak apa-apa — user bisa download di halaman sertifikat
+              }
+            }
+
+            await new Promise(r => setTimeout(r, 1500));
             router.push("/learn/certificate");
           } catch {
             setClaimStep(-1);
