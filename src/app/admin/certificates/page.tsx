@@ -5,8 +5,8 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
 import {
-  Eye, XCircle, CheckCircle, Search, X, ChevronLeft, ChevronRight,
-  Download, Award, Loader2
+  Trash2, Search, X, ChevronLeft, ChevronRight,
+  Download, Award, Loader2, ExternalLink
 } from "lucide-react";
 
 interface CertRecord {
@@ -21,10 +21,17 @@ interface CertRecord {
   partnerCode?: string | null;
 }
 
+interface CertRecordFull extends CertRecord {
+  enrollmentId?: string;
+  driveUrl?: string | null;
+}
+
 export default function AdminCertificatesPage() {
   const { user } = useAuth();
-  const [certs, setCerts] = useState<CertRecord[]>([]);
+  const [certs, setCerts] = useState<CertRecordFull[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revokeTarget, setRevokeTarget] = useState<CertRecordFull | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   // Search
   const [searchInput, setSearchInput] = useState("");
@@ -123,6 +130,30 @@ export default function AdminCertificatesPage() {
     fetchCerts(prevCursor, activeSearch);
   };
 
+  const handleRevoke = async () => {
+    if (!revokeTarget) return;
+    setRevoking(true);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/certificates/revoke", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enrollmentId: revokeTarget.enrollmentId || revokeTarget.id }),
+      });
+      if (res.ok) {
+        setRevokeTarget(null);
+        fetchCerts(null, activeSearch);
+      } else {
+        const d = await res.json();
+        alert(d.error || "Gagal menghapus sertifikat");
+      }
+    } catch {
+      alert("Terjadi kesalahan. Coba lagi.");
+    } finally {
+      setRevoking(false);
+    }
+  };
+
   return (
     <ProtectedRoute requireAdmin>
       <div className={styles.page}>
@@ -162,15 +193,15 @@ export default function AdminCertificatesPage() {
               <tr>
                 <th>ID Sertifikat</th>
                 <th>Nama Peserta</th>
-                <th>Kursus</th>
+                <th>Channel</th>
                 <th>Tanggal Klaim</th>
-                <th>Status</th>
+                <th>File PDF</th>
                 <th className={styles.actionsCell}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {!loading && filteredCerts.map((cert) => (
-                <tr key={cert.id} className={!cert.isValid ? styles.invalidRow : ""}>
+                <tr key={cert.id}>
                   <td>
                     <code className={styles.codeBadge}>{cert.certId}</code>
                   </td>
@@ -178,19 +209,28 @@ export default function AdminCertificatesPage() {
                     <div className={styles.fw500}>{cert.userName}</div>
                     <div className={styles.textSm}>{cert.email}</div>
                   </td>
-                  <td>{cert.courseName}</td>
+                  <td>
+                    <span className={styles.channelBadge}>{cert.channelSource || "—"}</span>
+                  </td>
                   <td>{cert.claimedAt ? new Date(cert.claimedAt).toLocaleDateString("id-ID") : "—"}</td>
                   <td>
-                    {cert.isValid ? (
-                      <span className={`${styles.statusBadge} ${styles.valid}`}>Valid</span>
+                    {(cert as any).driveUrl ? (
+                      <a href={(cert as any).driveUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ color: "var(--color-primary)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+                        <ExternalLink size={13} /> Lihat PDF
+                      </a>
                     ) : (
-                      <span className={`${styles.statusBadge} ${styles.invalid}`}>Dicabut</span>
+                      <span style={{ color: "#aaa", fontSize: 13 }}>Tidak ada</span>
                     )}
                   </td>
                   <td className={styles.actionsCell}>
-                    <button className={styles.iconBtn} title="Lihat"><Eye size={16} /></button>
-                    <button className={styles.iconBtn} title={cert.isValid ? "Cabut Sertifikat" : "Pulihkan"}>
-                      {cert.isValid ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                    <button
+                      className={styles.iconBtn}
+                      title="Hapus Sertifikat"
+                      style={{ color: "#dc2626" }}
+                      onClick={() => setRevokeTarget(cert)}
+                    >
+                      <Trash2 size={16} />
                     </button>
                   </td>
                 </tr>
@@ -232,6 +272,42 @@ export default function AdminCertificatesPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirm Revoke Modal */}
+      {revokeTarget && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
+        }} onClick={() => !revoking && setRevokeTarget(null)}>
+          <div style={{
+            background: "white", borderRadius: 16, padding: 28, maxWidth: 400, width: "90%",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)"
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>🗑️</div>
+            <h3 style={{ margin: "0 0 8px", textAlign: "center", fontSize: 17 }}>Hapus Sertifikat?</h3>
+            <p style={{ color: "#666", fontSize: 13, textAlign: "center", marginBottom: 20, lineHeight: 1.6 }}>
+              Sertifikat <strong>{revokeTarget.certId}</strong> milik <strong>{revokeTarget.userName}</strong> akan dihapus.
+              <br />Peserta dapat klaim ulang dengan ID dan tanggal baru.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setRevokeTarget(null)}
+                disabled={revoking}
+                style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #ddd", background: "none", cursor: "pointer" }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleRevoke}
+                disabled={revoking}
+                style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: "#dc2626", color: "white", fontWeight: 700, cursor: "pointer" }}
+              >
+                {revoking ? "⏳ Menghapus..." : "🗑️ Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

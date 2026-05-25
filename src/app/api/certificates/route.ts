@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         id: doc.id,
         enrollmentId: doc.id,
         certId: d.certificateId || doc.id,
-        userName: d.displayName || d.email || "—",
+        userName: d.displayName || d.certificateName || d.email || "—",
         email: d.email || "—",
         courseId: d.courseId || "—",
         courseName: d.courseName || d.courseId || "Kelas Utama",
@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
         channelSource: d.channelSource || null,
         partnerCode: d.partnerCode || null,
         uid: d.userId || null,
+        driveUrl: d.certificateDriveUrl || null,
       };
     });
 
