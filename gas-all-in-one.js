@@ -30,11 +30,11 @@ var WORKSHOP_TEMPLATE_ID   = "1DAMmG7d9c4XXHdAP9EJhD8pVl1mXkW1ADj3mDS-scNk";
 var NEXT_API_URL = "https://freecourse.iodacademy.id/api/cron/workshop-reminder";
 var ADMIN_KEY    = "ADMINFL26";
 
-// === HELPER: Format tanggal ke "25 Mei 2026" ===
-var BULAN_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+// === HELPER: Format date to "25 May 2026" ===
+var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 function formatTanggal(date) {
   if (typeof date === "string") date = new Date(date);
-  return date.getDate() + " " + BULAN_ID[date.getMonth()] + " " + date.getFullYear();
+  return date.getDate() + " " + MONTHS[date.getMonth()] + " " + date.getFullYear();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -303,6 +303,66 @@ function setupTriggerHarian() {
     .create();
 
   Logger.log("Trigger harian jam 12 WIB berhasil dipasang!");
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// 6. AUTO-CLEANUP: Hapus PDF sertifikat > 5 hari
+// ═══════════════════════════════════════════════════════════════
+
+var CERT_EXPIRY_DAYS = 5;
+
+/**
+ * Cek semua file di folder sertifikat.
+ * Jika file PDF sudah lebih dari 5 hari sejak dibuat → hapus (trash).
+ * Dipanggil otomatis oleh Time Trigger harian.
+ */
+function cleanupExpiredCerts() {
+  try {
+    var folder = DriveApp.getFolderById(CERT_FOLDER_ID);
+    var files = folder.getFiles();
+    var now = new Date();
+    var cutoff = new Date(now.getTime() - (CERT_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
+    var deleted = 0;
+
+    while (files.hasNext()) {
+      var file = files.next();
+      var created = file.getDateCreated();
+
+      if (created < cutoff) {
+        Logger.log("[CLEANUP] Hapus: " + file.getName() + " (dibuat " + created.toISOString() + ")");
+        file.setTrashed(true);
+        deleted++;
+      }
+    }
+
+    Logger.log("[CLEANUP] Selesai. " + deleted + " file dihapus.");
+  } catch (e) {
+    Logger.log("[CLEANUP ERROR] " + e.toString());
+  }
+}
+
+/**
+ * Jalankan SEKALI untuk memasang trigger harian cleanup (jam 2 pagi WIB).
+ * Setelah dipasang, jangan jalankan lagi.
+ */
+function setupCleanupTrigger() {
+  // Hapus trigger lama
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "cleanupExpiredCerts") {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  // Pasang trigger baru: setiap hari jam 2 pagi
+  ScriptApp.newTrigger("cleanupExpiredCerts")
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+
+  Logger.log("Trigger cleanup harian jam 2 pagi berhasil dipasang!");
 }
 
 

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (gasWebAppUrl) {
       try {
         const now = new Date();
-        const bulanNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+        const bulanNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
         const claimDate = `${now.getDate()} ${bulanNames[now.getMonth()]} ${now.getFullYear()}`;
 
         const gasPayload = {
