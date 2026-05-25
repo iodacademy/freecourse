@@ -4501,10 +4501,10 @@ small {
 
 .cert-preview-name {
   position: absolute;
-  top: 38%;
-  left: 6%;
-  width: 55%;
-  font-size: clamp(12px, 2.5vw, 22px);
+  top: 34%;
+  left: 10%;
+  width: 50%;
+  font-size: clamp(10px, 2vw, 18px);
   font-weight: 700;
   color: #1a1a3e;
   text-align: left;
