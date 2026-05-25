@@ -68,10 +68,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       }
     }
 
-    // Generate Certificate ID (new one for reclaim too)
-    const year = new Date().getFullYear();
-    const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
-    const certId = `CERT-${year}-${randomHex}`;
+    // Certificate ID: reuse existing on reclaim, generate new on first claim
+    let certId: string;
+    if (isReclaim && enrollData.certificateId) {
+      certId = enrollData.certificateId;
+    } else {
+      const year = new Date().getFullYear();
+      const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
+      certId = `CERT-${year}-${randomHex}`;
+    }
 
     // Get user, course, and settings info
     const [userDoc, courseDoc, settingsDoc] = await Promise.all([
@@ -88,7 +93,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const gasWebAppUrl: string = settings.gasWebAppUrl || "";
     const mainCertSlideTemplateId: string = settings.mainCertSlideTemplateId || "";
 
-    // If reclaim, try delete old file via GAS
+    // If reclaim, try delete old file via GAS (mungkin sudah dihapus oleh cleanup)
     if (isReclaim && enrollData.certificateDriveFileId && gasWebAppUrl) {
       try {
         await fetch(gasWebAppUrl, {
@@ -100,21 +105,28 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           }),
         });
       } catch (delErr) {
-        console.error("[claim-cert] Delete old file error:", delErr);
+        console.error("[claim-cert] Delete old file error (mungkin sudah dihapus):", delErr);
       }
     }
 
-    // Update enrollment with certificate data
-    await enrollRef.update({
-      certificateClaimed: true,
-      certificateClaimedAt: FieldValue.serverTimestamp(),
-      certificateId: certId,
-      certificateName: userName,
-      certificateCourseName: courseName,
-      certificateIssuer: issuerName,
-      status: "certified",
-      updatedAt: FieldValue.serverTimestamp()
-    });
+    // Update enrollment — on reclaim, keep original claimedAt
+    if (isReclaim) {
+      await enrollRef.update({
+        certificateName: userName,
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    } else {
+      await enrollRef.update({
+        certificateClaimed: true,
+        certificateClaimedAt: FieldValue.serverTimestamp(),
+        certificateId: certId,
+        certificateName: userName,
+        certificateCourseName: courseName,
+        certificateIssuer: issuerName,
+        status: "certified",
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    }
 
     // Call GAS for PDF generation
     let driveUrl: string | null = null;
@@ -122,9 +134,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     if (gasWebAppUrl) {
       try {
-        const now = new Date();
-        const bulan = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-        const claimDate = `${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        
+        // On reclaim: use original claim date; on first claim: use now
+        let claimDate: string;
+        if (isReclaim && enrollData.certificateClaimedAt) {
+          const origDate = typeof enrollData.certificateClaimedAt === "object" && enrollData.certificateClaimedAt._seconds
+            ? new Date(enrollData.certificateClaimedAt._seconds * 1000)
+            : new Date(enrollData.certificateClaimedAt);
+          claimDate = `${origDate.getDate()} ${months[origDate.getMonth()]} ${origDate.getFullYear()}`;
+        } else {
+          const now = new Date();
+          claimDate = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
 
         const gasPayload = {
           action: "generate_main_cert",
