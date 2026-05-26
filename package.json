@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"const fs=require('fs');try{fs.rmSync('.next',{recursive:true,force:true});console.log('[prebuild] Cleaned .next/')}catch(e){console.log('[prebuild] No .next/ to clean')}\"",
     "build": "next build",
     "postbuild": "node scripts/copy-standalone.js",
     "start": "node start.js",
