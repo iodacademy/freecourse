@@ -34,16 +34,44 @@ function isChunkErrorMessage(msg: string): boolean {
   );
 }
 
+// Cek apakah elemen yang gagal load adalah aset Next.js (chunk JS/CSS).
+// Kita hanya peduli aset dari /_next/static/* supaya tidak salah reload
+// gara-gara gambar/iframe pihak ketiga yang gagal load.
+function isNextAssetFailure(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof Element)) return false;
+  const tag = target.tagName;
+  let url = "";
+  if (tag === "LINK") {
+    url = (target as HTMLLinkElement).href || "";
+    const rel = (target as HTMLLinkElement).rel || "";
+    if (!rel.includes("stylesheet") && !rel.includes("preload")) return false;
+  } else if (tag === "SCRIPT") {
+    url = (target as HTMLScriptElement).src || "";
+  } else {
+    return false;
+  }
+  return url.includes("/_next/static/");
+}
+
 export default function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Tangkap chunk load error yang lolos dari React error boundary —
-    // contoh: prefetch <link> tag atau dynamic import yang gagal saat navigasi.
+    // Handler 1 — JS error & ChunkLoadError yang bubble ke window.
     const handleError = (event: ErrorEvent) => {
+      // (a) Resource load failure (link/script tag) — pakai capture phase.
+      //     event.message biasanya kosong untuk resource error, tapi event.target
+      //     menunjuk ke elemen yang gagal.
+      if (isNextAssetFailure(event.target)) {
+        if (shouldAutoReload()) window.location.reload();
+        return;
+      }
+      // (b) JS runtime error dengan pesan chunk load fail.
       const msg = event.message || event.error?.message || "";
       if (isChunkErrorMessage(msg) && shouldAutoReload()) {
         window.location.reload();
       }
     };
+
+    // Handler 2 — Promise rejection (dynamic import yang gagal).
     const handleRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
       const msg = reason?.message || (typeof reason === "string" ? reason : "");
@@ -51,10 +79,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         window.location.reload();
       }
     };
-    window.addEventListener("error", handleError);
+
+    // Capture phase = true → menangkap resource load failure dari child element
+    // (CSS link, script src) yang TIDAK bubble ke window pada phase bubble.
+    window.addEventListener("error", handleError, true);
     window.addEventListener("unhandledrejection", handleRejection);
     return () => {
-      window.removeEventListener("error", handleError);
+      window.removeEventListener("error", handleError, true);
       window.removeEventListener("unhandledrejection", handleRejection);
     };
   }, []);
