@@ -401,6 +401,7 @@ export async function aggregateDashboard(
   for (const d of usersSnap.docs) {
     const data = d.data() as any;
     if (data.role === "admin") continue;
+    if (!data.profileCompleted) continue; // hanya hitung yang sudah lengkapi profil
     const email = normalizeEmail(data.email);
     if (!email) continue;
     const ts =
