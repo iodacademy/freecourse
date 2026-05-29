@@ -9,6 +9,7 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
   const pathname = usePathname();
 
   const tabs = [
+    { label: "Dashboard", href: "/admin/settings/dashboard" },
     { label: "Form Builder", href: "/admin/settings/forms" },
     { label: "Sertifikat", href: "/admin/settings/certificates" },
     { label: "Administrator", href: "/admin/settings/administrators" },

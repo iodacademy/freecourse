@@ -1,13 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings, LogOut } from "lucide-react";
+import { Home, Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings, LogOut, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import styles from "./AdminSidebar.module.css";
 import { useAuth } from "@/contexts/AuthContext";
 
 const menuItems = [
-  { href: "/admin", label: "Beranda", icon: <Home size={18} /> },
+  { href: "/admin", label: "Dashboard", icon: <BarChart3 size={18} /> },
   { href: "/admin/events", label: "Event / Channel", icon: <Calendar size={18} /> },
   { href: "/admin/courses", label: "Modul Financial Literacy", icon: <BookOpen size={18} /> },
   { href: "/admin/certificates", label: "Sertifikat", icon: <GraduationCap size={18} /> },
@@ -21,6 +22,28 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
+  
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Load saved state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("adminSidebarCollapsed");
+    if (saved === "true") setIsCollapsed(true);
+  }, []);
+
+  // Sync state to CSS variable for layout margin
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--current-sidebar-width",
+      isCollapsed ? "68px" : "var(--sidebar-width)"
+    );
+  }, [isCollapsed]);
+
+  const handleToggle = () => {
+    const nextState = !isCollapsed;
+    setIsCollapsed(nextState);
+    localStorage.setItem("adminSidebarCollapsed", String(nextState));
+  };
 
   const handleLogout = async () => {
     try {
@@ -32,12 +55,17 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""}`}>
       <div className={styles.header}>
-        <Link href="/admin" className={styles.logo}>
-          <div className={styles.logoIcon}>ioda</div>
-          <span className={styles.logoLabel}>Admin Panel</span>
-        </Link>
+        {!isCollapsed && (
+          <Link href="/admin" className={styles.logo}>
+            <div className={styles.logoIcon}>ioda</div>
+            <span className={styles.logoLabel}>Admin Panel</span>
+          </Link>
+        )}
+        <button onClick={handleToggle} className={styles.toggleBtn} aria-label="Toggle Sidebar">
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
       </div>
 
       <nav className={styles.nav}>
@@ -52,6 +80,7 @@ export default function AdminSidebar() {
               key={item.href}
               href={item.href}
               className={`${styles.menuItem} ${isActive ? styles.active : ""}`}
+              title={isCollapsed ? item.label : undefined}
             >
               <span className={styles.icon}>{item.icon}</span>
               <span className={styles.label}>{item.label}</span>
@@ -61,8 +90,8 @@ export default function AdminSidebar() {
       </nav>
 
       <div className={styles.footer}>
-        <button onClick={handleLogout} className={styles.logoutBtn}>
-          <LogOut size={16} /> Logout Admin
+        <button onClick={handleLogout} className={styles.logoutBtn} title={isCollapsed ? "Logout Admin" : undefined}>
+          <LogOut size={16} /> <span className={styles.logoutLabel}>Logout Admin</span>
         </button>
       </div>
     </aside>

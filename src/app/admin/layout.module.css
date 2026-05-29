@@ -8,10 +8,11 @@
   flex: 1;
   min-width: 0; /* Fix flexbox overflowing screen width */
   width: 100%;
-  margin-left: var(--sidebar-width);
+  margin-left: var(--current-sidebar-width, var(--sidebar-width));
   padding: var(--space-8);
   background-color: var(--color-gray-50);
   min-height: 100vh;
+  transition: margin-left var(--transition-normal);
 }
 
 @media (max-width: 768px) {

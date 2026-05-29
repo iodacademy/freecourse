@@ -399,3 +399,71 @@ function testGenerateWorkshopCert() {
   });
   Logger.log(JSON.stringify(result));
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SYNC DASHBOARD KE GOOGLE SHEET (Time-driven trigger)
+// ═══════════════════════════════════════════════════════════════
+//
+// Cara setup:
+// 1. Buka menu Project Settings (icon gear di kiri) → scroll ke Script Properties
+//    → Add property:
+//      - NEXTJS_URL  = https://freecourse.iodacademy.id   (tanpa trailing slash)
+//      - SYNC_KEY    = (salin dari Admin > Pengaturan Dashboard > Sync Key)
+//      - SHEET_ID    = (salin dari URL spreadsheet target)
+//      - SHEET_NAME  = Data Dashboard   (atau nama tab sesuai keinginan)
+// 2. Buka menu Triggers (icon jam di kiri) → Add Trigger:
+//      - Function: syncDashboardSheet
+//      - Event source: Time-driven
+//      - Type of time-based trigger: Hour timer → Every hour
+// 3. Test "Run" manual sekali → cek di Google Sheet → harus terisi data
+//
+function syncDashboardSheet() {
+  var props = PropertiesService.getScriptProperties();
+  var baseUrl = props.getProperty('NEXTJS_URL');
+  var syncKey = props.getProperty('SYNC_KEY');
+  var sheetId = props.getProperty('SHEET_ID');
+  var sheetName = props.getProperty('SHEET_NAME') || 'Data Dashboard';
+
+  if (!baseUrl || !syncKey || !sheetId) {
+    throw new Error('Script Properties belum lengkap (butuh NEXTJS_URL, SYNC_KEY, SHEET_ID)');
+  }
+
+  var url = baseUrl.replace(/\/$/, '') + '/api/sync/sheet-data';
+  var res = UrlFetchApp.fetch(url, {
+    headers: { 'X-Sync-Key': syncKey },
+    muteHttpExceptions: true
+  });
+
+  var code = res.getResponseCode();
+  if (code !== 200) {
+    throw new Error('Sync gagal (HTTP ' + code + '): ' + res.getContentText());
+  }
+
+  var data = JSON.parse(res.getContentText());
+  if (!data.headers || !data.rows) {
+    throw new Error('Format response tidak valid');
+  }
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) sheet = ss.insertSheet(sheetName);
+  sheet.clear();
+
+  // Tulis header + rows
+  var totalRows = data.rows.length + 1;
+  sheet.getRange(1, 1, totalRows, data.headers.length)
+       .setValues([data.headers].concat(data.rows));
+
+  // Header styling
+  var headerRange = sheet.getRange(1, 1, 1, data.headers.length);
+  headerRange.setFontWeight('bold').setBackground('#FFE5E5');
+
+  // Meta — "Last Sync" di kolom sebelah kanan header
+  sheet.getRange(1, data.headers.length + 2).setValue('Last Sync: ' + data.generatedAt);
+
+  Logger.log('Sync sukses: ' + data.rows.length + ' baris ditulis ke "' + sheetName + '"');
+}
+
+function testSyncDashboardSheet() {
+  syncDashboardSheet();
+}

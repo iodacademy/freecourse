@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings, Menu, X } from "lucide-react";
+import { Calendar, BookOpen, GraduationCap, Library, Users, Tag, Settings, Menu, X, BarChart3 } from "lucide-react";
 import styles from "./AdminMobileNav.module.css";
 
 const menuItems = [
-  { href: "/admin", label: "Beranda", icon: <Home size={18} /> },
+  { href: "/admin", label: "Dashboard", icon: <BarChart3 size={18} /> },
   { href: "/admin/events", label: "Event / Channel", icon: <Calendar size={18} /> },
   { href: "/admin/courses", label: "Modul Financial Literacy", icon: <BookOpen size={18} /> },
   { href: "/admin/certificates", label: "Sertifikat", icon: <GraduationCap size={18} /> },

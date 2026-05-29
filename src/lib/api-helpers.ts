@@ -92,3 +92,37 @@ export function handleError(e: unknown): Response {
   console.error("[API Error]", e);
   return json({ error: "Internal Server Error" }, 500);
 }
+
+/** Validasi sync key untuk endpoint GAS cron. Throw Response 401 kalau invalid. */
+export async function requireSyncKey(req: Request): Promise<void> {
+  const provided = req.headers.get("X-Sync-Key") || "";
+  if (!provided) {
+    throw new Response(
+      JSON.stringify({ error: "Missing X-Sync-Key header" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const { getAdminDb } = await import("./firebase-admin");
+  const doc = await getAdminDb().collection("settings").doc("app").get();
+  const settings = (doc.exists ? doc.data() : {}) || {};
+  const expected = (settings.syncKey as string) || "";
+  if (!expected || provided !== expected) {
+    throw new Response(
+      JSON.stringify({ error: "Invalid sync key" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}
+
+/** Format angka pakai locale id-ID (thousands `.`, decimal `,`) */
+export function fmtIntID(n: number): string {
+  return Math.round(n).toLocaleString("id-ID");
+}
+
+export function fmtDecID(n: number, digits = 1): string {
+  return Number(n).toFixed(digits).replace(".", ",");
+}
+
+export function pctOf(n: number, target: number): number {
+  return target > 0 ? Math.round((n / target) * 100) : 0;
+}

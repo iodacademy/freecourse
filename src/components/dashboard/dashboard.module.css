@@ -1,0 +1,726 @@
+/* ═══════════════════════════════════════════════════════════════
+   Dashboard YOURISE — styling
+   Pakai design tokens dari globals.css (--color-primary = #CC0000)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Color helpers internal */
+.dashboard {
+  --ink: #141414;
+  --ink-card-pct: #FF5C68;
+  --canvas: #F6F6F7;
+  --border: #E5E5E5;
+  --rank-1: var(--color-primary);
+  --rank-2: #EC5563;
+  --rank-3: #F18A93;
+  --rank-4: #F6B5BB;
+  --rank-5: #FAD9DC;
+
+  background: var(--canvas);
+  min-height: 100%;
+  padding-bottom: var(--space-12);
+}
+
+/* ─── Toolbar ────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-8);
+  background: transparent;
+}
+
+.titleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eyebrow {
+  display: inline-block;
+  background: var(--color-primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  width: max-content;
+}
+
+.h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.actionBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.actionBtnPrimary {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+.actionBtnPrimary:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: white;
+}
+
+/* Filter Chips */
+.chipsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+}
+.chipClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.chipClose:hover { background: rgba(255, 255, 255, 0.3); }
+.resetLink {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.resetLink:hover { text-decoration: underline; }
+
+/* ─── Body grid ──────────────────────────────────────────────── */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-1) var(--space-8);
+}
+
+.row3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.rowData {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+@media (max-width: 1024px) {
+  .row3, .rowData {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── KPI Card ───────────────────────────────────────────────── */
+.kpi {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  transition: var(--transition-fast);
+  position: relative;
+}
+.kpiInk {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white;
+}
+.kpiClickable { cursor: pointer; }
+.kpiClickable:hover {
+  border-color: var(--color-primary);
+}
+.kpiActive {
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-pastel);
+}
+
+.kpiHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.kpiIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-pastel);
+  color: var(--color-primary);
+}
+.kpiInk .kpiIcon {
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+}
+.kpiLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-gray-600);
+}
+.kpiInk .kpiLabel { color: rgba(255, 255, 255, 0.7); }
+
+.kpiValue {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  color: var(--ink);
+}
+.kpiCompletedText {
+  font-size: 0.8125rem;
+  color: var(--color-text-dim);
+  margin-top: 4px;
+  margin-bottom: 0px;
+}
+.kpiCompletedText strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.kpiInk .kpiCompletedText {
+  color: rgba(255, 255, 255, 0.7);
+}
+.kpiInk .kpiCompletedText strong {
+  color: #fff;
+}
+.kpiInk .kpiValue { color: white; }
+
+.kpiTargetText {
+  font-size: 13px;
+  color: var(--color-gray-500);
+  margin: 6px 0 12px;
+}
+.kpiInk .kpiTargetText { color: rgba(255, 255, 255, 0.62); }
+
+.kpiBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-gray-600);
+  margin-bottom: 6px;
+}
+.kpiInk .kpiBottom { color: rgba(255, 255, 255, 0.62); }
+
+.kpiPct {
+  font-weight: 700;
+  color: var(--ink);
+}
+.kpiInk .kpiPct { color: white; }
+
+.progressTrack {
+  height: 12px;
+  background: var(--color-gray-100);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.kpiInk .progressTrack { background: rgba(255, 255, 255, 0.18); }
+.progressFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+  transition: width 350ms ease;
+}
+.kpiInk .progressFill { background: var(--ink-card-pct); }
+
+/* ─── Metric Card ────────────────────────────────────────────── */
+.metric {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+}
+.metricHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.metricIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-pastel);
+  color: var(--color-primary);
+}
+.metricIconInk {
+  background: var(--color-gray-100);
+  color: var(--ink);
+}
+.metricLabel {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-gray-700);
+}
+.metricValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.metricValue {
+  font-size: 38px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.metricSuffix {
+  font-size: 16px;
+  color: var(--color-gray-500);
+}
+.metricFoot {
+  font-size: 13px;
+  color: var(--color-gray-500);
+  margin-top: 8px;
+}
+
+/* ─── Stars ──────────────────────────────────────────────────── */
+.stars {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  margin: 6px 0;
+}
+
+/* ─── Panel (data row C) ─────────────────────────────────────── */
+.panel {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+.panelSub {
+  font-size: 12px;
+  color: var(--color-gray-500);
+  font-weight: 500;
+}
+
+/* ─── BarTable ───────────────────────────────────────────────── */
+.barTable {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.barRow {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.barRowNoClick { cursor: default; }
+.barRow:not(.barRowNoClick):hover {
+  background: var(--color-gray-50);
+}
+.barRowActive {
+  background: var(--color-primary-pastel);
+}
+.barRowActive .barName {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.barRowDim {
+  opacity: 0.4;
+}
+.barRank {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-gray-500);
+  text-align: center;
+}
+.barNameWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.barName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.barTrack {
+  height: 8px;
+  background: var(--color-gray-100);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.barFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+  transition: width 350ms ease;
+}
+.barRowDim .barFill {
+  background: var(--color-gray-400);
+}
+.barValue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.barValueNum {
+  font-weight: 700;
+  color: var(--ink);
+}
+.barValuePct {
+  font-size: 11px;
+  color: var(--color-gray-500);
+}
+
+/* ─── AgeChart ───────────────────────────────────────────────── */
+.ageChart {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  flex: 1;
+  align-items: stretch;
+  min-height: 0;
+}
+.ageBar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
+}
+.ageBar:hover {
+  background: var(--color-gray-50);
+}
+.ageBarActive {
+  background: var(--color-primary-pastel);
+}
+.ageBarActive .ageLabel { color: var(--color-primary); font-weight: 700; }
+.ageBarDim { opacity: 0.4; }
+.ageValueNum {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ageTrack {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  min-height: 0;
+}
+.ageColumn {
+  width: 100%;
+  background: var(--color-primary);
+  border-radius: 8px 8px 0 0;
+  transition: height 350ms ease;
+  min-height: 4px;
+}
+.ageBarDim .ageColumn { background: var(--color-gray-400); }
+.agePct {
+  font-size: 12px;
+  color: var(--color-gray-500);
+  font-variant-numeric: tabular-nums;
+}
+.ageLabel {
+  font-size: 13px;
+  color: var(--color-gray-700);
+  font-weight: 500;
+}
+
+/* ─── Filter Dropdown (Date & Source) ────────────────────────── */
+.dropdownWrap {
+  position: relative;
+}
+.dropdownPanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 280px;
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 16px;
+  z-index: 100;
+}
+.presetRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.presetBtn {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--color-gray-700);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.presetBtn:hover { border-color: var(--color-primary); }
+.presetBtnActive {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+.customRange {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dateRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dateInput {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 13px;
+}
+.applyBtn {
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.applyBtn:hover { background: var(--color-primary-dark); }
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sourceItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--color-gray-700);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.sourceItem:hover { background: var(--color-gray-50); }
+.sourceItemActive {
+  background: var(--color-primary);
+  color: white;
+}
+.sourceItemActive:hover { background: var(--color-primary-dark); }
+.sourceShare { font-size: 12px; opacity: 0.7; }
+
+/* ─── Logo Bar (Public View only) ────────────────────────────── */
+.logoBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 80px;
+  padding: 0 var(--space-12);
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
+.logoBarPartners {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.logoPartner {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+.logoDivider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+}
+.logoIoda {
+  height: 30px;
+  width: auto;
+  object-fit: contain;
+}
+
+@media (max-width: 640px) {
+  .logoBar { height: 60px; padding: 0 var(--space-4); }
+  .logoPartner { height: 28px; }
+  .logoIoda { height: 22px; }
+  .toolbar { padding: var(--space-3) var(--space-4); }
+  .body { padding: var(--space-1) var(--space-4); }
+}
+
+/* ─── Tabel siswa (admin only) ───────────────────────────────── */
+.studentTable {
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-top: var(--space-6);
+}
+.tableScroll {
+  overflow-x: auto;
+}
+.tableInner {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tableInner th, .tableInner td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.tableInner th {
+  background: var(--color-gray-50);
+  font-weight: 600;
+  color: var(--color-gray-700);
+}
+.tableInner tr:hover td {
+  background: var(--color-gray-50);
+}
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: white;
+  font-size: 13px;
+  color: var(--color-gray-600);
+}
+.pageBtns { display: flex; gap: 6px; }
+.pageBtn {
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--color-gray-700);
+  font-size: 12px;
+  cursor: pointer;
+}
+.pageBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pageBtn:not(:disabled):hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+/* Watermark (public view) */
+.watermark {
+  position: fixed;
+  bottom: 12px;
+  right: 16px;
+  background: rgba(20, 20, 20, 0.7);
+  color: white;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Loading & empty state */
+.loadingBox, .emptyBox {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--color-gray-500);
+  font-size: 14px;
+}

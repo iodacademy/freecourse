@@ -6,11 +6,13 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/admin-login',
   '/api/partner-codes/validate',
   '/api/forms/active',
-  '/api/events/public',   // Landing page workshop/beasiswa — tidak butuh auth
-  '/api/health',          // Diagnostic endpoint
-  '/api/profile/update',  // Profile update — auth via body token (Hostinger compat)
-  '/api/verify',          // Verifikasi sertifikat — publik
-  '/api/cron',            // Cron jobs (workshop reminder) — auth via query key
+  '/api/events/public',           // Landing page workshop/beasiswa — tidak butuh auth
+  '/api/health',                  // Diagnostic endpoint
+  '/api/profile/update',          // Profile update — auth via body token (Hostinger compat)
+  '/api/verify',                  // Verifikasi sertifikat — publik
+  '/api/cron',                    // Cron jobs (workshop reminder) — auth via query key
+  '/api/public/dashboard',        // Dashboard public view — auth via URL token
+  '/api/sync/sheet-data',         // GAS cron sync — auth via X-Sync-Key header
 ];
 
 export function middleware(request: NextRequest) {

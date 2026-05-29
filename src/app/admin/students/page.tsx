@@ -5,9 +5,10 @@ import Image from "next/image";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import styles from "./page.module.css";
 import type { UserProfile } from "@/lib/types";
+import type { DashboardStudent } from "@/lib/dashboard-aggregator";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  Trash2, X, User, Mail, Phone, MapPin, CalendarDays, Venus, Mars,
+  Trash2, X, User, Mail, MapPin, CalendarDays, Venus, Mars,
   CircleUserRound, Building2, Hash, Tag, Link2, CheckCircle2, XCircle,
   BarChart2, Eye, Download, BookOpen, Trophy, Clock, CheckSquare, Activity,
   BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight
@@ -203,7 +204,7 @@ function ProgressModal({ student, onClose, getToken }: ProgressModalProps) {
 }
 
 interface StudentDetailModalProps {
-  student: Partial<UserProfile> | null;
+  student: (DashboardStudent & { displayName?: string, photoURL?: string | null }) | null;
   onClose: () => void;
 }
 
@@ -222,23 +223,23 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
 
   if (!student) return null;
 
-  const pd = student.profileData || {};
-  const namaLengkap = student.displayName || "—";
+  const namaLengkap = student.namaLengkap || student.displayName || "—";
   const email = student.email || "—";
   const photoURL = student.photoURL || null;
   const initials = namaLengkap.split(" ").slice(0, 2).map((w: string) => w[0] || "").join("").toUpperCase();
 
-  const jenisKelamin = pd.jenis_kelamin || "—";
-  const tanggalLahir = (Array.isArray(pd.tanggal_lahir) ? pd.tanggal_lahir[0] : pd.tanggal_lahir) || "";
-  const whatsapp = pd.nomor_whatsapp || "—";
-  const asalDaerah = typeof pd.asal_daerah === "object" && pd.asal_daerah !== null ? pd.asal_daerah as { province?: string; city?: string } : null;
-  const provinsi = asalDaerah?.province || (typeof pd.asal_daerah === "string" ? pd.asal_daerah : "—");
-  const kota = asalDaerah?.city || "—";
-  const disabilitas = pd.disabilitas || "—";
-  const channelSource = student.channelSource;
-  const partnerCode = student.partnerCode || null;
-  const eventId = student.eventId || null;
-  const createdAt = student.createdAt ? new Date(student.createdAt as any).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—";
+  const jenisKelamin = student.jenisKelamin || "—";
+  const umur = student.umur || "—";
+  const kota = student.kota || "—";
+  const disabilitas = student.disabilitas || "—";
+  const channelSource = student.channelSource || student.channel;
+  const detailChannel = student.detailChannel || "—";
+  const minat = student.minat || "—";
+  const status = student.status || "—";
+  const nilaiQuiz = student.nilaiQuiz || "—";
+  const survei1 = student.nilaiSurvei1 || "—";
+  const survei2 = student.nilaiSurvei2 || "—";
+  const createdAt = student.tanggalDaftar || "—";
 
   function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string | React.ReactNode }) {
     return (
@@ -291,8 +292,7 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
             <InfoRow icon={User} label="Nama Lengkap" value={namaLengkap} />
             <InfoRow icon={Mail} label="Email" value={email} />
             <InfoRow icon={jenisKelamin === "Perempuan" ? Venus : Mars} label="Jenis Kelamin" value={jenisKelamin} />
-            <InfoRow icon={CalendarDays} label="Tanggal Lahir" value={getAge(tanggalLahir)} />
-            <InfoRow icon={Phone} label="Nomor WhatsApp" value={whatsapp} />
+            <InfoRow icon={CalendarDays} label="Umur" value={`${umur} tahun`} />
           </div>
 
           {/* Asal Daerah */}
@@ -300,7 +300,6 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
             <div className={styles.detailSectionTitle}>
               <MapPin size={14} /> Asal Daerah
             </div>
-            <InfoRow icon={MapPin} label="Provinsi" value={provinsi} />
             <InfoRow icon={MapPin} label="Kota / Kabupaten" value={kota} />
           </div>
 
@@ -322,34 +321,33 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
             />
           </div>
 
-          {/* Channel Pendaftaran */}
+          {/* Channel & Minat */}
           <div className={styles.detailSection}>
             <div className={styles.detailSectionTitle}>
-              <Link2 size={14} /> Channel Pendaftaran
+              <Link2 size={14} /> Pendaftaran & Minat
             </div>
             <InfoRow icon={Tag} label="Channel" value={channelLabel(channelSource)} />
-            {partnerCode && <InfoRow icon={Building2} label="Kode Mitra" value={
-              <code style={{ background: "#FFF5F5", padding: "2px 8px", borderRadius: 4, color: "#CC0000", fontWeight: 700, letterSpacing: 1 }}>{partnerCode}</code>
-            } />}
-            {eventId && <InfoRow icon={Hash} label="Event ID" value={
-              <code style={{ background: "#f5f5f5", padding: "2px 8px", borderRadius: 4, color: "#525252", fontWeight: 600 }}>{eventId}</code>
-            } />}
+            <InfoRow icon={Building2} label="Detail Channel" value={detailChannel} />
+            <InfoRow icon={BarChart2} label="Topik Diminati" value={minat} />
+            <InfoRow icon={CalendarDays} label="Tanggal Daftar" value={createdAt} />
           </div>
 
-          {/* Status Profil */}
+          {/* Progress Belajar */}
           <div className={styles.detailSection}>
             <div className={styles.detailSectionTitle}>
-              <BarChart2 size={14} /> Status Akun
+              <BarChart2 size={14} /> Progress Belajar & Evaluasi
             </div>
             <InfoRow
-              icon={student.profileCompleted ? CheckCircle2 : XCircle}
-              label="Status Profil"
-              value={student.profileCompleted
-                ? <span style={{ color: "#16a34a", fontWeight: 600 }}>Profil Lengkap</span>
-                : <span style={{ color: "#f59e0b", fontWeight: 600 }}>Belum Lengkap</span>
+              icon={status === "Selesai" || status === "Tersertifikasi" ? CheckCircle2 : XCircle}
+              label="Status Belajar"
+              value={status === "Selesai" || status === "Tersertifikasi"
+                ? <span style={{ color: "#16a34a", fontWeight: 600 }}>{status}</span>
+                : <span style={{ color: "#f59e0b", fontWeight: 600 }}>{status}</span>
               }
             />
-            <InfoRow icon={CalendarDays} label="Tanggal Daftar" value={createdAt} />
+            <InfoRow icon={CheckCircle2} label="Nilai Quiz" value={nilaiQuiz} />
+            <InfoRow icon={CheckCircle2} label="Survei Awal" value={survei1} />
+            <InfoRow icon={CheckCircle2} label="Survei Akhir" value={survei2} />
           </div>
         </div>
       </div>
@@ -359,7 +357,7 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
 
 export default function AdminStudentsPage() {
   const { user } = useAuth();
-  const [students, setStudents] = useState<Partial<UserProfile>[]>([]);
+  const [students, setStudents] = useState<any[]>([]); // Array of DashboardStudent
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
@@ -367,19 +365,17 @@ export default function AdminStudentsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
 
-  // Pagination cursor-based
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasNext, setHasNext] = useState(false);
+  // Client-side pagination
+  const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
-  const [cursors, setCursors] = useState<string[]>([]);
 
   // State detail modal
-  const [detailTarget, setDetailTarget] = useState<Partial<UserProfile> | null>(null);
+  const [detailTarget, setDetailTarget] = useState<any | null>(null);
   // State progress modal
-  const [progressTarget, setProgressTarget] = useState<Partial<UserProfile> | null>(null);
+  const [progressTarget, setProgressTarget] = useState<any | null>(null);
 
   // State untuk konfirmasi hapus
-  const [deleteTarget, setDeleteTarget] = useState<Partial<UserProfile> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
@@ -388,30 +384,18 @@ export default function AdminStudentsPage() {
     try { return await (user as any).getIdToken(); } catch { return ""; }
   }, [user]);
 
-  const fetchUsers = useCallback(async (after?: string | null, search?: string, channel?: string) => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getToken();
       if (!token) return;
-      const params = new URLSearchParams({ limit: "50" });
-      if (after) params.set("after", after);
-      if (search) params.set("search", search);
-      if (channel && channel !== "all") params.set("channel", channel);
-
-      const res = await fetch(`/api/users?${params}`, {
+      
+      const res = await fetch(`/api/admin/dashboard/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setStudents(data);
-          setHasNext(false);
-          setNextCursor(null);
-        } else {
-          setStudents(data.users || []);
-          setHasNext(data.hasNext || false);
-          setNextCursor(data.nextCursor || null);
-        }
+        setStudents(data.students || []);
       }
     } catch (e) {
       console.error(e);
@@ -421,73 +405,51 @@ export default function AdminStudentsPage() {
   }, [getToken]);
 
   useEffect(() => {
-    fetchUsers(null, "", "all");
+    fetchUsers();
   }, [fetchUsers]);
 
   // Filter lokal pada data yang sudah di-load
   const filteredStudents = students.filter((s) => {
-    const matchChannel = filter === "all" || s.channelSource === filter;
+    const matchChannel = filter === "all" || s.channelSource === filter || s.channel?.toLowerCase() === filter;
     if (!activeSearch) return matchChannel;
     const q = activeSearch.toLowerCase();
     return matchChannel && (
-      s.displayName?.toLowerCase().includes(q) ||
+      s.namaLengkap?.toLowerCase().includes(q) ||
       s.email?.toLowerCase().includes(q) ||
-      (s.partnerCode || "").toLowerCase().includes(q)
+      (s.partnerCode || "").toLowerCase().includes(q) ||
+      (s.detailChannel || "").toLowerCase().includes(q)
     );
   });
 
-  // Enter di search box → cari lokal dulu, kalau tidak ada baru fetch server
+  // Enter di search box
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
-    const q = searchInput.trim();
-    setActiveSearch(q);
-    if (q) {
-      const found = students.some(s =>
-        s.displayName?.toLowerCase().includes(q.toLowerCase()) ||
-        s.email?.toLowerCase().includes(q.toLowerCase()) ||
-        (s.partnerCode || "").toLowerCase().includes(q.toLowerCase())
-      );
-      if (!found) {
-        setCursors([]); setPage(1);
-        fetchUsers(null, q, filter);
-      }
-    } else {
-      setCursors([]); setPage(1);
-      fetchUsers(null, "", filter);
-    }
+    setActiveSearch(searchInput.trim());
+    setPage(1);
   };
 
   // Clear search
   const handleClearSearch = () => {
     setSearchInput(""); setActiveSearch("");
-    setCursors([]); setPage(1);
-    fetchUsers(null, "", filter);
+    setPage(1);
   };
 
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter);
     setSearchInput(""); setActiveSearch("");
-    setCursors([]); setPage(1);
-    fetchUsers(null, "", newFilter);
+    setPage(1);
   };
 
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
+  const slice = filteredStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const handleNext = () => {
-    if (!hasNext || !nextCursor) return;
-    setCursors(prev => [...prev, nextCursor]);
-    setPage(p => p + 1);
-    fetchUsers(nextCursor, activeSearch, filter);
+    if (page < totalPages) setPage(p => p + 1);
   };
 
   const handlePrev = () => {
-    if (page <= 1) return;
-    const newCursors = [...cursors];
-    newCursors.pop();
-    const prevCursor = newCursors[newCursors.length - 1] || null;
-    setCursors(newCursors);
-    setPage(p => p - 1);
-    fetchUsers(prevCursor, activeSearch, filter);
+    if (page > 1) setPage(p => p - 1);
   };
-
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget?.uid) return;
@@ -503,10 +465,9 @@ export default function AdminStudentsPage() {
         const data = await res.json();
         throw new Error(data.error || "Gagal menghapus akun");
       }
+      // Hapus dari state lokal
+      setStudents(prev => prev.filter(s => s.uid !== deleteTarget.uid));
       setDeleteTarget(null);
-      // Refresh halaman saat ini
-      setCursors(prev => { const last = prev[prev.length - 1] || null; return prev; });
-      fetchUsers(cursors[cursors.length - 1] || null, activeSearch, filter);
     } catch (e: any) {
       setDeleteError(e.message || "Terjadi kesalahan");
     } finally {
@@ -530,6 +491,7 @@ export default function AdminStudentsPage() {
         <div className={styles.filterBar}>
           <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
             <button className={`${styles.filterBtn} ${filter === "all" ? styles.active : ""}`} onClick={() => handleFilterChange("all")}>Semua Siswa</button>
+            <button className={`${styles.filterBtn} ${filter === "umum" ? styles.active : ""}`} onClick={() => handleFilterChange("umum")}>Umum</button>
             <button className={`${styles.filterBtn} ${filter === "kemitraan" ? styles.active : ""}`} onClick={() => handleFilterChange("kemitraan")}>Kemitraan</button>
             <button className={`${styles.filterBtn} ${filter === "beasiswa" ? styles.active : ""}`} onClick={() => handleFilterChange("beasiswa")}>Beasiswa</button>
             <button className={`${styles.filterBtn} ${filter === "workshop" ? styles.active : ""}`} onClick={() => handleFilterChange("workshop")}>Workshop</button>
@@ -553,42 +515,53 @@ export default function AdminStudentsPage() {
         </div>
 
         <div className={styles.tableCard}>
-        <div className={styles.tableContainer}>
+        <div className={styles.tableContainer} style={{ overflowX: 'auto' }}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Nama Siswa</th>
-                <th>Email</th>
-                <th>Channel Pendaftaran</th>
-                <th>Status Profil</th>
                 <th>Tanggal Daftar</th>
-                <th className={styles.actionsCell}>Aksi</th>
+                <th>Channel</th>
+                <th>Detail</th>
+                <th>Email</th>
+                <th>Nama</th>
+                <th>Gender</th>
+                <th>Umur</th>
+                <th>Kota</th>
+                <th>Disabilitas</th>
+                <th>Minat</th>
+                <th>Status</th>
+                <th>Nilai Quiz</th>
+                <th>Survei 1</th>
+                <th>Survei 2</th>
+                <th className={styles.actionsCell} style={{ position: 'sticky', right: 0, background: '#f9fafb', zIndex: 10 }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map((s) => (
+              {slice.map((s) => (
                 <tr
                   key={s.uid}
                   className={styles.clickableRow}
                   onClick={() => setDetailTarget(s)}
                 >
-                  <td className={styles.fw500}>{s.displayName}</td>
+                  <td className={styles.textSm}>{s.tanggalDaftar}</td>
+                  <td><span className={styles.channelBadge}>{channelLabel(s.channelSource || s.channel?.toLowerCase())}</span></td>
+                  <td className={styles.textSm}>{s.detailChannel}</td>
                   <td className={styles.textSm}>{s.email}</td>
+                  <td className={styles.fw500}>{s.namaLengkap}</td>
+                  <td className={styles.textSm}>{s.jenisKelamin}</td>
+                  <td className={styles.textSm}>{s.umur}</td>
+                  <td className={styles.textSm}>{s.kota}</td>
+                  <td className={styles.textSm}>{s.disabilitas}</td>
+                  <td className={styles.textSm}>{s.minat}</td>
                   <td>
-                    {/* Tampilkan channel badge saja, eventId & partnerCode di detail */}
-                    <span className={styles.channelBadge}>
-                      {channelLabel(s.channelSource)}
+                    <span className={`${styles.statusBadge} ${s.status === 'Selesai' || s.status === 'Tersertifikasi' ? styles.complete : styles.incomplete}`}>
+                      {s.status}
                     </span>
                   </td>
-                  <td>
-                    {s.profileCompleted ? (
-                      <span className={`${styles.statusBadge} ${styles.complete}`}>Lengkap</span>
-                    ) : (
-                      <span className={`${styles.statusBadge} ${styles.incomplete}`}>Belum Lengkap</span>
-                    )}
-                  </td>
-                  <td>{s.createdAt ? new Date(s.createdAt as any).toLocaleDateString("id-ID") : "-"}</td>
-                  <td className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
+                  <td className={styles.textSm}>{s.nilaiQuiz}</td>
+                  <td className={styles.textSm}>{s.nilaiSurvei1}</td>
+                  <td className={styles.textSm}>{s.nilaiSurvei2}</td>
+                  <td className={styles.actionsCell} onClick={(e) => e.stopPropagation()} style={{ position: 'sticky', right: 0, background: 'inherit', zIndex: 10 }}>
                     <button
                       className={styles.iconBtn}
                       title="Lihat Progress"
@@ -614,9 +587,9 @@ export default function AdminStudentsPage() {
                 </tr>
               ))}
               {loading ? (
-                <tr><td colSpan={6} className={styles.emptyState}>Memuat data siswa...</td></tr>
+                <tr><td colSpan={15} className={styles.emptyState}>Memuat data siswa...</td></tr>
               ) : filteredStudents.length === 0 ? (
-                <tr><td colSpan={6} className={styles.emptyState}>
+                <tr><td colSpan={15} className={styles.emptyState}>
                   {activeSearch ? `Tidak ada siswa yang cocok dengan "${activeSearch}".` : "Tidak ada data siswa ditemukan."}
                 </td></tr>
               ) : null}
@@ -627,7 +600,7 @@ export default function AdminStudentsPage() {
         {/* Pagination */}
         <div className={styles.pagination}>
           <span className={styles.paginationInfo}>
-            Halaman {page} &bull; Menampilkan {filteredStudents.length} siswa
+            Halaman {page} dari {totalPages} &bull; Menampilkan {filteredStudents.length} siswa
             {activeSearch && <> (hasil pencarian: <strong>{activeSearch}</strong>)</>}
           </span>
           <div className={styles.paginationBtns}>
@@ -635,7 +608,7 @@ export default function AdminStudentsPage() {
               <ChevronLeft size={15} /> Sebelumnya
             </button>
             <span className={styles.pageNum}>{page}</span>
-            <button className={styles.pageBtn} onClick={handleNext} disabled={!hasNext || loading}>
+            <button className={styles.pageBtn} onClick={handleNext} disabled={page >= totalPages || loading}>
               Berikutnya <ChevronRight size={15} />
             </button>
           </div>
@@ -658,7 +631,7 @@ export default function AdminStudentsPage() {
             </div>
             <h2 className={styles.confirmTitle}>Hapus Akun Siswa?</h2>
             <p className={styles.confirmDesc}>
-              Kamu akan menghapus akun <strong>{deleteTarget.displayName || deleteTarget.email}</strong> secara permanen.
+              Kamu akan menghapus akun <strong>{deleteTarget.namaLengkap || deleteTarget.email}</strong> secara permanen.
               <br /><br />
               Tindakan ini akan menghapus:
             </p>
