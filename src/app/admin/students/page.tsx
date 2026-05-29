@@ -11,7 +11,7 @@ import {
   Trash2, X, User, Mail, MapPin, CalendarDays, Venus, Mars,
   CircleUserRound, Building2, Hash, Tag, Link2, CheckCircle2, XCircle,
   BarChart2, Eye, Download, BookOpen, Trophy, Clock, CheckSquare, Activity,
-  BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight
+  BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Pencil, Save
 } from "lucide-react";
 
 function getAge(ttlStr: string): string {
@@ -355,7 +355,266 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
   );
 }
 
+/* ─── Student Edit Modal ─────────────────────────────────── */
+interface StudentEditModalProps {
+  student: any | null;
+  onClose: () => void;
+  getToken: () => Promise<string>;
+  onSaved: (updated: { uid: string; newScore: number }) => void;
+}
+
+function StudentEditModal({ student, onClose, getToken, onSaved }: StudentEditModalProps) {
+  const [enrollment, setEnrollment] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Form state
+  const [selectedStepId, setSelectedStepId] = useState<string>("");
+  const [newScore, setNewScore] = useState<string>("");
+  const [newCurrentStep, setNewCurrentStep] = useState<string>("");
+
+  useEffect(() => {
+    if (!student) return;
+    function handler(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [student, onClose]);
+
+  useEffect(() => {
+    document.body.style.overflow = student ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [student]);
+
+  useEffect(() => {
+    if (!student?.uid) return;
+    setEnrollment(null);
+    setError("");
+    setSuccess("");
+    setSelectedStepId("");
+    setNewScore("");
+    setNewCurrentStep("");
+    setLoading(true);
+
+    async function fetchEnrollment() {
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api/admin/students/${student!.uid}/enrollment`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Gagal memuat data enrollment");
+        const data = await res.json();
+        setEnrollment(data.enrollment);
+        if (data.enrollment) {
+          setNewCurrentStep(String(data.enrollment.currentStep ?? ""));
+          // Pilih step quiz pertama secara default
+          const firstQuizStep = data.enrollment.steps?.find((s: any) => s.hasAssessment);
+          if (firstQuizStep) {
+            setSelectedStepId(firstQuizStep.id);
+            setNewScore(firstQuizStep.currentScore != null ? String(firstQuizStep.currentScore) : "");
+          }
+        }
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchEnrollment();
+  }, [student, getToken]);
+
+  const handleStepChange = (stepId: string) => {
+    setSelectedStepId(stepId);
+    const step = enrollment?.steps?.find((s: any) => s.id === stepId);
+    setNewScore(step?.currentScore != null ? String(step.currentScore) : "");
+  };
+
+  const handleSave = async () => {
+    if (!student?.uid || !enrollment?.id) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const token = await getToken();
+      const body: any = { enrollmentId: enrollment.id };
+      if (selectedStepId && newScore !== "") {
+        body.quizStepId = selectedStepId;
+        body.newScore = Number(newScore);
+      }
+      if (newCurrentStep !== "") {
+        body.currentStep = Number(newCurrentStep);
+      }
+
+      const res = await fetch(`/api/admin/students/${student.uid}/enrollment`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan perubahan");
+
+      setSuccess("Perubahan berhasil disimpan! Siswa sekarang dapat klaim sertifikat jika nilai sudah memenuhi KKM.");
+      onSaved({ uid: student.uid, newScore: Number(newScore) });
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!student) return null;
+
+  const quizSteps = enrollment?.steps?.filter((s: any) => s.hasAssessment) || [];
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.detailModal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        {/* Header */}
+        <div className={styles.detailHeader}>
+          <div>
+            <div className={styles.detailName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Pencil size={18} color="#2563eb" />
+              Edit Data Siswa
+            </div>
+            <div className={styles.detailEmail}>{student.namaLengkap || student.email}</div>
+          </div>
+          <button className={styles.closeBtn} onClick={onClose}><X size={18} /></button>
+        </div>
+
+        {/* Body */}
+        <div className={styles.detailBody}>
+          {loading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#6b7280", padding: "16px 0" }}>
+              <Loader2 size={16} className="spin" /> Memuat data enrollment...
+            </div>
+          )}
+
+          {!loading && !enrollment && (
+            <div style={{ color: "#f59e0b", padding: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
+              <AlertCircle size={16} /> Siswa ini belum memiliki enrollment di kursus utama.
+            </div>
+          )}
+
+          {!loading && enrollment && (
+            <>
+              {/* Info enrollment */}
+              <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#374151" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ color: "#6b7280" }}>Status Sertifikat</span>
+                  <span style={{ fontWeight: 600, color: enrollment.certificateClaimed ? "#16a34a" : "#f59e0b" }}>
+                    {enrollment.certificateClaimed ? "✓ Sudah Diklaim" : "Belum Diklaim"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#6b7280" }}>Langkah Saat Ini</span>
+                  <span style={{ fontWeight: 600 }}>{enrollment.currentStep}</span>
+                </div>
+              </div>
+
+              {/* Edit Nilai Quiz */}
+              {quizSteps.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
+                    Edit Nilai Quiz
+                  </label>
+                  {quizSteps.length > 1 && (
+                    <select
+                      value={selectedStepId}
+                      onChange={(e) => handleStepChange(e.target.value)}
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, marginBottom: 10, background: "#fff" }}
+                    >
+                      {quizSteps.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.title || s.id}</option>
+                      ))}
+                    </select>
+                  )}
+                  {selectedStepId && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+                          Nilai sekarang: <strong>{quizSteps.find((s: any) => s.id === selectedStepId)?.currentScore ?? "Belum ada"}</strong>
+                          {quizSteps.find((s: any) => s.id === selectedStepId)?.kkm && (
+                            <span> &bull; KKM: <strong>{quizSteps.find((s: any) => s.id === selectedStepId)?.kkm}</strong></span>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={newScore}
+                          onChange={(e) => setNewScore(e.target.value)}
+                          placeholder="Nilai baru (0–100)"
+                          style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {quizSteps.length === 0 && (
+                <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 16 }}>
+                  Tidak ada langkah quiz di kursus ini.
+                </div>
+              )}
+
+              {/* Edit Current Step */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
+                  Edit Posisi Langkah Siswa
+                </label>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
+                  Mengubah ini akan memajukan/memundurkan posisi belajar siswa.
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  value={newCurrentStep}
+                  onChange={(e) => setNewCurrentStep(e.target.value)}
+                  placeholder="Langkah (misal: 5)"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}
+                />
+              </div>
+
+              {/* Feedback */}
+              {error && (
+                <div style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 12 }}>
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div style={{ color: "#16a34a", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 12 }}>
+                  {success}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  onClick={onClose}
+                  style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 500 }}
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, opacity: saving ? 0.7 : 1 }}
+                >
+                  {saving ? <><Loader2 size={14} className="spin" /> Menyimpan...</> : <><Save size={14} /> Simpan Perubahan</>}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminStudentsPage() {
+
   const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]); // Array of DashboardStudent
   const [filter, setFilter] = useState("all");
@@ -373,6 +632,8 @@ export default function AdminStudentsPage() {
   const [detailTarget, setDetailTarget] = useState<any | null>(null);
   // State progress modal
   const [progressTarget, setProgressTarget] = useState<any | null>(null);
+  // State edit modal
+  const [editTarget, setEditTarget] = useState<any | null>(null);
 
   // State untuk konfirmasi hapus
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -577,6 +838,14 @@ export default function AdminStudentsPage() {
                       <Eye size={15} />
                     </button>
                     <button
+                      className={styles.iconBtn}
+                      title="Edit Data Siswa"
+                      style={{ color: "#2563eb" }}
+                      onClick={(e) => { e.stopPropagation(); setEditTarget(s); }}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
                       className={`${styles.iconBtn} ${styles.deleteBtn}`}
                       title="Hapus Akun Siswa"
                       onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); setDeleteError(""); }}
@@ -621,6 +890,17 @@ export default function AdminStudentsPage() {
 
       {/* Progress Siswa Modal */}
       <ProgressModal student={progressTarget} onClose={() => setProgressTarget(null)} getToken={getToken} />
+
+      {/* Edit Data Siswa Modal */}
+      <StudentEditModal
+        student={editTarget}
+        onClose={() => setEditTarget(null)}
+        getToken={getToken}
+        onSaved={(updated) => {
+          setStudents(prev => prev.map(s => s.uid === updated.uid ? { ...s, nilaiQuiz: String(updated.newScore) } : s));
+          setEditTarget(null);
+        }}
+      />
 
       {/* Dialog Konfirmasi Hapus */}
       {deleteTarget && (
