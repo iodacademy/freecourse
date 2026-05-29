@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
+import { Download } from "lucide-react";
 import DashboardView, { DashboardFilterState } from "@/components/dashboard/DashboardView";
 import styles from "@/components/dashboard/dashboard.module.css";
 
@@ -66,6 +67,24 @@ function PublicDashboardContent({ token }: { token: string }) {
     router.replace(`/dashboard-public/${token}${qs ? `?${qs}` : ""}`, { scroll: false });
   }
 
+  async function handleExport() {
+    try {
+      const res = await fetch(`/api/public/dashboard/export-excel${buildQuery(token, filters)}`);
+      if (!res.ok) throw new Error("Export gagal");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const m = disposition.match(/filename="?([^"]+)"?/);
+      a.download = m ? m[1] : "dashboard.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert("Gagal export: " + (e?.message || ""));
+    }
+  }
+
   if (is404) {
     notFound();
   }
@@ -86,6 +105,11 @@ function PublicDashboardContent({ token }: { token: string }) {
       mode="public"
       filters={filters}
       onFilterChange={applyFilters}
+      rightActions={
+        <button className="btn outline" onClick={handleExport}>
+          <Download size={16} /> Export Data
+        </button>
+      }
     />
   );
 }

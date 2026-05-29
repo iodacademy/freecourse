@@ -113,7 +113,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
       {/* Row A — KPI */}
       <div className={styles.row3}>
         <KpiCard
-          label="Total Pendaftar"
+          label="Total Completion"
           value={stats.total}
           completed={stats.totalCompleted}
           target={stats.totalTarget}
@@ -121,7 +121,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
           variant="ink"
         />
         <KpiCard
-          label="Pendaftar Perempuan"
+          label="Completion Perempuan"
           value={stats.perempuan}
           completed={stats.perempuanCompleted}
           target={stats.perempuanTarget}
@@ -132,7 +132,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
           onClick={() => toggle("gender", "Perempuan")}
         />
         <KpiCard
-          label="Pendaftar Disabilitas"
+          label="Completion Disabilitas"
           value={stats.disabilitas}
           completed={stats.disabilitasCompleted}
           target={stats.disabilitasTarget}

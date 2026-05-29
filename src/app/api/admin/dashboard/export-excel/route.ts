@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
     const filter = parseFilterFromSearchParams(req.nextUrl.searchParams);
-    const { students, generatedAt } = await aggregateDashboard(filter, { includeStudents: true });
+    const { students, generatedAt } = await aggregateDashboard(filter, { includeStudents: true, exportOnlyCertified: true });
 
     const rows = students.map(studentToRow);
     const aoa: (string | number)[][] = [Array.from(SHEET_HEADERS), ...rows];

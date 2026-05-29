@@ -60,6 +60,7 @@ export type DashboardStudent = {
   nilaiSurvei1: string;
   feedbackMateri: string;
   nilaiSurvei2: string;
+  linkSertifikat: string | null;
   // Bagian 3 — Passthrough untuk compatibility Modal Siswa
   uid: string;
   photoURL: string | null;
@@ -271,7 +272,7 @@ function parseRating(val: unknown): number | null {
 
 export async function aggregateDashboard(
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean } = {}
+  options: { includeStudents?: boolean; exportOnlyCertified?: boolean } = {}
 ): Promise<DashboardResult> {
   const db = getAdminDb();
 
@@ -435,6 +436,7 @@ export async function aggregateDashboard(
     _survey2Rating: number | null;
     _minatArray: string[];
     _createdAt: Date | null;
+    _linkSertifikat: string | null;
   };
 
   const allStudents: FullStudent[] = [];
@@ -565,6 +567,7 @@ export async function aggregateDashboard(
       nilaiSurvei1: rawSurvey1 != null ? String(rawSurvey1) : "-",
       feedbackMateri: rawFeedback != null ? String(rawFeedback) : "-",
       nilaiSurvei2: rawSurvey2 != null ? String(rawSurvey2) : "-",
+      linkSertifikat: enr?.certificateDriveUrl || null,
       
       uid: u.uid || "",
       photoURL: u.photoURL || null,
@@ -583,6 +586,7 @@ export async function aggregateDashboard(
       _survey2Rating: parseRating(rawSurvey2),
       _minatArray: minatArray,
       _createdAt: createdAt,
+      _linkSertifikat: enr?.certificateDriveUrl || null,
     });
   }
 
@@ -633,33 +637,36 @@ export async function aggregateDashboard(
 
   // ─── Agregasi ─────────────────────────────────────────────────────────────
 
-  const total = filtered.length;
-  const totalCompleted = filtered.filter((s) => s.status === "Tersertifikasi").length;
+  // Ambil hanya yang tersertifikasi (Completion) untuk metrik dashboard utama
+  const certifiedFiltered = filtered.filter((s) => s.status === "Tersertifikasi");
+
+  const total = certifiedFiltered.length;
+  const totalCompleted = filtered.length;
   
   const perempuanFiltered = filtered.filter((s) => s._gender === "Perempuan");
-  const perempuan = perempuanFiltered.length;
-  const perempuanCompleted = perempuanFiltered.filter((s) => s.status === "Tersertifikasi").length;
+  const perempuan = perempuanFiltered.filter((s) => s.status === "Tersertifikasi").length;
+  const perempuanCompleted = perempuanFiltered.length;
   
   const disabilitasFiltered = filtered.filter((s) => s._disabilitas === "Ya");
-  const disabilitas = disabilitasFiltered.length;
-  const disabilitasCompleted = disabilitasFiltered.filter((s) => s.status === "Tersertifikasi").length;
+  const disabilitas = disabilitasFiltered.filter((s) => s.status === "Tersertifikasi").length;
+  const disabilitasCompleted = disabilitasFiltered.length;
 
-  const quizScores = filtered.map((s) => s._quizScore).filter((x): x is number => x != null);
+  const quizScores = certifiedFiltered.map((s) => s._quizScore).filter((x): x is number => x != null);
   const rerata = quizScores.length
-    ? quizScores.reduce((a, b) => a + b, 0) / quizScores.length
+    ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length)
     : 0;
 
-  const s1Ratings = filtered.map((s) => s._survey1Rating).filter((x): x is number => x != null);
+  const s1Ratings = certifiedFiltered.map((s) => s._survey1Rating).filter((x): x is number => x != null);
   const kepuasan = s1Ratings.length ? s1Ratings.reduce((a, b) => a + b, 0) / s1Ratings.length : 0;
-  const respondenSurvei1 = s1Ratings.length;
+  const respondenSurvei1 = certifiedFiltered.length;
 
-  const s2Ratings = filtered.map((s) => s._survey2Rating).filter((x): x is number => x != null);
+  const s2Ratings = certifiedFiltered.map((s) => s._survey2Rating).filter((x): x is number => x != null);
   const keyakinan = s2Ratings.length ? s2Ratings.reduce((a, b) => a + b, 0) / s2Ratings.length : 0;
-  const respondenSurvei2 = s2Ratings.length;
+  const respondenSurvei2 = certifiedFiltered.length;
 
   // Origin top 9 kota
   const cityCount = new Map<string, number>();
-  for (const s of filtered) {
+  for (const s of certifiedFiltered) {
     if (!s._kota) continue;
     cityCount.set(s._kota, (cityCount.get(s._kota) || 0) + 1);
   }
@@ -669,7 +676,7 @@ export async function aggregateDashboard(
 
   // Topik top 5
   const topicCount = new Map<string, number>();
-  for (const s of filtered) {
+  for (const s of certifiedFiltered) {
     if (!s._minatArray || s._minatArray.length === 0) continue;
     for (const name of s._minatArray) {
       topicCount.set(name, (topicCount.get(name) || 0) + 1);
@@ -681,7 +688,7 @@ export async function aggregateDashboard(
 
   // Usia 3 bucket
   const usiaCount: Record<string, number> = { "18-23": 0, "24-29": 0, ">29": 0 };
-  for (const s of filtered) {
+  for (const s of certifiedFiltered) {
     if (s._ageBucket) usiaCount[s._ageBucket]++;
   }
   const usia: Array<[string, number]> = [
@@ -741,10 +748,12 @@ export async function aggregateDashboard(
   };
 
   // Strip internal fields kalau includeStudents
+  // Export HANYA peserta yang sudah tersertifikasi JIKA flag exportOnlyCertified diset true
+  const sourceArray = options.exportOnlyCertified ? certifiedFiltered : filtered;
   const students: DashboardStudent[] = options.includeStudents
-    ? filtered.map((s) => {
+    ? sourceArray.map((s) => {
         const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore,
-                _survey1Rating, _survey2Rating, _minatArray, _createdAt, ...pub } = s;
+                _survey1Rating, _survey2Rating, _minatArray, _createdAt, _linkSertifikat, ...pub } = s;
         return pub;
       })
     : [];
@@ -810,6 +819,7 @@ export const SHEET_HEADERS = [
   "Nilai Survei 1",
   "Feedback Materi",
   "Nilai Survei 2",
+  "Link Sertifikat",
 ] as const;
 
 export function studentToRow(s: DashboardStudent): (string | number)[] {
@@ -833,5 +843,6 @@ export function studentToRow(s: DashboardStudent): (string | number)[] {
     s.nilaiSurvei1,
     s.feedbackMateri,
     s.nilaiSurvei2,
+    s.linkSertifikat || "-",
   ];
 }

@@ -14,11 +14,12 @@ interface Props {
   clickable?: boolean;
   active?: boolean;
   onClick?: () => void;
+  subLabel?: string;
 }
 
 export default function KpiCard({
   label, value, completed, target, icon, variant = "red",
-  clickable = false, active = false, onClick,
+  clickable = false, active = false, onClick, subLabel = "Total Pendaftar"
 }: Props) {
   const pct = pctOf(value, target);
   const showPct = target > 0;
@@ -42,7 +43,7 @@ export default function KpiCard({
       <h3 className={styles.kpiValue}>{fmtIntID(value)}</h3>
       {completed !== undefined && (
         <p className={styles.kpiCompletedText}>
-          Tersertifikasi: <strong>{fmtIntID(completed)}</strong>
+          {subLabel}: <strong>{fmtIntID(completed)}</strong>
         </p>
       )}
       <p className={styles.kpiTargetText}>

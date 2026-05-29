@@ -348,6 +348,7 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
             <InfoRow icon={CheckCircle2} label="Nilai Quiz" value={nilaiQuiz} />
             <InfoRow icon={CheckCircle2} label="Survei Awal" value={survei1} />
             <InfoRow icon={CheckCircle2} label="Survei Akhir" value={survei2} />
+            <InfoRow icon={Trophy} label="Sertifikat" value={(student as any).linkSertifikat ? <a href={(student as any).linkSertifikat} target="_blank" rel="noopener noreferrer" style={{color: '#2563eb', textDecoration: 'underline'}}>Lihat Sertifikat</a> : "—"} />
           </div>
         </div>
       </div>
@@ -749,6 +750,21 @@ export default function AdminStudentsPage() {
           </button>
         </header>
 
+        {/* Ringkasan Channel Pendaftar */}
+        <div style={{ display: "flex", gap: "16px", marginBottom: "24px", flexWrap: "wrap" }}>
+          {["Umum", "Kemitraan", "Beasiswa", "Workshop"].map(ch => {
+            const count = students.filter(s => 
+              (s.channelSource === ch.toLowerCase() || s.channel?.toLowerCase() === ch.toLowerCase())
+            ).length;
+            return (
+              <div key={ch} style={{ background: "#fff", padding: "16px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", flex: "1 1 200px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                <div style={{ fontSize: "14px", color: "#64748b", marginBottom: "6px", fontWeight: 500 }}>{ch}</div>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#0f172a" }}>{count}</div>
+              </div>
+            );
+          })}
+        </div>
+
         <div className={styles.filterBar}>
           <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
             <button className={`${styles.filterBtn} ${filter === "all" ? styles.active : ""}`} onClick={() => handleFilterChange("all")}>Semua Siswa</button>
@@ -794,6 +810,7 @@ export default function AdminStudentsPage() {
                 <th>Nilai Quiz</th>
                 <th>Survei 1</th>
                 <th>Survei 2</th>
+                <th>Sertifikat</th>
                 <th className={styles.actionsCell} style={{ position: 'sticky', right: 0, background: '#f9fafb', zIndex: 10 }}>Aksi</th>
               </tr>
             </thead>
@@ -822,6 +839,9 @@ export default function AdminStudentsPage() {
                   <td className={styles.textSm}>{s.nilaiQuiz}</td>
                   <td className={styles.textSm}>{s.nilaiSurvei1}</td>
                   <td className={styles.textSm}>{s.nilaiSurvei2}</td>
+                  <td className={styles.textSm}>
+                    {s.linkSertifikat ? <a href={s.linkSertifikat} target="_blank" rel="noopener noreferrer" style={{color: '#2563eb', textDecoration: 'underline'}}>Lihat</a> : "-"}
+                  </td>
                   <td className={styles.actionsCell} onClick={(e) => e.stopPropagation()} style={{ position: 'sticky', right: 0, background: 'inherit', zIndex: 10 }}>
                     <button
                       className={styles.iconBtn}

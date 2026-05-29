@@ -313,11 +313,14 @@ function setupTriggerHarian() {
 var CERT_EXPIRY_DAYS = 5;
 
 /**
- * Cek semua file di folder sertifikat.
- * Jika file PDF sudah lebih dari 5 hari sejak dibuat → hapus (trash).
- * Dipanggil otomatis oleh Time Trigger harian.
+ * [FITUR INI DINONAKTIFKAN]
+ * Awalnya fungsi ini akan menghapus PDF sertifikat yang lebih dari 5 hari.
+ * Sekarang dinonaktifkan agar sertifikat disimpan secara permanen.
  */
 function cleanupExpiredCerts() {
+  Logger.log("[CLEANUP] Fungsi pembersihan sertifikat telah dinonaktifkan. Semua file disimpan permanen.");
+  return;
+  
   try {
     var folder = DriveApp.getFolderById(CERT_FOLDER_ID);
     var files = folder.getFiles();
@@ -330,13 +333,13 @@ function cleanupExpiredCerts() {
       var created = file.getDateCreated();
 
       if (created < cutoff) {
-        Logger.log("[CLEANUP] Hapus: " + file.getName() + " (dibuat " + created.toISOString() + ")");
-        file.setTrashed(true);
+        Logger.log("[CLEANUP] (Dinonaktifkan) Seharusnya menghapus: " + file.getName());
+        // file.setTrashed(true); // BARIS INI DIMATIKAN
         deleted++;
       }
     }
 
-    Logger.log("[CLEANUP] Selesai. " + deleted + " file dihapus.");
+    Logger.log("[CLEANUP] Selesai pengecekan. " + deleted + " file terdeteksi kedaluwarsa tapi TIDAK dihapus.");
   } catch (e) {
     Logger.log("[CLEANUP ERROR] " + e.toString());
   }
