@@ -51,7 +51,7 @@ function ProfileContent() {
   const searchParams = useSearchParams();
   const { user, profile, updateUserProfile, loading: authLoading } = useAuth();
 
-  const channelType = searchParams.get("type") || "beasiswa";
+  const channelType = searchParams.get("type") || "umum";
   const urlEventId = searchParams.get("eventId") || "";
   const urlPartnerCode = searchParams.get("partnerCode") || "";
   const isKemitraan = channelType === "kemitraan" || profile?.channelSource === "kemitraan";
