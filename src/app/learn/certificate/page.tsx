@@ -241,20 +241,7 @@ export default function CertificatePage() {
     }
   }
 
-  // Calculate days remaining
-  function getDaysRemaining(): number | null {
-    const claimedAt = enrollment?.certificateClaimedAt;
-    if (!claimedAt) return null;
-    const claimedDate = typeof claimedAt === 'object' && claimedAt._seconds
-      ? new Date(claimedAt._seconds * 1000)
-      : new Date(claimedAt);
-    if (isNaN(claimedDate.getTime())) return null;
-    const expiresAt = new Date(claimedDate.getTime() + 5 * 24 * 60 * 60 * 1000);
-    const remaining = Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-    return remaining;
-  }
 
-  const daysRemaining = getDaysRemaining();
 
   const userName =
     profile?.profileData?.namaLengkap || profile?.displayName || "Peserta";
@@ -413,20 +400,6 @@ export default function CertificatePage() {
                 </div>
               </div>
 
-              {/* 5-day notice */}
-              <div className="cert-expiry-notice">
-                <div>
-                  <p className="cert-expiry-text">
-                    File sertifikat disimpan di server selama <strong>5 hari</strong>.
-                    {daysRemaining !== null && daysRemaining > 0 && (
-                      <> Sisa: <strong>{daysRemaining} hari</strong>.</>
-                    )}
-                    {daysRemaining !== null && daysRemaining <= 0 && (
-                      <> File sudah dihapus otomatis.</>
-                    )}
-                  </p>
-                </div>
-              </div>
 
               {/* Actions */}
               <div className="cert-actions">
@@ -437,16 +410,6 @@ export default function CertificatePage() {
                 >
                   ✏️ Ubah Nama di Sertifikat
                 </button>
-
-                {daysRemaining !== null && daysRemaining <= 0 && (
-                  <button
-                    className="cert-reclaim-btn"
-                    onClick={handleReclaim}
-                    disabled={claiming}
-                  >
-                    Klaim Ulang Sertifikat
-                  </button>
-                )}
 
                 {/* Tombol Beasiswa Bonus */}
                 {enrollment?.channelSource === "beasiswa" && !enrollment?.bonusCourseRedeemCode && (
