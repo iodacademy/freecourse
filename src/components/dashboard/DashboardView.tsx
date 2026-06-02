@@ -115,7 +115,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
         <KpiCard
           label="Total Completion"
           value={stats.total}
-          completed={stats.totalCompleted}
+          completed={mode === "admin" ? stats.totalCompleted : undefined}
           target={stats.totalTarget}
           icon={<Users size={26} strokeWidth={1.75} />}
           variant="ink"
@@ -123,7 +123,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
         <KpiCard
           label="Completion Perempuan"
           value={stats.perempuan}
-          completed={stats.perempuanCompleted}
+          completed={mode === "admin" ? stats.perempuanCompleted : undefined}
           target={stats.perempuanTarget}
           icon={<Heart size={26} strokeWidth={1.75} />}
           variant="red"
@@ -134,7 +134,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
         <KpiCard
           label="Completion Disabilitas"
           value={stats.disabilitas}
-          completed={stats.disabilitasCompleted}
+          completed={mode === "admin" ? stats.disabilitasCompleted : undefined}
           target={stats.disabilitasTarget}
           icon={<Accessibility size={26} strokeWidth={1.75} />}
           variant="red"

@@ -26,18 +26,6 @@ export default function LearnPage() {
         const data = await res.json();
         let mainEnrollment = data.find((e: any) => e.courseId === "course-main");
 
-        if (!mainEnrollment) {
-          const enrollRes = await fetch("/api/enrollments/auto-enroll", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ courseId: "course-main" })
-          });
-          if (enrollRes.ok) {
-            const enrollData = await enrollRes.json();
-            mainEnrollment = enrollData.enrollment;
-          }
-        }
-
         // Fetch course steps to get the title for the slug
         const courseRes = await fetch("/api/courses/main", {
           headers: { Authorization: `Bearer ${idToken}` },
@@ -48,6 +36,11 @@ export default function LearnPage() {
         const steps = courseData.steps || [];
 
         if (mainEnrollment) {
+          if (mainEnrollment.certificateClaimed || mainEnrollment.status === "certified") {
+            router.replace('/learn/certificate');
+            return;
+          }
+
           const targetStepNum = mainEnrollment.currentStep || 1;
           const targetStepData = steps[targetStepNum - 1] || steps[0];
           if (targetStepData) {

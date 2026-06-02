@@ -111,9 +111,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       setError(null);
-      const result = await signInWithPopup(auth, googleProvider);
-      await fetchOrCreateProfile(result.user);
+      setLoading(true); // Set loading ke true selagi popup Google berjalan
+      await signInWithPopup(auth, googleProvider);
+      // Profil user akan ditangani sepenuhnya oleh listener onAuthStateChanged
     } catch (err: unknown) {
+      setLoading(false); // Set loading kembali false jika dibatalkan/error
       const firebaseError = err as { code?: string; message?: string };
       if (firebaseError.code === "auth/popup-closed-by-user") return;
       if (firebaseError.code === "auth/cancelled-popup-request") return;

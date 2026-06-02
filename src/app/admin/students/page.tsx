@@ -641,6 +641,118 @@ export default function AdminStudentsPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  
+  // State for date grouping
+  const [dateGroups, setDateGroups] = useState<{ date: string, students: any[] }[]>([]);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  
+  // State for PDF Queue
+  const [queueStatus, setQueueStatus] = useState<"idle" | "processing" | "done">("idle");
+  const [queueProgress, setQueueProgress] = useState({ current: 0, total: 0, success: 0, fail: 0 });
+  const [bulkError, setBulkError] = useState("");
+
+  const openBulkModal = () => {
+    // Cari semua siswa yang belum lulus
+    const pendingStudents = students.filter(s => s.status !== "Tersertifikasi" && s.status !== "Selesai");
+    
+    // Group by tanggalDaftar
+    const grouped: Record<string, any[]> = {};
+    pendingStudents.forEach(s => {
+      const d = s.tanggalDaftar?.split(" ")[0] || "Tanggal Tidak Diketahui";
+      if (!grouped[d]) grouped[d] = [];
+      grouped[d].push(s);
+    });
+
+    const groupsArray = Object.keys(grouped).map(k => ({ date: k, students: grouped[k] }));
+    groupsArray.sort((a, b) => b.date.localeCompare(a.date)); // Sort terbaru di atas
+    
+    setDateGroups(groupsArray);
+    setSelectedDates([]);
+    setQueueStatus("idle");
+    setBulkError("");
+    setBulkConfirmOpen(true);
+  };
+
+  const toggleDate = (date: string) => {
+    setSelectedDates(prev => prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]);
+  };
+
+  const toggleAllDates = () => {
+    if (selectedDates.length === dateGroups.length) {
+      setSelectedDates([]);
+    } else {
+      setSelectedDates(dateGroups.map(g => g.date));
+    }
+  };
+
+  const handleBulkComplete = async () => {
+    if (selectedDates.length === 0) {
+      setBulkError("Pilih minimal 1 tanggal pendaftaran.");
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkError("");
+    setQueueStatus("processing");
+    
+    // Kumpulkan semua UID yang dicentang
+    const targetUids: string[] = [];
+    dateGroups.forEach(g => {
+      if (selectedDates.includes(g.date)) {
+        g.students.forEach(s => targetUids.push(s.uid));
+      }
+    });
+
+    setQueueProgress({ current: 0, total: targetUids.length, success: 0, fail: 0 });
+
+    try {
+      const token = await getToken();
+      
+      // 1. Tembak Database (Lulus Instan)
+      const res = await fetch('/api/admin/students/bulk-force-complete', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds: targetUids })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memanipulasi database kelulusan.");
+
+      // 2. Tembak PDF secara bergiliran (Antrean Jeda 3 Detik)
+      let successes = 0;
+      let fails = 0;
+      for (let i = 0; i < targetUids.length; i++) {
+        setQueueProgress(prev => ({ ...prev, current: i + 1 }));
+        try {
+          const pdfRes = await fetch('/api/admin/students/generate-pdf', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: targetUids[i] })
+          });
+          if (pdfRes.ok) successes++; else fails++;
+        } catch (e) {
+          fails++;
+        }
+        // Jeda mendinginkan server Google (1 detik)
+        if (i < targetUids.length - 1) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      setQueueProgress(prev => ({ ...prev, success: successes, fail: fails }));
+      setQueueStatus("done");
+      
+      // Refresh layar
+      fetchUsers();
+    } catch (e: any) {
+      setBulkError(e.message);
+      setQueueStatus("idle");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const getToken = useCallback(async () => {
     if (!user) return "";
     try { return await (user as any).getIdToken(); } catch { return ""; }
@@ -745,9 +857,18 @@ export default function AdminStudentsPage() {
             <h1 className={styles.title}>Data Siswa</h1>
             <p className={styles.subtitle}>Pantau pendaftaran dan progress belajar siswa.</p>
           </div>
-          <button className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Download size={15} /> Export ke Excel
-          </button>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button
+              onClick={openBulkModal}
+              className="btn btn-secondary" 
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500 }}
+            >
+              <CheckCircle2 size={15} /> Luluskan Semua (Massal)
+            </button>
+            <button className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Download size={15} /> Export ke Excel
+            </button>
+          </div>
         </header>
 
         {/* Ringkasan Channel Pendaftar */}
@@ -948,7 +1069,7 @@ export default function AdminStudentsPage() {
             )}
 
             <div className={styles.confirmActions}>
-              <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)} disabled={deleting}>
+               <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)} disabled={deleting}>
                 Batal
               </button>
               <button className={styles.confirmDeleteBtn} onClick={handleDeleteConfirm} disabled={deleting}>
@@ -959,6 +1080,91 @@ export default function AdminStudentsPage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Bulk Complete Modal */}
+      {bulkConfirmOpen && (
+        <div className={styles.modalOverlay} onClick={() => !bulkLoading && setBulkConfirmOpen(false)}>
+          <div className={styles.confirmModal} style={{ width: 500, maxWidth: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.confirmIcon} style={{ background: "#fef2f2" }}>
+              <CheckCircle2 size={36} color="#dc2626" />
+            </div>
+            <h2 className={styles.confirmTitle}>Luluskan Peserta (Massal)</h2>
+            
+            {queueStatus === "done" ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{ color: "#16a34a", fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>Selesai Diproses!</div>
+                <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>
+                  Berhasil meluluskan {queueProgress.total} peserta.<br/>
+                  PDF Sukses: {queueProgress.success} | Gagal: {queueProgress.fail}
+                </p>
+                <button className="btn btn-primary" onClick={() => setBulkConfirmOpen(false)}>
+                  Tutup
+                </button>
+              </div>
+            ) : queueStatus === "processing" ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{ color: "#2563eb", fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>Sedang Memproses...</div>
+                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+                  Tolong jangan tutup halaman ini agar Antrean PDF tidak terputus.
+                </p>
+                <div style={{ width: "100%", background: "#e2e8f0", borderRadius: 99, height: 8, marginBottom: 8, overflow: "hidden" }}>
+                  <div style={{ background: "#2563eb", height: "100%", width: `${(queueProgress.current / queueProgress.total) * 100}%`, transition: "width 0.3s" }}></div>
+                </div>
+                <div style={{ fontSize: 12, color: "#333", fontWeight: 600 }}>
+                  Membuat PDF Sertifikat: {queueProgress.current} dari {queueProgress.total}
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                  (Jeda aman server: 1 detik/orang)
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className={styles.confirmDesc} style={{ textAlign: "left", marginBottom: 12 }}>
+                  Pilih kelompok siswa berdasarkan <strong>Tanggal Pendaftaran</strong> yang ingin diluluskan secara instan:
+                </p>
+
+                {dateGroups.length === 0 ? (
+                  <div style={{ padding: 16, background: "#f8fafc", borderRadius: 8, color: "#64748b", textAlign: "center", marginBottom: 16 }}>
+                    Semua siswa terdaftar sudah memiliki sertifikat. Hore!
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 16, padding: "8px 0" }}>
+                    <div 
+                      style={{ padding: "8px 16px", cursor: "pointer", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}
+                      onClick={toggleAllDates}
+                    >
+                      <input type="checkbox" checked={selectedDates.length === dateGroups.length} readOnly />
+                      Pilih Semua Tanggal
+                    </div>
+                    {dateGroups.map(g => (
+                      <div 
+                        key={g.date} 
+                        style={{ padding: "8px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}
+                        onClick={() => toggleDate(g.date)}
+                      >
+                        <input type="checkbox" checked={selectedDates.includes(g.date)} readOnly />
+                        <span>Tanggal <strong>{g.date}</strong> &mdash; {g.students.length} orang belum lulus</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {bulkError && (
+                  <div className={styles.deleteError}>{bulkError}</div>
+                )}
+
+                <div className={styles.confirmActions}>
+                  <button className={styles.cancelBtn} onClick={() => setBulkConfirmOpen(false)} disabled={bulkLoading}>
+                    Batal
+                  </button>
+                  <button className={styles.confirmDeleteBtn} onClick={handleBulkComplete} disabled={bulkLoading || dateGroups.length === 0}>
+                    <CheckCircle2 size={14} /> Eksekusi & Cetak PDF
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

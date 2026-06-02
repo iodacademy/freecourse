@@ -106,17 +106,9 @@ export default function StepPage() {
         let mainEn = eData.find((e: any) => e.courseId === "course-main");
         
         if (!mainEn) {
-          const enrollRes = await fetch("/api/enrollments/auto-enroll", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ courseId: "course-main" })
-          });
-          if (!enrollRes.ok) throw new Error("Kamu belum terdaftar di kelas ini.");
-          const enrollData = await enrollRes.json();
-          mainEn = enrollData.enrollment;
+          throw new Error("Kamu belum terdaftar di kelas ini. Silakan lengkapi profil Anda terlebih dahulu.");
         }
 
-        if (!mainEn) throw new Error("Gagal mendaftar kelas.");
         setEnrollment(mainEn);
 
         // ── Load workshop data jika channelSource = workshop ──
