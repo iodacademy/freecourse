@@ -106,7 +106,28 @@ export default function StepPage() {
         let mainEn = eData.find((e: any) => e.courseId === "course-main");
         
         if (!mainEn) {
-          throw new Error("Kamu belum terdaftar di kelas ini. Silakan lengkapi profil Anda terlebih dahulu.");
+          // Self-healing: jika enrollment tidak ada (mungkin gagal di SSO/Profile submit), 
+          // coba auto-enroll sekarang.
+          try {
+            const aeRes = await fetch("/api/enrollments/auto-enroll", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...headers },
+              body: JSON.stringify({ courseId: "course-main" })
+            });
+            if (aeRes.ok) {
+              const aeData = await aeRes.json();
+              if (aeData.enrollment) {
+                mainEn = aeData.enrollment;
+              }
+            }
+          } catch (err) {
+            console.error("Self-healing auto-enroll failed:", err);
+          }
+
+          // Jika masih tidak ada, baru throw error
+          if (!mainEn) {
+            throw new Error("Kamu belum terdaftar di kelas ini. Silakan lengkapi profil Anda terlebih dahulu.");
+          }
         }
 
         setEnrollment(mainEn);

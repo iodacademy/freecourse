@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
     // Cari kursus utama jika courseId tidak diberikan
     let courseId = body.courseId;
     if (!courseId) {
-      const settingsDoc = await db.collection("appSettings").doc("global").get();
-      courseId = settingsDoc.data()?.mainCourseId;
+      const settingsDoc = await db.collection("settings").doc("app").get();
+      courseId = settingsDoc.data()?.mainCourseId || "course-main";
     }
 
     if (!courseId) return json({ error: "Kursus utama belum diset" }, 404);

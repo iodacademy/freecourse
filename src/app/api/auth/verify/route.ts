@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
       await userRef.set(newUser);
 
       // 3b. Auto-enroll ke kursus utama saat SSO
-      const settingsDoc = await db.collection("appSettings").doc("global").get();
-      const mainCourseId = settingsDoc.data()?.mainCourseId;
+      const settingsDoc = await db.collection("settings").doc("app").get();
+      const mainCourseId = settingsDoc.data()?.mainCourseId || "course-main";
       if (mainCourseId && email) {
         // Gunakan email sebagai doc ID (sama dengan auto-enroll) agar bisa di-query by email
         const enrollId = email;
