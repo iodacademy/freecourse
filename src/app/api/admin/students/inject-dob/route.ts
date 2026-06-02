@@ -9,8 +9,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { userIds } = await req.json();
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return NextResponse.json({ error: "Tidak ada user yang dipilih" }, { status: 400 });
+    }
+
     const db = getAdminDb();
-    const usersSnap = await db.collection("users").get();
     
     let injectedCount = 0;
     const batch = db.batch();
@@ -34,40 +38,48 @@ export async function POST(req: NextRequest) {
       return `${yyyy}-${mm}-${dd}`;
     }
 
-    usersSnap.docs.forEach((doc) => {
-      const data = doc.data();
-      if (data.role === "admin" || !data.profileCompleted) return;
+    // Hanya ambil dari DB user yang ada di userIds
+    const chunkSize = 10;
+    for (let i = 0; i < userIds.length; i += chunkSize) {
+      const chunk = userIds.slice(i, i + chunkSize);
+      const snaps = await Promise.all(chunk.map((id: string) => db.collection("users").doc(id).get()));
       
-      const profileData = data.profileData || {};
-      let hasDob = false;
-      let dobKey = "tanggal_lahir";
-      
-      // Cari jika sudah punya key tanggal lahir
-      for (const k of Object.keys(profileData)) {
-        const kl = k.toLowerCase();
-        if (kl.includes("tanggal") && kl.includes("lahir")) {
-          const val = profileData[k];
-          if (val && typeof val === "string" && val.trim() !== "" && !val.startsWith("__display:")) {
-            hasDob = true;
-          } else {
-            dobKey = k; // Reuse existing key if it was empty
+      snaps.forEach((doc) => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        if (data?.role === "admin" || !data?.profileCompleted) return;
+        
+        const profileData = data.profileData || {};
+        let hasDob = false;
+        let dobKey = "tanggal_lahir";
+        
+        // Cari jika sudah punya key tanggal lahir
+        for (const k of Object.keys(profileData)) {
+          const kl = k.toLowerCase();
+          if (kl.includes("tanggal") && kl.includes("lahir")) {
+            const val = profileData[k];
+            if (val && typeof val === "string" && val.trim() !== "" && !val.startsWith("__display:")) {
+              hasDob = true;
+            } else {
+              dobKey = k;
+            }
+            break;
           }
-          break;
         }
-      }
 
-      if (!hasDob) {
-        const randomDob = getRandomDob18to29();
-        profileData[dobKey] = randomDob;
-        
-        batch.update(doc.ref, {
-          profileData: profileData
-        });
-        
-        injectedCount++;
-        batchCount++;
-      }
-    });
+        if (!hasDob) {
+          const randomDob = getRandomDob18to29();
+          profileData[dobKey] = randomDob;
+          
+          batch.update(doc.ref, {
+            profileData: profileData
+          });
+          
+          injectedCount++;
+          batchCount++;
+        }
+      });
+    }
 
     if (batchCount > 0) {
       await batch.commit();
@@ -75,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Berhasil menyuntikkan tanggal lahir acak (usia 18-29) untuk ${injectedCount} peserta yang datanya kosong.`
+      message: `Berhasil menyuntikkan tanggal lahir acak (usia 18-29) untuk ${injectedCount} peserta terpilih.`
     });
     
   } catch (error: any) {

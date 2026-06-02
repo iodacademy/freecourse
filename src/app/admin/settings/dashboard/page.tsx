@@ -82,6 +82,9 @@ function DashboardSettingsContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [injecting, setInjecting] = useState(false);
+  const [missingUsers, setMissingUsers] = useState<Array<{id: string, name: string, email: string}> | null>(null);
+  const [fetchingMissing, setFetchingMissing] = useState(false);
+  const [selectedMissing, setSelectedMissing] = useState<Set<string>>(new Set());
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [showGasTutorial, setShowGasTutorial] = useState(false);
 
@@ -202,8 +205,44 @@ function DashboardSettingsContent() {
     }
   }
 
+  async function fetchMissingDob() {
+    if (!user) return;
+    setFetchingMissing(true);
+    setMissingUsers(null);
+    setSelectedMissing(new Set());
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/admin/students/missing-dob", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal fetch data");
+      setMissingUsers(data.data || []);
+      // default select all
+      setSelectedMissing(new Set((data.data || []).map((u: any) => u.id)));
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setFetchingMissing(false);
+    }
+  }
+
+  const toggleSelectAllMissing = (checked: boolean) => {
+    if (!missingUsers) return;
+    if (checked) setSelectedMissing(new Set(missingUsers.map(u => u.id)));
+    else setSelectedMissing(new Set());
+  };
+
+  const toggleSelectMissing = (id: string, checked: boolean) => {
+    const next = new Set(selectedMissing);
+    if (checked) next.add(id);
+    else next.delete(id);
+    setSelectedMissing(next);
+  };
+
   async function injectRandomDob() {
-    if (!confirm("Peringatan: Ini akan menyuntikkan tanggal lahir acak (usia 18-29 tahun) ke SEMUA peserta yang datanya masih kosong (dan sudah Profile Completed). Lanjutkan?")) return;
+    if (selectedMissing.size === 0) return alert("Belum ada peserta yang dipilih.");
+    if (!confirm(`Anda akan menyuntikkan tanggal lahir ke ${selectedMissing.size} peserta terpilih. Lanjutkan?`)) return;
     
     if (!user) return;
     setInjecting(true);
@@ -211,12 +250,14 @@ function DashboardSettingsContent() {
       const token = await user.getIdToken();
       const res = await fetch("/api/admin/students/inject-dob", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userIds: Array.from(selectedMissing) })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyuntikkan data");
       
       alert(data.message || "Berhasil disuntikkan!");
+      setMissingUsers(null);
     } catch (e: any) {
       alert("Error: " + e.message);
     } finally {
@@ -448,12 +489,72 @@ function DashboardSettingsContent() {
                 dan mengisinya dengan tanggal lahir acak yang menghasilkan umur di antara <b>18 - 29 tahun</b>.
               </p>
               <button 
-                className="btn btn-primary" 
-                onClick={injectRandomDob} 
-                disabled={injecting}
+                className="btn btn-secondary" 
+                onClick={fetchMissingDob} 
+                disabled={fetchingMissing}
               >
-                {injecting ? "Memproses..." : "Mulai Suntik Data"}
+                {fetchingMissing ? "Mencari Data..." : "Cari Data Kosong"}
               </button>
+
+              {missingUsers !== null && (
+                <div style={{ marginTop: 16, border: "1px solid var(--color-gray-200)", borderRadius: 8, background: "white", overflow: "hidden" }}>
+                  <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-gray-200)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      Ditemukan {missingUsers.length} peserta dengan tanggal lahir kosong
+                    </div>
+                    {missingUsers.length > 0 && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedMissing.size === missingUsers.length}
+                          onChange={(e) => toggleSelectAllMissing(e.target.checked)}
+                        />
+                        Pilih Semua
+                      </label>
+                    )}
+                  </div>
+                  
+                  {missingUsers.length > 0 ? (
+                    <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                        <tbody>
+                          {missingUsers.map(u => (
+                            <tr key={u.id} style={{ borderBottom: "1px solid var(--color-gray-100)" }}>
+                              <td style={{ padding: "8px 16px", width: 40 }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedMissing.has(u.id)}
+                                  onChange={(e) => toggleSelectMissing(u.id, e.target.checked)}
+                                />
+                              </td>
+                              <td style={{ padding: "8px 16px" }}>
+                                <div style={{ fontWeight: 600 }}>{u.name}</div>
+                                <div style={{ color: "var(--color-gray-500)", fontSize: 11 }}>{u.email}</div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div style={{ padding: 24, textAlign: "center", color: "var(--color-gray-500)", fontSize: 13 }}>
+                      Semua peserta sudah memiliki data tanggal lahir! 🎉
+                    </div>
+                  )}
+
+                  {missingUsers.length > 0 && (
+                    <div style={{ padding: "12px 16px", borderTop: "1px solid var(--color-gray-200)", background: "#f8fafc", textAlign: "right" }}>
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={injectRandomDob} 
+                        disabled={injecting || selectedMissing.size === 0}
+                      >
+                        {injecting ? "Menyuntikkan..." : `Suntik ${selectedMissing.size} Data Terpilih`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
