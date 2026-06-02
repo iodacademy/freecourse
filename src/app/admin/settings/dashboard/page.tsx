@@ -85,6 +85,7 @@ function DashboardSettingsContent() {
   const [missingUsers, setMissingUsers] = useState<Array<{id: string, name: string, email: string}> | null>(null);
   const [fetchingMissing, setFetchingMissing] = useState(false);
   const [selectedMissing, setSelectedMissing] = useState<Set<string>>(new Set());
+  const [showDobModal, setShowDobModal] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [showGasTutorial, setShowGasTutorial] = useState(false);
 
@@ -207,6 +208,7 @@ function DashboardSettingsContent() {
 
   async function fetchMissingDob() {
     if (!user) return;
+    setShowDobModal(true);
     setFetchingMissing(true);
     setMissingUsers(null);
     setSelectedMissing(new Set());
@@ -258,6 +260,7 @@ function DashboardSettingsContent() {
       
       alert(data.message || "Berhasil disuntikkan!");
       setMissingUsers(null);
+      setShowDobModal(false);
     } catch (e: any) {
       alert("Error: " + e.message);
     } finally {
@@ -491,45 +494,78 @@ function DashboardSettingsContent() {
               <button 
                 className="btn btn-secondary" 
                 onClick={fetchMissingDob} 
-                disabled={fetchingMissing}
               >
-                {fetchingMissing ? "Mencari Data..." : "Cari Data Kosong"}
+                Cari Data Kosong
               </button>
+            </div>
+          </div>
+        </div>
+      </Section>
 
-              {missingUsers !== null && (
-                <div style={{ marginTop: 16, border: "1px solid var(--color-gray-200)", borderRadius: 8, background: "white", overflow: "hidden" }}>
-                  <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-gray-200)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+      {/* ── Modal Pop-up: Suntik Data Tanggal Lahir ────────────────── */}
+      {showDobModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{
+            background: "white", borderRadius: 12, width: "100%", maxWidth: 600,
+            maxHeight: "90vh", display: "flex", flexDirection: "column",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
+          }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--color-gray-200)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Cari Data Tanggal Lahir Kosong</h3>
+              <button 
+                onClick={() => setShowDobModal(false)}
+                style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--color-gray-500)", lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div style={{ padding: 20, overflowY: "auto", flex: 1, minHeight: 200 }}>
+              {fetchingMissing ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--color-gray-500)" }}>
+                  <RefreshCw size={24} className="animate-spin" style={{ marginBottom: 12 }} />
+                  <p style={{ margin: 0 }}>Sedang memindai database peserta...</p>
+                </div>
+              ) : missingUsers !== null ? (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--color-gray-200)" }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      Ditemukan {missingUsers.length} peserta dengan tanggal lahir kosong
+                      Ditemukan {missingUsers.length} peserta
                     </div>
                     {missingUsers.length > 0 && (
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
                         <input 
                           type="checkbox" 
                           checked={selectedMissing.size === missingUsers.length}
                           onChange={(e) => toggleSelectAllMissing(e.target.checked)}
+                          style={{ width: 16, height: 16 }}
                         />
                         Pilih Semua
                       </label>
                     )}
                   </div>
-                  
+
                   {missingUsers.length > 0 ? (
-                    <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <div style={{ border: "1px solid var(--color-gray-200)", borderRadius: 8, overflow: "hidden" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                         <tbody>
                           {missingUsers.map(u => (
                             <tr key={u.id} style={{ borderBottom: "1px solid var(--color-gray-100)" }}>
-                              <td style={{ padding: "8px 16px", width: 40 }}>
+                              <td style={{ padding: "10px 14px", width: 40, textAlign: "center" }}>
                                 <input 
                                   type="checkbox" 
                                   checked={selectedMissing.has(u.id)}
                                   onChange={(e) => toggleSelectMissing(u.id, e.target.checked)}
+                                  style={{ width: 16, height: 16 }}
                                 />
                               </td>
-                              <td style={{ padding: "8px 16px" }}>
+                              <td style={{ padding: "10px 14px" }}>
                                 <div style={{ fontWeight: 600 }}>{u.name}</div>
-                                <div style={{ color: "var(--color-gray-500)", fontSize: 11 }}>{u.email}</div>
+                                <div style={{ color: "var(--color-gray-500)", fontSize: 12, marginTop: 2 }}>{u.email}</div>
                               </td>
                             </tr>
                           ))}
@@ -537,28 +573,36 @@ function DashboardSettingsContent() {
                       </table>
                     </div>
                   ) : (
-                    <div style={{ padding: 24, textAlign: "center", color: "var(--color-gray-500)", fontSize: 13 }}>
-                      Semua peserta sudah memiliki data tanggal lahir! 🎉
+                    <div style={{ padding: 40, textAlign: "center", color: "var(--color-gray-500)" }}>
+                      <CheckCircle2 size={40} style={{ color: "var(--color-success)", margin: "0 auto 16px" }} />
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Semua peserta sudah memiliki data tanggal lahir!</p>
                     </div>
                   )}
-
-                  {missingUsers.length > 0 && (
-                    <div style={{ padding: "12px 16px", borderTop: "1px solid var(--color-gray-200)", background: "#f8fafc", textAlign: "right" }}>
-                      <button 
-                        className="btn btn-primary" 
-                        onClick={injectRandomDob} 
-                        disabled={injecting || selectedMissing.size === 0}
-                      >
-                        {injecting ? "Menyuntikkan..." : `Suntik ${selectedMissing.size} Data Terpilih`}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                </>
+              ) : null}
             </div>
+
+            {missingUsers !== null && missingUsers.length > 0 && (
+              <div style={{ padding: "16px 20px", borderTop: "1px solid var(--color-gray-200)", background: "#f8fafc", textAlign: "right", borderRadius: "0 0 12px 12px" }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowDobModal(false)} 
+                  style={{ marginRight: 12 }}
+                >
+                  Batal
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={injectRandomDob} 
+                  disabled={injecting || selectedMissing.size === 0}
+                >
+                  {injecting ? "Menyuntikkan..." : `Suntik ${selectedMissing.size} Data Terpilih`}
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </Section>
+      )}
     </div>
   );
 }
