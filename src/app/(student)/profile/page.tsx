@@ -263,7 +263,11 @@ function ProfileContent() {
               if (!otherText) errs[field.name] = `Kolom "Lainnya" pada ${field.label} wajib diisi`;
             }
           } else {
-            if (!val || String(val).trim() === "") errs[field.name] = `${field.label} wajib diisi`;
+            if (!val || String(val).trim() === "") {
+              errs[field.name] = `${field.label} wajib diisi`;
+            } else if (field.type === 'date' && typeof val === 'string' && val.startsWith('__display:')) {
+              errs[field.name] = `Format ${field.label} belum lengkap (DD/MM/YYYY)`;
+            }
           }
         }
       });

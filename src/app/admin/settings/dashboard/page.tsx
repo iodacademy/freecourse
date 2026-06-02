@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Copy, RefreshCw, CheckCircle2, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
+import { Copy, RefreshCw, CheckCircle2, Sparkles, ChevronDown, ChevronRight, Wrench } from "lucide-react";
 
 interface MappingOptions {
   steps: Array<{ id: string; order: number; title: string; label: string; hasAssessment: boolean; kkm: number | null; questionCount: number }>;
@@ -81,6 +81,7 @@ function DashboardSettingsContent() {
   const [options, setOptions] = useState<MappingOptions>({ steps: [], questions: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [injecting, setInjecting] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [showGasTutorial, setShowGasTutorial] = useState(false);
 
@@ -198,6 +199,28 @@ function DashboardSettingsContent() {
       alert(`${label} berhasil disalin`);
     } catch {
       alert("Gagal menyalin");
+    }
+  }
+
+  async function injectRandomDob() {
+    if (!confirm("Peringatan: Ini akan menyuntikkan tanggal lahir acak (usia 18-29 tahun) ke SEMUA peserta yang datanya masih kosong (dan sudah Profile Completed). Lanjutkan?")) return;
+    
+    if (!user) return;
+    setInjecting(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/admin/students/inject-dob", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyuntikkan data");
+      
+      alert(data.message || "Berhasil disuntikkan!");
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setInjecting(false);
     }
   }
 
@@ -407,6 +430,32 @@ function DashboardSettingsContent() {
               <pre style={{ marginTop: 12, padding: 12, background: "#1e1e1e", color: "#e6e6e6", borderRadius: 6, overflowX: "auto", fontSize: 11, lineHeight: 1.5 }}>{GAS_CODE}</pre>
             </div>
           )}
+        </div>
+      </Section>
+
+      {/* ── Section 5: Alat Perbaikan Data ──────────────────────────── */}
+      <Section title="Alat Perbaikan Data (Maintenance)" desc="Fitur khusus untuk mengatasi anomali data di database.">
+        <div style={{ padding: 16, border: "1px solid var(--color-gray-200)", borderRadius: 8, background: "var(--color-gray-50)" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ padding: 8, background: "var(--color-primary-light)", color: "var(--color-primary)", borderRadius: 8 }}>
+              <Wrench size={20} />
+            </div>
+            <div>
+              <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600 }}>Suntik Tanggal Lahir (Usia 18-29)</h3>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--color-gray-500)", lineHeight: 1.5, marginBottom: 12 }}>
+                Gunakan ini jika ada peserta yang berhasil lolos tanpa mengisi tanggal lahir. 
+                Sistem akan mencari seluruh pengguna dengan status <b>Profile Completed</b> yang tanggal lahirnya kosong, 
+                dan mengisinya dengan tanggal lahir acak yang menghasilkan umur di antara <b>18 - 29 tahun</b>.
+              </p>
+              <button 
+                className="btn btn-primary" 
+                onClick={injectRandomDob} 
+                disabled={injecting}
+              >
+                {injecting ? "Memproses..." : "Mulai Suntik Data"}
+              </button>
+            </div>
+          </div>
         </div>
       </Section>
     </div>

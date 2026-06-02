@@ -126,6 +126,7 @@ function toWIBString(dt: Date | null | undefined): string {
 
 function isoToDDMMYYYY(iso: string | undefined | null): string {
   if (!iso) return "-";
+  if (iso.match(/^\d{2}\/\d{2}\/\d{4}$/)) return iso;
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return iso;
   return `${m[3]}/${m[2]}/${m[1]}`;
@@ -133,9 +134,17 @@ function isoToDDMMYYYY(iso: string | undefined | null): string {
 
 function calcAge(tanggalLahirIso: string | undefined | null): string {
   if (!tanggalLahirIso) return "-";
-  const m = tanggalLahirIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return "-";
-  const birth = new Date(`${m[1]}-${m[2]}-${m[3]}`);
+  let year, month, day;
+  const mIso = tanggalLahirIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const mId = tanggalLahirIso.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (mIso) {
+    year = mIso[1]; month = mIso[2]; day = mIso[3];
+  } else if (mId) {
+    year = mId[3]; month = mId[2]; day = mId[1];
+  } else {
+    return "-";
+  }
+  const birth = new Date(`${year}-${month}-${day}`);
   if (isNaN(birth.getTime())) return "-";
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
@@ -487,9 +496,18 @@ export async function aggregateDashboard(
     const jenisKelamin =
       getProfileString(profileData, "jenis_kelamin") ||
       getProfileString(profileData, "jenisKelamin");
-    const tanggalLahirIso =
-      getProfileString(profileData, "tanggal_lahir") ||
-      getProfileString(profileData, "tanggalLahir");
+      
+    let tanggalLahirIso = "";
+    if (profileData) {
+      for (const k of Object.keys(profileData)) {
+        const kl = k.toLowerCase();
+        if (kl.includes("tanggal") && kl.includes("lahir")) {
+          tanggalLahirIso = getProfileString(profileData, k);
+          if (tanggalLahirIso) break;
+        }
+      }
+    }
+    
     const tanggalLahir = isoToDDMMYYYY(tanggalLahirIso);
     const umur = calcAge(tanggalLahirIso);
 
