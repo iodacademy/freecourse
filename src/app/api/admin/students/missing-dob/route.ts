@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
 
 export async function GET(req: NextRequest) {
   try {
     const adminAuth = await requireAdmin(req);
     if (!adminAuth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const db = getAdminDb();
@@ -41,10 +41,10 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({ success: true, data: missingUsers });
+    return json({ success: true, data: missingUsers });
     
   } catch (error: any) {
     console.error("[MISSING DOB ERROR]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleError(error);
   }
 }

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
     const adminAuth = await requireAdmin(req);
     if (!adminAuth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const { userIds } = await req.json();
     if (!Array.isArray(userIds) || userIds.length === 0) {
-      return NextResponse.json({ error: "Tidak ada user yang dipilih" }, { status: 400 });
+      return json({ error: "Tidak ada user yang dipilih" }, 400);
     }
 
     const db = getAdminDb();
@@ -85,13 +85,13 @@ export async function POST(req: NextRequest) {
       await batch.commit();
     }
 
-    return NextResponse.json({ 
+    return json({ 
       success: true, 
       message: `Berhasil menyuntikkan tanggal lahir acak (usia 18-29) untuk ${injectedCount} peserta terpilih.`
     });
     
   } catch (error: any) {
     console.error("[INJECT DOB ERROR]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return handleError(error);
   }
 }
