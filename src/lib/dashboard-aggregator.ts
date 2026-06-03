@@ -517,7 +517,7 @@ export async function aggregateDashboard(
       getProfileString(profileData, "disabilitas") ||
       getProfileString(profileData, "isDisabilitas") || "";
     const jenisDisabilitas =
-      disabilitas === "Ya"
+      (disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas")
         ? getProfileString(profileData, "jenis_disabilitas") ||
           getProfileString(profileData, "jenisDisabilitas") ||
           getProfileString(profileData, "kategori_disabilitas") ||
@@ -665,7 +665,7 @@ export async function aggregateDashboard(
   const perempuan = perempuanFiltered.filter((s) => s.status === "Tersertifikasi").length;
   const perempuanCompleted = perempuanFiltered.length;
   
-  const disabilitasFiltered = filtered.filter((s) => s._disabilitas === "Ya");
+  const disabilitasFiltered = filtered.filter((s) => s._disabilitas === "Ya" || s._disabilitas === "Penyandang Disabilitas");
   const disabilitas = disabilitasFiltered.filter((s) => s.status === "Tersertifikasi").length;
   const disabilitasCompleted = disabilitasFiltered.length;
 
@@ -768,6 +768,14 @@ export async function aggregateDashboard(
   // Strip internal fields kalau includeStudents
   // Export HANYA peserta yang sudah tersertifikasi JIKA flag exportOnlyCertified diset true
   const sourceArray = options.exportOnlyCertified ? certifiedFiltered : filtered;
+  
+  // Sort sourceArray by _createdAt (oldest to newest)
+  sourceArray.sort((a, b) => {
+    const timeA = a._createdAt ? a._createdAt.getTime() : 0;
+    const timeB = b._createdAt ? b._createdAt.getTime() : 0;
+    return timeA - timeB;
+  });
+
   const students: DashboardStudent[] = options.includeStudents
     ? sourceArray.map((s) => {
         const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore,
