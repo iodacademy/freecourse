@@ -358,7 +358,7 @@ export default function StepPage() {
 
   return (
     <>
-      <div className="step-wrapper">
+      <div className="step-wrapper" style={{ flexDirection: "column" }}>
         {workshopData && enrollment?.eventId && (
           <WorkshopBanner
             workshopData={workshopData}
@@ -367,17 +367,18 @@ export default function StepPage() {
           />
         )}
         {beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp") && !enrollment?.certificateClaimed && (
-          <div style={{ background: "#f0fdf4", border: "1px solid #16a34a", borderRadius: 8, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ background: "#f0fdf4", borderBottom: "1px solid #16a34a", padding: "12px 24px", display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
             <div style={{ fontSize: 24 }}>💡</div>
             <div style={{ flex: 1 }}>
-              <h4 style={{ margin: 0, color: "#166534", fontSize: 16 }}>Akses {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} Terkunci!</h4>
-              <p style={{ margin: "4px 0 0", color: "#15803d", fontSize: 14 }}>
+              <h4 style={{ margin: 0, color: "#166534", fontSize: 15 }}>Akses {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} Terkunci!</h4>
+              <p style={{ margin: "2px 0 0", color: "#15803d", fontSize: 13 }}>
                 Selesaikan modul Financial Literacy dan klaim sertifikat untuk mendapatkan akses ke Grup WA dan Kode Redeem {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} kamu.
               </p>
             </div>
           </div>
         )}
-        <LMSPlayer
+        <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+          <LMSPlayer
           youtubeId={activeStep.video?.youtubeId || ""}
           questions={questions}
           kkm={kkm}
@@ -400,6 +401,7 @@ export default function StepPage() {
           initialSurveyAnswers={initialSurveyAnswers}
           onOpenMenu={() => setMenuOpen(true)}
         />
+        </div>
       </div>
 
       <CourseMenuDrawer
