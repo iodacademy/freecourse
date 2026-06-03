@@ -1,5 +1,18 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 005] - 03 Juni 2026
+**Deskripsi Perubahan:**
+Membedakan antarmuka *Landing Page* (Halaman Pendaftaran) secara dinamis agar khusus bagi kelas beasiswa berjenis WPB atau Bootcamp dapat menampilkan daftar Topik Pelatihan dan Jadwal yang relevan secara langsung dari pengaturan Admin. Menjadikan Nama Kelas sebagai *slug* URL.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/lib/types.ts`**: Menambahkan properti _array_ `topikList` (yang berisi objek `judul` dan `jadwal`) di dalam interface `beasiswaConfig`.
+2. **`src/app/admin/events/page.tsx`**: Menambahkan antarmuka dinamis ("Tambah Topik Pelatihan") yang memungkinkan Admin untuk memasukkan beberapa Topik dan Jadwalnya secara dinamis ketika jenis beasiswanya diset ke WPB atau Bootcamp.
+3. **`src/app/api/events/route.ts`**: Memodifikasi logika pembuatan Document ID di Firestore agar menggunakan hasil konversi `namaKelas` sebagai _slug_ URL khusus bagi pendaftaran kelas WPB/Bootcamp (misal `/beasiswa/legal`).
+4. **`src/app/beasiswa/[eventId]/page.tsx`**: Mengubah *props* `setEventData` agar ikut membawa objek `beasiswaConfig` dan meneruskannya (passing down) ke dalam komponen `LandingTemplate`.
+5. **`src/components/LandingTemplate/LandingTemplate.tsx`**: 
+   - Memodifikasi teks *Call-to-Action* dan Subtitle di dalam "Tahap 4" Alur Program spesifik untuk WPB dan Bootcamp.
+   - Mengubah bagian render "Topik Pelatihan" yang awalnya menggunakan *chips* statis (Digital Marketing, Legal, dll) menjadi desain UI *Grid/Card* responsif yang membaca secara dinamis dari `beasiswaConfig.topikList` buatan Admin.
+
 ## [VERSI 004] - 03 Juni 2026
 **Deskripsi Perubahan:**
 Menambahkan alur Beasiswa baru berjenis "WPB" dan "Bootcamp". Jalur ini tidak memerlukan peserta memilih topik Video Learning, melainkan langsung menghasilkan (generate) Kode Redeem khusus dan memberikan tautan (link) ke Grup WhatsApp setelah mereka mengklaim sertifikat.

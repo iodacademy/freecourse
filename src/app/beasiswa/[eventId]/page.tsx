@@ -8,7 +8,7 @@ export default function BeasiswaPage() {
   const params = useParams();
   const eventId = params.eventId as string;
 
-  const [eventData, setEventData] = useState<{ heroTitle?: string; heroSubtitle?: string } | null>(null);
+  const [eventData, setEventData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +20,10 @@ export default function BeasiswaPage() {
         const res = await fetch(`/api/events/public/${eventId}`);
         if (res.ok) {
           const data = await res.json();
-          setEventData(data?.landingPageConfig || {});
+          setEventData({
+            ...(data?.landingPageConfig || {}),
+            beasiswaConfig: data?.beasiswaConfig
+          });
         }
       } catch (err) {
         console.error("[BeasiswaPage] Fetch error:", err);
@@ -38,6 +41,7 @@ export default function BeasiswaPage() {
       eventId={eventId}
       heroTitle={eventData?.heroTitle}
       heroSubtitle={eventData?.heroSubtitle}
+      beasiswaConfig={eventData?.beasiswaConfig}
     />
   );
 }

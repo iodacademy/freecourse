@@ -38,6 +38,14 @@ interface LandingTemplateProps {
   heroTitle?: React.ReactNode;
   heroSubtitle?: string;
   workshopData?: WorkshopData;
+  beasiswaConfig?: {
+    type: "vl" | "wpb" | "bootcamp";
+    namaKelas?: string;
+    kodeBasis?: string;
+    kodeKelas?: string;
+    waGroupLink?: string;
+    topikList?: Array<{ judul: string; jadwal: string }>;
+  };
 }
 
 // ─── Stage Configs ────────────────────────────────────────────────────────────
@@ -107,7 +115,7 @@ const WhatsAppIcon = () => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function LandingTemplate({ type, eventId, partnerCode, heroTitle, heroSubtitle, workshopData }: LandingTemplateProps) {
+export default function LandingTemplate({ type, eventId, partnerCode, heroTitle, heroSubtitle, workshopData, beasiswaConfig }: LandingTemplateProps) {
   const router = useRouter();
   const { user, profile, loading, loginWithGoogle } = useAuth();
   const [showModal, setShowModal] = useState(false);
@@ -124,7 +132,19 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
     }
   }, [loading, user, profile, router]);
 
-  const stages = STAGES[type];
+  let stages = STAGES[type];
+  const isWpbOrBootcamp = type === "beasiswa" && beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp");
+
+  // Jika Bootcamp/WPB, modifikasi Tahap 4
+  if (isWpbOrBootcamp) {
+    stages = [...stages];
+    stages[3] = {
+      label: "Tahap 4",
+      title: `Ikuti ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} ${beasiswaConfig.namaKelas || ""} Tanpa Bayar Sepeserpun!`,
+      sub: `Dapatkan sertifikat Literasi Finansial sebagai syarat mendapat link grup ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} ${beasiswaConfig.namaKelas || ""}.`,
+    };
+  }
+
   const isWorkshop = type === "workshop";
   const isRedesignHero = !isWorkshop; // umum, beasiswa, kemitraan → REDESIGN hero
 
@@ -338,11 +358,25 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
               <>
                 <div className="lp-section__eyebrow">Topik Pelatihan</div>
                 <h2 className="lp-section__title">Yang Akan Kamu <b>Pelajari</b></h2>
-                <div className="lp-topic-chips">
-                  {BEASISWA_CHIPS.map((chip) => (
-                    <span key={chip} className="lp-chip">{chip}</span>
-                  ))}
-                </div>
+                
+                {isWpbOrBootcamp && beasiswaConfig?.topikList && beasiswaConfig.topikList.length > 0 ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px", marginTop: "24px" }}>
+                    {beasiswaConfig.topikList.map((topik, idx) => (
+                      <div key={idx} style={{ background: "#ffffff", border: "1px solid #e2e8f0", padding: "16px", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#1e293b", marginBottom: "8px" }}>{topik.judul}</div>
+                        <div style={{ fontSize: "0.9rem", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <Calendar size={14} /> {topik.jadwal}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="lp-topic-chips">
+                    {BEASISWA_CHIPS.map((chip) => (
+                      <span key={chip} className="lp-chip">{chip}</span>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <>

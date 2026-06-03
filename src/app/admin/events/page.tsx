@@ -79,6 +79,7 @@ export default function AdminEventsPage() {
     kodeBasis: "",
     kodeKelas: "",
     waGroupLink: "",
+    topikList: [] as Array<{ judul: string; jadwal: string }>,
   });
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -297,7 +298,7 @@ export default function AdminEventsPage() {
     setWizardStep(1);
     setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "", audienceLabel: "" });
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
-    setBeasiswaConfig({ type: "vl", namaKelas: "", kodeBasis: "", kodeKelas: "", waGroupLink: "" });
+    setBeasiswaConfig({ type: "vl", namaKelas: "", kodeBasis: "", kodeKelas: "", waGroupLink: "", topikList: [] });
     setPhotoFile(null);
     setPhotoPreview("");
     setError("");
@@ -345,6 +346,7 @@ export default function AdminEventsPage() {
       kodeBasis: bc?.kodeBasis || "",
       kodeKelas: bc?.kodeKelas || "",
       waGroupLink: bc?.waGroupLink || "",
+      topikList: bc?.topikList || [],
     });
 
     setPhotoFile(null);
@@ -785,6 +787,73 @@ export default function AdminEventsPage() {
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>Link Grup WhatsApp <span className={styles.required}>*</span></label>
                             <input className={styles.formInput} type="url" placeholder="https://chat.whatsapp.com/..." value={beasiswaConfig.waGroupLink} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, waGroupLink: e.target.value })} />
+                          </div>
+                          
+                          {/* Dynamic Topik List */}
+                          <div className={styles.formGroup}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                              <label className={styles.formLabel} style={{ marginBottom: 0 }}>Daftar Topik Pelatihan</label>
+                              <button 
+                                type="button" 
+                                onClick={() => setBeasiswaConfig({ 
+                                  ...beasiswaConfig, 
+                                  topikList: [...(beasiswaConfig.topikList || []), { judul: "", jadwal: "" }] 
+                                })}
+                                style={{
+                                  background: "#e8f0fe", color: "#1a73e8", border: "none",
+                                  padding: "4px 12px", borderRadius: "16px", fontSize: "0.85rem", cursor: "pointer", fontWeight: 600
+                                }}
+                              >
+                                + Tambah Topik
+                              </button>
+                            </div>
+                            
+                            {beasiswaConfig.topikList && beasiswaConfig.topikList.length > 0 ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                {beasiswaConfig.topikList.map((topik, idx) => (
+                                  <div key={idx} style={{ display: "flex", gap: "12px", alignItems: "flex-start", background: "#f8f9fa", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                                      <input 
+                                        className={styles.formInput} 
+                                        type="text" 
+                                        placeholder="Judul Topik (mis. HTML Dasar)" 
+                                        value={topik.judul}
+                                        onChange={(e) => {
+                                          const newList = [...(beasiswaConfig.topikList || [])];
+                                          newList[idx].judul = e.target.value;
+                                          setBeasiswaConfig({ ...beasiswaConfig, topikList: newList });
+                                        }}
+                                      />
+                                      <input 
+                                        className={styles.formInput} 
+                                        type="text" 
+                                        placeholder="Jadwal (mis. 15 Agustus 2026)" 
+                                        value={topik.jadwal}
+                                        onChange={(e) => {
+                                          const newList = [...(beasiswaConfig.topikList || [])];
+                                          newList[idx].jadwal = e.target.value;
+                                          setBeasiswaConfig({ ...beasiswaConfig, topikList: newList });
+                                        }}
+                                      />
+                                    </div>
+                                    <button 
+                                      type="button" 
+                                      title="Hapus"
+                                      onClick={() => {
+                                        const newList = [...(beasiswaConfig.topikList || [])];
+                                        newList.splice(idx, 1);
+                                        setBeasiswaConfig({ ...beasiswaConfig, topikList: newList });
+                                      }}
+                                      style={{ background: "none", border: "none", color: "#dc3545", cursor: "pointer", fontSize: "1.2rem", padding: "4px" }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: "0.9rem", color: "#6c757d", fontStyle: "italic", padding: "8px 0" }}>Belum ada topik yang ditambahkan.</div>
+                            )}
                           </div>
                         </>
                       )}

@@ -201,6 +201,10 @@ export interface Event {
     kodeBasis?: string;
     kodeKelas?: string;
     waGroupLink?: string;
+    topikList?: Array<{
+      judul: string;
+      jadwal: string;
+    }>;
   };
   createdAt: Date;
   updatedAt: Date;
