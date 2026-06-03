@@ -43,6 +43,7 @@ export default function StepPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [workshopData, setWorkshopData] = useState<WorkshopData | null>(null);
   const [beasiswaConfig, setBeasiswaConfig] = useState<any>(null);
+  const [showBootcampModal, setShowBootcampModal] = useState(true);
 
   // Claim modal
   const [claimModalOpen, setClaimModalOpen] = useState(false);
@@ -358,7 +359,7 @@ export default function StepPage() {
 
   return (
     <>
-      <div className="step-wrapper" style={{ flexDirection: "column" }}>
+      <div className="step-wrapper">
         {workshopData && enrollment?.eventId && (
           <WorkshopBanner
             workshopData={workshopData}
@@ -366,18 +367,7 @@ export default function StepPage() {
             enrollmentId={enrollment.id}
           />
         )}
-        {beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp") && !enrollment?.certificateClaimed && (
-          <div style={{ background: "#f0fdf4", borderBottom: "1px solid #16a34a", padding: "12px 24px", display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
-            <div style={{ fontSize: 24 }}>💡</div>
-            <div style={{ flex: 1 }}>
-              <h4 style={{ margin: 0, color: "#166534", fontSize: 15 }}>Akses {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} Terkunci!</h4>
-              <p style={{ margin: "2px 0 0", color: "#15803d", fontSize: 13 }}>
-                Selesaikan modul Financial Literacy dan klaim sertifikat untuk mendapatkan akses ke Grup WA dan Kode Redeem {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} kamu.
-              </p>
-            </div>
-          </div>
-        )}
-        <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", width: "100%" }}>
           <LMSPlayer
           youtubeId={activeStep.video?.youtubeId || ""}
           questions={questions}
@@ -471,6 +461,28 @@ export default function StepPage() {
                 <button className="ccm-retry-btn" onClick={() => { setClaimModalOpen(false); }}>Tutup</button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Bootcamp/WPB Locked Modal ── */}
+      {beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp") && !enrollment?.certificateClaimed && showBootcampModal && (
+        <div className="ccm-overlay" style={{ zIndex: 9999 }}>
+          <div className="ccm-modal" style={{ maxWidth: 400, textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>💡</div>
+            <h3 className="ccm-title" style={{ color: "#166534", marginBottom: 8, fontSize: 18 }}>
+              Akses {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} Terkunci!
+            </h3>
+            <p className="ccm-error-msg" style={{ color: "#15803d", marginBottom: 24, fontSize: 13, lineHeight: 1.5 }}>
+              Selesaikan modul Financial Literacy dan klaim sertifikat untuk mendapatkan akses ke Grup WA dan Kode Redeem {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} kamu.
+            </p>
+            <button 
+              className="ccm-retry-btn" 
+              style={{ background: "#16a34a", color: "white", border: "none" }}
+              onClick={() => setShowBootcampModal(false)}
+            >
+              Oke, Paham!
+            </button>
           </div>
         </div>
       )}
