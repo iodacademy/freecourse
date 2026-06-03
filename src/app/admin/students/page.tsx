@@ -782,8 +782,8 @@ export default function AdminStudentsPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Filter lokal pada data yang sudah di-load
-  const filteredStudents = students.filter((s) => {
+  // Filter lokal pada data yang sudah di-load (diurutkan terbaru ke terlama)
+  const filteredStudents = [...students].reverse().filter((s) => {
     const matchChannel = filter === "all" || s.channelSource === filter || s.channel?.toLowerCase() === filter;
     if (!activeSearch) return matchChannel;
     const q = activeSearch.toLowerCase();
