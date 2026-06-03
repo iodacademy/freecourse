@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
     if (existEnroll.exists) {
       // Sudah terdaftar — update channelSource/eventId jika ada info baru dari profile submit
       const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
-      if (channelSource && !existEnroll.data()?.channelSource) updates.channelSource = channelSource;
-      if (eventId && !existEnroll.data()?.eventId) updates.eventId = eventId;
+      if (channelSource) updates.channelSource = channelSource;
+      if (eventId) updates.eventId = eventId;
       if (displayName && !existEnroll.data()?.displayName) updates.displayName = displayName;
       await enrollRef.update(updates);
       return json({ message: "Sudah terdaftar", enrollment: { id: enrollId, ...existEnroll.data() } });

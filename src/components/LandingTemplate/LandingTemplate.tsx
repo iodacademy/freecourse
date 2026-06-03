@@ -206,8 +206,26 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
     }
   };
 
-  const handleDaftarClick = () => {
+  const handleDaftarClick = async () => {
     if (user && profile?.profileCompleted) {
+      setLoginLoading(true);
+      try {
+        const idToken = await user.getIdToken();
+        const sourceMap: Record<string, string> = { umum: "umum", beasiswa: "beasiswa", kemitraan: "kemitraan", workshop: "workshop" };
+        await fetch("/api/enrollments/auto-enroll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({
+            channelSource: sourceMap[type] || "umum",
+            eventId: eventId && type !== "kemitraan" ? eventId : null,
+            partnerCode: type === "kemitraan" ? partnerCode?.toUpperCase() : null
+          })
+        });
+      } catch (err) {
+        console.error("Auto-enroll update failed", err);
+      } finally {
+        setLoginLoading(false);
+      }
       router.push("/learn");
     } else if (!user) {
       setShowModal(true);

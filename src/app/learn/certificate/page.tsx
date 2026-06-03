@@ -20,6 +20,7 @@ interface EnrollmentData {
   currentStep?: number;
   waGroupLink?: string;
   beasiswaType?: string;
+  eventId?: string;
 }
 
 interface CourseStep {
@@ -90,6 +91,28 @@ export default function CertificatePage() {
         setEnrollment(main);
         setCertId(main.certificateId);
         if (main.certificateDriveUrl) setDriveUrl(main.certificateDriveUrl);
+
+        // Auto-sync beasiswaType dan generate redeem code jika missing
+        if (main.channelSource === "beasiswa" && main.eventId && !main.beasiswaType) {
+          try {
+            const reclaimRes = await fetch(`/api/enrollments/${main.id}/claim-cert`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+              body: JSON.stringify({ reclaim: true })
+            });
+            if (reclaimRes.ok) {
+              const freshRes = await fetch("/api/enrollments", { headers: { Authorization: `Bearer ${idToken}` }});
+              const freshData = await freshRes.json();
+              const freshMain = freshData.find((e: any) => e.courseId === "course-main");
+              if (freshMain) {
+                setEnrollment(freshMain);
+                Object.assign(main, freshMain); // update current reference just in case
+              }
+            }
+          } catch (err) {
+            console.error("Auto-sync claim-cert failed", err);
+          }
+        }
 
         if (courseRes.ok) {
           const courseData = await courseRes.json();
