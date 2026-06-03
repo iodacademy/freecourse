@@ -1130,7 +1130,7 @@ export default function AdminStudentsPage() {
                     Semua siswa terdaftar sudah memiliki sertifikat. Hore!
                   </div>
                 ) : (
-                  <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 16, padding: "8px 0" }}>
+                  <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 16, padding: "8px 0", background: "#fff" }}>
                     <div 
                       style={{ padding: "8px 16px", cursor: "pointer", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}
                       onClick={toggleAllDates}
@@ -1150,16 +1150,31 @@ export default function AdminStudentsPage() {
                           style={{ marginTop: 4, cursor: "pointer" }}
                         />
                         <details style={{ flex: 1 }}>
-                          <summary style={{ cursor: "pointer", outline: "none", fontWeight: 500 }}>
-                            Tanggal <strong>{g.date}</strong> &mdash; {g.students.length} orang belum punya sertifikat
+                          <summary style={{ cursor: "pointer", outline: "none", fontWeight: 600, color: "#1e293b", userSelect: "none" }}>
+                            Tanggal {g.date} <span style={{ fontWeight: 400, color: "#64748b", fontSize: 13 }}>({g.students.length} peserta)</span>
                           </summary>
-                          <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: "2px solid #e2e8f0", fontSize: 12, color: "#475569", maxHeight: 120, overflowY: "auto" }}>
-                            {g.students.map((s: any) => (
-                              <div key={s.uid} style={{ marginBottom: 4 }}>
-                                &bull; <strong>{s.namaLengkap || "Tanpa Nama"}</strong> 
-                                <br/><span style={{ opacity: 0.8 }}>{s.email} - ({s.status})</span>
-                              </div>
-                            ))}
+                          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8, paddingRight: 4, paddingBottom: 8 }}>
+                            {g.students.map((s: any) => {
+                              const initial = (s.namaLengkap || s.email || "?").charAt(0).toUpperCase();
+                              return (
+                                <div key={s.uid} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, transition: "all 0.2s" }}>
+                                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #3b82f6, #2563eb)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: "bold", flexShrink: 0, boxShadow: "0 2px 4px rgba(37,99,235,0.2)" }}>
+                                    {initial}
+                                  </div>
+                                  <div style={{ flex: 1, overflow: "hidden" }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {s.namaLengkap || "Tanpa Nama"}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {s.email}
+                                    </div>
+                                  </div>
+                                  <div style={{ padding: "4px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: s.status === "Selesai" ? "#dcfce7" : "#f1f5f9", color: s.status === "Selesai" ? "#166534" : "#475569", border: `1px solid ${s.status === "Selesai" ? "#bbf7d0" : "#e2e8f0"}` }}>
+                                    {s.status}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </details>
                       </div>
