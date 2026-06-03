@@ -5,6 +5,7 @@
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { getScDb } from "@/lib/firebase-admin-sc";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -182,6 +183,68 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       } catch (gasErr) {
         console.error("[claim-cert] GAS error:", gasErr);
         // Tidak gagalkan proses, data sudah tersimpan di Firestore
+      }
+    }
+
+    // ── Logika Khusus WPB & Bootcamp Beasiswa ──
+    // Generate kode redeem secara otomatis saat sertifikat diklaim perdana (atau reclaim jika belum tergenerate)
+    let redeemCode: string | null = enrollData.bonusCourseRedeemCode || null;
+    let waGroupLink: string | null = enrollData.waGroupLink || null;
+    let beasiswaType: string | null = enrollData.beasiswaType || null;
+
+    if (enrollData.channelSource === "beasiswa" && enrollData.eventId && !enrollData.bonusCourseRedeemCode) {
+      try {
+        const eventDoc = await db.collection("events").doc(enrollData.eventId).get();
+        if (eventDoc.exists) {
+          const bc = eventDoc.data()?.beasiswaConfig;
+          if (bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
+            beasiswaType = bc.type;
+            waGroupLink = bc.waGroupLink || "";
+            const kodeKelas = bc.kodeKelas || "";
+            const kodeBasis = bc.kodeBasis || "";
+            const emailUsername = userDoc.data()?.emailUsername || decoded.email?.split("@")[0] || "user";
+            
+            const emailUsernameClean = emailUsername.toLowerCase().replace(/[^a-z0-9.]/g, "");
+            const classCodeClean = kodeKelas.replace(/[^a-zA-Z0-9]/g, "");
+            const newRedeemCode = `${emailUsernameClean}${classCodeClean}`;
+            const redeemCodeUpper = newRedeemCode.toUpperCase();
+            
+            redeemCode = newRedeemCode;
+
+            // Simpan ke student-center-ioda
+            const scDb = getScDb();
+            const docId = `LITERASI_FINANSIAL_${redeemCodeUpper}`;
+            const collectionName = bc.type === "wpb" ? "users_wpb" : "users_bootcamp";
+            
+            const nowStr = new Date().toISOString();
+            await scDb.collection(collectionName).doc(docId).set({
+              Created_By_Admin: false,
+              Data_Source: "free course literasi digital",
+              Kode_Basis: kodeBasis.toUpperCase(),
+              Kode_Redeem: redeemCodeUpper,
+              Kode_Redeem_Lower: newRedeemCode,
+              Nama_Kelas: bc.namaKelas || courseName,
+              Nama_Kelas_Sertif: bc.namaKelas || courseName,
+              Nama_Lower: userName.toLowerCase(),
+              Nama_Peserta: userName,
+              Program: bc.type === "wpb" ? "WPB" : "Bootcamp",
+              Role: "participant",
+              Tanggal_Daftar: nowStr,
+              _syncedAt: nowStr,
+              _syncedBy: "Literacy Financial",
+            });
+
+            // Update ke enrollment
+            await enrollRef.update({
+              bonusCourseTopicId: enrollData.eventId,
+              bonusCourseRedeemCode: newRedeemCode,
+              waGroupLink: waGroupLink,
+              beasiswaType: beasiswaType,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[claim-cert] Error generating WPB/Bootcamp code:", err);
       }
     }
 

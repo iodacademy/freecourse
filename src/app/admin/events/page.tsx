@@ -71,6 +71,16 @@ export default function AdminEventsPage() {
     speakerTitle: "",
     speakerPhoto: "",
   });
+  
+  // Form khusus beasiswa WPB / Bootcamp
+  const [beasiswaConfig, setBeasiswaConfig] = useState({
+    type: "vl" as "vl" | "wpb" | "bootcamp",
+    namaKelas: "",
+    kodeBasis: "",
+    kodeKelas: "",
+    waGroupLink: "",
+  });
+
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -200,6 +210,7 @@ export default function AdminEventsPage() {
         partnerCode: form.channelType === "b2b_campus" ? form.partnerCode : null,
         audienceLabel: form.channelType === "b2b_campus" ? form.audienceLabel : null,
         workshopData,
+        beasiswaConfig: form.channelType === "b2c_ads" ? beasiswaConfig : null,
       };
 
       if (editing) {
@@ -286,6 +297,7 @@ export default function AdminEventsPage() {
     setWizardStep(1);
     setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "", audienceLabel: "" });
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
+    setBeasiswaConfig({ type: "vl", namaKelas: "", kodeBasis: "", kodeKelas: "", waGroupLink: "" });
     setPhotoFile(null);
     setPhotoPreview("");
     setError("");
@@ -325,6 +337,16 @@ export default function AdminEventsPage() {
       speakerTitle: wd?.speakerTitle || "",
       speakerPhoto: wd?.speakerPhoto || "",
     });
+    
+    const bc = (evt as any).beasiswaConfig;
+    setBeasiswaConfig({
+      type: bc?.type || "vl",
+      namaKelas: bc?.namaKelas || "",
+      kodeBasis: bc?.kodeBasis || "",
+      kodeKelas: bc?.kodeKelas || "",
+      waGroupLink: bc?.waGroupLink || "",
+    });
+
     setPhotoFile(null);
     setPhotoPreview(wd?.speakerPhoto || "");
     setError("");
@@ -736,6 +758,37 @@ export default function AdminEventsPage() {
                         <label className={styles.formLabel}>Nama Event <span className={styles.required}>*</span></label>
                         <input className={styles.formInput} type="text" placeholder="Contoh: Program Beasiswa DBS 2026" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                       </div>
+                      
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Jenis Beasiswa</label>
+                        <select className={styles.formInput} value={beasiswaConfig.type} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, type: e.target.value as "vl" | "wpb" | "bootcamp" })}>
+                          <option value="vl">Video Learning (Default)</option>
+                          <option value="wpb">WPB (Workshop Program Basis)</option>
+                          <option value="bootcamp">Bootcamp</option>
+                        </select>
+                      </div>
+
+                      {beasiswaConfig.type !== "vl" && (
+                        <>
+                          <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Nama Kelas Bootcamp/WPB <span className={styles.required}>*</span></label>
+                            <input className={styles.formInput} type="text" placeholder="Contoh: Frontend Engineering" value={beasiswaConfig.namaKelas} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, namaKelas: e.target.value })} />
+                          </div>
+                          <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Kode Basis <span className={styles.required}>*</span></label>
+                            <input className={styles.formInput} type="text" placeholder="Contoh: KLS123" value={beasiswaConfig.kodeBasis} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, kodeBasis: e.target.value })} />
+                          </div>
+                          <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Kode Kelas <span className={styles.required}>*</span></label>
+                            <input className={styles.formInput} type="text" placeholder="Contoh: JBR-01" value={beasiswaConfig.kodeKelas} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, kodeKelas: e.target.value })} />
+                          </div>
+                          <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Link Grup WhatsApp <span className={styles.required}>*</span></label>
+                            <input className={styles.formInput} type="url" placeholder="https://chat.whatsapp.com/..." value={beasiswaConfig.waGroupLink} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, waGroupLink: e.target.value })} />
+                          </div>
+                        </>
+                      )}
+
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Deskripsi (opsional)</label>
                         <textarea className={styles.formTextarea} placeholder="Deskripsi singkat..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />

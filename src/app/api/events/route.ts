@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       workshopData: body.workshopData ?? null,
       workshopConfig: body.workshopConfig ?? null,
       customProfileFields: body.customProfileFields ?? [],
+      beasiswaConfig: body.beasiswaConfig ?? null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     };

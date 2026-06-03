@@ -1,5 +1,17 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 004] - 03 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan alur Beasiswa baru berjenis "WPB" dan "Bootcamp". Jalur ini tidak memerlukan peserta memilih topik Video Learning, melainkan langsung menghasilkan (generate) Kode Redeem khusus dan memberikan tautan (link) ke Grup WhatsApp setelah mereka mengklaim sertifikat.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/lib/types.ts`**: Menambahkan skema tipe data `beasiswaConfig` pada interface `Event` dan field `waGroupLink` serta `beasiswaType` pada `Enrollment`.
+2. **`src/app/admin/events/page.tsx`**: Memodifikasi form pembuatan Event bertipe B2C Ads/Beasiswa dengan menambahkan dropdown Jenis Beasiswa (VL, WPB, Bootcamp) dan field baru (Kode Basis, Kode Kelas, Link Grup WA).
+3. **`src/app/api/events/route.ts` & `src/app/api/events/[id]/route.ts`**: Menyesuaikan payload API POST dan PATCH agar dapat menerima dan menyimpan struktur `beasiswaConfig`.
+4. **`src/app/api/enrollments/[id]/claim-cert/route.ts`**: Menyisipkan logika *auto-generate* Kode Redeem berdasarkan nama depan peserta + Kode Kelas. Menyinkronisasikan hasil pendaftaran tersebut langsung ke database `student-center-ioda` (pada koleksi `users_wpb` atau `users_bootcamp`).
+5. **`src/app/learn/certificate/page.tsx`**: Mengganti kotak "Pilih Kursus Tambahan" menjadi tampilan *highlight* sukses yang memunculkan Kode Redeem dan tombol ajakan bergabung ke Grup WhatsApp untuk peserta Beasiswa WPB/Bootcamp.
+6. **`src/app/learn/[step]/page.tsx`**: Menambahkan *banner* (pop-up statis) di bagian atas modul bagi peserta WPB/Bootcamp yang belum melakukan klaim sertifikat sebagai pengingat (Reminder).
+
 ## [VERSI 003] - 02 Juni 2026
 **Deskripsi Perubahan:**
 Pembaruan fitur "Luluskan Semua (Massal)" untuk mengelompokkan siswa berdasarkan Tanggal Pendaftaran dan menambahkan sistem antrean (Queue) pembuatan PDF dengan jeda pendinginan server (3 detik). 

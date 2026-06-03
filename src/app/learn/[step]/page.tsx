@@ -42,6 +42,7 @@ export default function StepPage() {
   const [claiming, setClaiming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [workshopData, setWorkshopData] = useState<WorkshopData | null>(null);
+  const [beasiswaConfig, setBeasiswaConfig] = useState<any>(null);
 
   // Claim modal
   const [claimModalOpen, setClaimModalOpen] = useState(false);
@@ -132,18 +133,21 @@ export default function StepPage() {
 
         setEnrollment(mainEn);
 
-        // ── Load workshop data jika channelSource = workshop ──
+        // ── Load workshop data / beasiswa config ──
         const enChannelSource = mainEn.channelSource || "";
         const enEventId = mainEn.eventId || "";
-        if (enChannelSource === "workshop" && enEventId) {
+        if ((enChannelSource === "workshop" || enChannelSource === "beasiswa") && enEventId) {
           // Fire and forget — don't block rendering
           fetch(`/api/events/public/${enEventId}`)
             .then(r => r.ok ? r.json() : null)
             .then(wsData => {
-              if (wsData?.workshopData) {
+              if (enChannelSource === "workshop" && wsData?.workshopData) {
                 setWorkshopData(wsData.workshopData);
                 localStorage.setItem("activeWorkshopData", JSON.stringify(wsData.workshopData));
                 localStorage.setItem("activeWorkshopEventId", enEventId);
+              }
+              if (enChannelSource === "beasiswa" && wsData?.beasiswaConfig) {
+                setBeasiswaConfig(wsData.beasiswaConfig);
               }
             })
             .catch(() => {});
@@ -355,13 +359,23 @@ export default function StepPage() {
   return (
     <>
       <div className="step-wrapper">
-        {/* Workshop Banner — tampil di atas LMSPlayer jika channelSource=workshop */}
         {workshopData && enrollment?.eventId && (
           <WorkshopBanner
             workshopData={workshopData}
             eventId={enrollment.eventId}
             enrollmentId={enrollment.id}
           />
+        )}
+        {beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp") && !enrollment?.certificateClaimed && (
+          <div style={{ background: "#f0fdf4", border: "1px solid #16a34a", borderRadius: 8, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ fontSize: 24 }}>💡</div>
+            <div style={{ flex: 1 }}>
+              <h4 style={{ margin: 0, color: "#166534", fontSize: 16 }}>Akses {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} Terkunci!</h4>
+              <p style={{ margin: "4px 0 0", color: "#15803d", fontSize: 14 }}>
+                Selesaikan modul Financial Literacy dan klaim sertifikat untuk mendapatkan akses ke Grup WA dan Kode Redeem {beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} kamu.
+              </p>
+            </div>
+          </div>
         )}
         <LMSPlayer
           youtubeId={activeStep.video?.youtubeId || ""}

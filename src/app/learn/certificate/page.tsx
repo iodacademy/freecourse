@@ -18,6 +18,8 @@ interface EnrollmentData {
   bonusCourseRedeemCode?: string;
   stepProgress?: Record<string, any>;
   currentStep?: number;
+  waGroupLink?: string;
+  beasiswaType?: string;
 }
 
 interface CourseStep {
@@ -412,7 +414,7 @@ export default function CertificatePage() {
                 </button>
 
                 {/* Tombol Beasiswa Bonus */}
-                {enrollment?.channelSource === "beasiswa" && !enrollment?.bonusCourseRedeemCode && (
+                {enrollment?.channelSource === "beasiswa" && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && !enrollment?.bonusCourseRedeemCode && (
                   <button
                     className="btn btn-secondary w-full"
                     onClick={() => router.push("/learn/bonus")}
@@ -421,7 +423,7 @@ export default function CertificatePage() {
                   </button>
                 )}
 
-                {enrollment?.channelSource === "beasiswa" && enrollment?.bonusCourseRedeemCode && (
+                {enrollment?.channelSource === "beasiswa" && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && enrollment?.bonusCourseRedeemCode && (
                   <div style={{
                     background: "var(--color-bg-accent)", border: "1px solid rgba(204,0,0,0.15)",
                     borderRadius: 8, padding: "12px 16px", fontSize: 14, textAlign: "left",
@@ -430,6 +432,34 @@ export default function CertificatePage() {
                     <code style={{ fontSize: 18, fontWeight: 800, color: "var(--color-primary)", letterSpacing: 1 }}>
                       {enrollment.bonusCourseRedeemCode}
                     </code>
+                  </div>
+                )}
+
+                {enrollment?.channelSource === "beasiswa" && (enrollment?.beasiswaType === "wpb" || enrollment?.beasiswaType === "bootcamp") && enrollment?.bonusCourseRedeemCode && (
+                  <div style={{
+                    background: "#f0fdf4", border: "1px solid #16a34a",
+                    borderRadius: 8, padding: "16px", fontSize: 14, textAlign: "left", display: "flex", flexDirection: "column", gap: 12
+                  }}>
+                    <h3 style={{ margin: 0, color: "#166534", fontSize: 16 }}>Akses {enrollment.beasiswaType === "wpb" ? "WPB" : "Bootcamp"} Kamu! 🎉</h3>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 4, color: "#166534" }}>Kode Redeem:</div>
+                      <code style={{ fontSize: 20, fontWeight: 800, color: "#15803d", letterSpacing: 1 }}>
+                        {enrollment.bonusCourseRedeemCode}
+                      </code>
+                    </div>
+                    {enrollment.waGroupLink && (
+                      <a 
+                        href={enrollment.waGroupLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-block", background: "#25D366", color: "#fff", 
+                          padding: "10px 16px", borderRadius: 8, fontWeight: 600, textAlign: "center", textDecoration: "none"
+                        }}
+                      >
+                        📱 Bergabung ke Grup WhatsApp
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
