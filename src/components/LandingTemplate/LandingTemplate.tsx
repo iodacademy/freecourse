@@ -123,14 +123,16 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
 
   // Redirect jika sudah login & profil lengkap
   useEffect(() => {
-    if (!loading && user && profile) {
+    // Untuk halaman beasiswa/workshop/kemitraan, biarkan user membaca landing page
+    // dan secara eksplisit menekan tombol agar tercatat jalur masuknya.
+    if (!loading && user && profile && type === "umum") {
       if (profile.role === "admin") {
         router.push("/admin");
       } else if (profile.profileCompleted) {
         router.push("/learn");
       }
     }
-  }, [loading, user, profile, router]);
+  }, [loading, user, profile, router, type]);
 
   let stages = STAGES[type];
   const isWpbOrBootcamp = type === "beasiswa" && beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp");
