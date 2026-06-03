@@ -32,6 +32,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       status: data.status,
       landingPageConfig: data.landingPageConfig ?? null,
       workshopData: data.workshopData ?? null,
+      beasiswaConfig: data.beasiswaConfig ?? null,
     });
   } catch (e) {
     return handleError(e);
