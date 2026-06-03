@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     };
 
     let docId: string;
+    const isWpbOrBootcamp = channelType === "b2c_ads" && data.beasiswaConfig && (data.beasiswaConfig.type === "wpb" || data.beasiswaConfig.type === "bootcamp");
 
     if (isWorkshop && body.name) {
       // Gunakan slug judul sebagai eventId dokumen
@@ -79,6 +80,16 @@ export async function POST(req: NextRequest) {
       const existing = await docRef.get();
       if (existing.exists) {
         return json({ error: `Event dengan slug "${slug}" sudah ada. Gunakan judul berbeda.` }, 409);
+      }
+      await docRef.set(data);
+      docId = slug;
+    } else if (isWpbOrBootcamp && data.beasiswaConfig.namaKelas) {
+      // Gunakan slug dari Nama Kelas untuk Bootcamp/WPB
+      const slug = toSlug(data.beasiswaConfig.namaKelas);
+      const docRef = db.collection("events").doc(slug);
+      const existing = await docRef.get();
+      if (existing.exists) {
+        return json({ error: `Event Beasiswa dengan slug "${slug}" sudah ada. Gunakan Nama Kelas berbeda.` }, 409);
       }
       await docRef.set(data);
       docId = slug;

@@ -763,7 +763,7 @@ export default function AdminEventsPage() {
                         <label className={styles.formLabel}>Jenis Beasiswa</label>
                         <select className={styles.formInput} value={beasiswaConfig.type} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, type: e.target.value as "vl" | "wpb" | "bootcamp" })}>
                           <option value="vl">Video Learning (Default)</option>
-                          <option value="wpb">WPB (Workshop Program Basis)</option>
+                          <option value="wpb">WPB (Workshop Praktikal Berproject)</option>
                           <option value="bootcamp">Bootcamp</option>
                         </select>
                       </div>
@@ -776,11 +776,11 @@ export default function AdminEventsPage() {
                           </div>
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>Kode Basis <span className={styles.required}>*</span></label>
-                            <input className={styles.formInput} type="text" placeholder="Contoh: KLS123" value={beasiswaConfig.kodeBasis} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, kodeBasis: e.target.value })} />
+                            <input className={styles.formInput} type="text" placeholder="Contoh: BLG" value={beasiswaConfig.kodeBasis} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, kodeBasis: e.target.value })} />
                           </div>
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>Kode Kelas <span className={styles.required}>*</span></label>
-                            <input className={styles.formInput} type="text" placeholder="Contoh: JBR-01" value={beasiswaConfig.kodeKelas} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, kodeKelas: e.target.value })} />
+                            <input className={styles.formInput} type="text" placeholder="Contoh: BLG81" value={beasiswaConfig.kodeKelas} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, kodeKelas: e.target.value })} />
                           </div>
                           <div className={styles.formGroup}>
                             <label className={styles.formLabel}>Link Grup WhatsApp <span className={styles.required}>*</span></label>
