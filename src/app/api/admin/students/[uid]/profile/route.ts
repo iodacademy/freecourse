@@ -31,6 +31,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const profileData = doc.data()?.profileData || {};
     profileData.namaLengkap = newName.trim();
+    if (profileData.nama_lengkap !== undefined) {
+      profileData.nama_lengkap = newName.trim();
+    }
 
     await ref.update({
       displayName: newName.trim(),

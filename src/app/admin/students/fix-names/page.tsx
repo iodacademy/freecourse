@@ -27,8 +27,9 @@ export default function FixNamesPage() {
       const token = await getToken();
       if (!token) return;
       
-      const res = await fetch(`/api/admin/dashboard/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`/api/admin/dashboard/stats?_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (!res.ok) throw new Error("Gagal mengambil data siswa");
       

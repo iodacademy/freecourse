@@ -764,8 +764,9 @@ export default function AdminStudentsPage() {
       const token = await getToken();
       if (!token) return;
       
-      const res = await fetch(`/api/admin/dashboard/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`/api/admin/dashboard/stats?_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) {
         const data = await res.json();
