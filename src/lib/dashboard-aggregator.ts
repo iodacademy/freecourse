@@ -520,6 +520,7 @@ export async function aggregateDashboard(
       (disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas")
         ? getProfileString(profileData, "jenis_disabilitas") ||
           getProfileString(profileData, "jenisDisabilitas") ||
+          getProfileString(profileData, "kategori_disabilitas_yang_anda_miliki") ||
           getProfileString(profileData, "kategori_disabilitas") ||
           getProfileString(profileData, "kategoriDisabilitas") || "-"
         : "-";
