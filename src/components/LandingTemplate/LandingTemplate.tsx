@@ -140,8 +140,8 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
     stages = [...stages];
     stages[3] = {
       label: "Tahap 4",
-      title: `Ikuti ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} ${beasiswaConfig.namaKelas || ""} Tanpa Bayar Sepeserpun!`,
-      sub: `Dapatkan sertifikat Literasi Finansial sebagai syarat mendapat link grup ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} ${beasiswaConfig.namaKelas || ""}.`,
+      title: `Akses Grup ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"}`,
+      sub: `Dapatkan kode redeem eksklusif dan bergabunglah langsung ke Grup WhatsApp kelas ${beasiswaConfig.namaKelas || ""}.`,
     };
   }
 
@@ -149,7 +149,7 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
   const isRedesignHero = !isWorkshop; // umum, beasiswa, kemitraan → REDESIGN hero
 
   // ─── Default copy ───
-  const defaultTitle = isWorkshop
+  let defaultTitle = isWorkshop
     ? "Selamat! Kamu Terpilih untuk Workshop Gratis 🎓"
     : "Belajar Literasi Finansial,\nTanpa Bayar Sepeserpun";
 
@@ -159,6 +159,11 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
     kemitraan: "Ikuti program ini dan dapatkan akses ke modul <strong>Literasi Finansial</strong> secara <strong>Gratis</strong>. Terbatas untuk 100.000 kaum muda Indonesia!",
     umum: "Program literasi finansial <b>100% gratis</b> dari <b>Plan Indonesia × DBS Foundation</b> untuk <b>100.000 kaum muda</b> Indonesia usia 18 sampai 29 tahun. Dapat sertifikat resmi setelah lulus.",
   };
+
+  if (isWpbOrBootcamp) {
+    defaultTitle = `Ikuti ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"}\n${beasiswaConfig.namaKelas || ""} Tanpa Bayar Sepeserpun!`;
+    defaultSubtitle.beasiswa = `Dapatkan sertifikat Literasi Finansial sebagai syarat mendapat link grup ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"} ${beasiswaConfig.namaKelas || ""}.`;
+  }
 
   // ─── Handler functions (unchanged from current) ───
   const handleLanjut = async () => {
