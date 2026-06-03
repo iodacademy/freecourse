@@ -37,7 +37,35 @@ export async function GET(req: NextRequest) {
     }
 
     const snap = await query.get();
-    return json(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const enrollments = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Self-healing: Attach waGroupLink dynamically if missing for beasiswa
+    if (!isAdmin) {
+      for (const e of enrollments as any[]) {
+        if (e.channelSource === "beasiswa" && e.eventId && !e.waGroupLink) {
+          try {
+            const eventDoc = await db.collection("events").doc(e.eventId).get();
+            if (eventDoc.exists) {
+              const bc = eventDoc.data()?.beasiswaConfig;
+              if (bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
+                e.beasiswaType = bc.type;
+                e.waGroupLink = bc.waGroupLink || "";
+                
+                // Async update to save it permanently
+                db.collection("enrollments").doc(e.id).update({
+                  beasiswaType: bc.type,
+                  waGroupLink: bc.waGroupLink || "",
+                }).catch(err => console.error("Self-healing waGroupLink failed:", err));
+              }
+            }
+          } catch (err) {
+            console.error("Failed to fetch event for waGroupLink:", err);
+          }
+        }
+      }
+    }
+
+    return json(enrollments);
   } catch (e) {
     return handleError(e);
   }

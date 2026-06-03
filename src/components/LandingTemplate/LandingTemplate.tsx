@@ -137,16 +137,6 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
   let stages = STAGES[type];
   const isWpbOrBootcamp = type === "beasiswa" && beasiswaConfig && (beasiswaConfig.type === "wpb" || beasiswaConfig.type === "bootcamp");
 
-  // Jika Bootcamp/WPB, modifikasi Tahap 4
-  if (isWpbOrBootcamp) {
-    stages = [...stages];
-    stages[3] = {
-      label: "Tahap 4",
-      title: `Akses Grup ${beasiswaConfig.type === "wpb" ? "WPB" : "Bootcamp"}`,
-      sub: `Dapatkan kode redeem eksklusif dan bergabunglah langsung ke Grup WhatsApp kelas ${beasiswaConfig.namaKelas || ""}.`,
-    };
-  }
-
   const isWorkshop = type === "workshop";
   const isRedesignHero = !isWorkshop; // umum, beasiswa, kemitraan → REDESIGN hero
 
