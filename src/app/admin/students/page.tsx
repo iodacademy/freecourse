@@ -654,8 +654,8 @@ export default function AdminStudentsPage() {
   const [bulkError, setBulkError] = useState("");
 
   const openBulkModal = () => {
-    // Cari semua siswa yang belum lulus
-    const pendingStudents = students.filter(s => s.status !== "Tersertifikasi" && s.status !== "Selesai");
+    // Cari semua siswa yang belum lulus (belum punya sertifikat)
+    const pendingStudents = students.filter(s => s.status !== "Tersertifikasi");
     
     // Group by tanggalDaftar
     const grouped: Record<string, any[]> = {};
@@ -1141,11 +1141,27 @@ export default function AdminStudentsPage() {
                     {dateGroups.map(g => (
                       <div 
                         key={g.date} 
-                        style={{ padding: "8px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}
-                        onClick={() => toggleDate(g.date)}
+                        style={{ padding: "8px 16px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "flex-start", gap: 8, fontSize: 14 }}
                       >
-                        <input type="checkbox" checked={selectedDates.includes(g.date)} readOnly />
-                        <span>Tanggal <strong>{g.date}</strong> &mdash; {g.students.length} orang belum lulus</span>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedDates.includes(g.date)} 
+                          onChange={() => toggleDate(g.date)} 
+                          style={{ marginTop: 4, cursor: "pointer" }}
+                        />
+                        <details style={{ flex: 1 }}>
+                          <summary style={{ cursor: "pointer", outline: "none", fontWeight: 500 }}>
+                            Tanggal <strong>{g.date}</strong> &mdash; {g.students.length} orang belum punya sertifikat
+                          </summary>
+                          <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: "2px solid #e2e8f0", fontSize: 12, color: "#475569", maxHeight: 120, overflowY: "auto" }}>
+                            {g.students.map((s: any) => (
+                              <div key={s.uid} style={{ marginBottom: 4 }}>
+                                &bull; <strong>{s.namaLengkap || "Tanpa Nama"}</strong> 
+                                <br/><span style={{ opacity: 0.8 }}>{s.email} - ({s.status})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
                       </div>
                     ))}
                   </div>
