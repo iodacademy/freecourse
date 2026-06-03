@@ -11,7 +11,7 @@ import {
   Trash2, X, User, Mail, MapPin, CalendarDays, Venus, Mars,
   CircleUserRound, Building2, Hash, Tag, Link2, CheckCircle2, XCircle,
   BarChart2, Eye, Download, BookOpen, Trophy, Clock, CheckSquare, Activity,
-  BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Pencil, Save
+  BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Pencil, Save, UserX
 } from "lucide-react";
 
 function getAge(ttlStr: string): string {
@@ -858,6 +858,13 @@ export default function AdminStudentsPage() {
             <p className={styles.subtitle}>Pantau pendaftaran dan progress belajar siswa.</p>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
+            <a 
+              href="/admin/students/fix-names"
+              target="_blank"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#475569", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
+            >
+              <UserX size={15} /> Auto Deteksi Nama Aneh
+            </a>
             <button
               onClick={openBulkModal}
               className="btn btn-secondary" 
