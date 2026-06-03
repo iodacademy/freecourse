@@ -78,6 +78,7 @@ function ProfileContent() {
   const userEmail = user?.email || "";
   const isEditMode = searchParams.get("edit") === "true";
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const redirectingRef = useRef(false);
 
   // Computed: pages
   const pages = activeForm ? buildPages(activeForm.sections) : [];
@@ -87,16 +88,25 @@ function ProfileContent() {
   // 1. Redirect if not logged in or already completed (unless editing)
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/login");
+      if (!redirectingRef.current) {
+        redirectingRef.current = true;
+        router.push("/login");
+      }
     }
     if (!authLoading && user && profile) {
       if (profile.role === "admin") {
-        router.push("/admin");
-      } else if (profile.profileCompleted && profile.channelSource && !isEditMode) {
-        router.push("/learn");
+        if (!redirectingRef.current) {
+          redirectingRef.current = true;
+          router.push("/admin");
+        }
+      } else if (profile.profileCompleted && profile.channelSource && !isEditMode && !saved) {
+        if (!redirectingRef.current) {
+          redirectingRef.current = true;
+          router.push("/learn");
+        }
       }
     }
-  }, [authLoading, user, profile, router, searchParams]);
+  }, [authLoading, user, profile, router, searchParams, isEditMode, saved]);
 
   // 2. Fetch Active Form
   useEffect(() => {
