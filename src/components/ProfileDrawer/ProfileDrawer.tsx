@@ -97,7 +97,7 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
     loadEnrollment();
   }, [open, user]);
 
-  const handleClaimWorkshopCert = useCallback(async () => {
+  const handleClaimWorkshopCert = useCallback(async (isReclaim = false) => {
     if (!user || !enrollment) return;
     setClaimingWorkshop(true);
     setWorkshopClaimError("");
@@ -112,6 +112,7 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
+        body: JSON.stringify({ reclaim: isReclaim }),
       });
 
       const data = await res.json();
@@ -262,17 +263,37 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
                         Sertifikat workshop sudah diklaim
                       </div>
                       {enrollment?.workshopCertificateDriveUrl && (
-                        <button
-                          style={{
-                            width: "100%", display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
-                            fontSize: 13, fontWeight: 600, cursor: "pointer",
-                            background: "var(--color-primary)", color: "white", border: "none",
-                            borderRadius: 8, padding: "9px 12px", transition: "opacity 0.2s",
-                          }}
-                          onClick={() => window.open(enrollment.workshopCertificateDriveUrl, "_blank")}
-                        >
-                          <Award size={14} /> Unduh Ulang Sertifikat
-                        </button>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            style={{
+                              flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                              fontSize: 13, fontWeight: 600, cursor: "pointer",
+                              background: "var(--color-primary)", color: "white", border: "none",
+                              borderRadius: 8, padding: "9px 12px", transition: "opacity 0.2s",
+                            }}
+                            onClick={() => window.open(enrollment.workshopCertificateDriveUrl, "_blank")}
+                          >
+                            <Award size={14} /> Unduh Ulang
+                          </button>
+                          
+                          <button
+                            style={{
+                              flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                              fontSize: 13, fontWeight: 600, cursor: claimingWorkshop ? "not-allowed" : "pointer",
+                              background: "#f8f9fa", color: "var(--color-primary)", border: "1px solid var(--color-primary)",
+                              borderRadius: 8, padding: "9px 12px", opacity: claimingWorkshop ? 0.7 : 1,
+                              transition: "opacity 0.2s",
+                            }}
+                            onClick={() => handleClaimWorkshopCert(true)}
+                            disabled={claimingWorkshop}
+                          >
+                            {claimingWorkshop ? (
+                              <><Loader2 size={14} className="animate-spin" />Memproses...</>
+                            ) : (
+                              <><Award size={14} /> Klaim Ulang</>
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   ) : !mainCertClaimed ? (
@@ -309,7 +330,7 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
                           borderRadius: 8, padding: "9px 12px", opacity: claimingWorkshop ? 0.7 : 1,
                           transition: "opacity 0.2s",
                         }}
-                        onClick={handleClaimWorkshopCert}
+                        onClick={() => handleClaimWorkshopCert(false)}
                         disabled={claimingWorkshop}
                       >
                         {claimingWorkshop ? (

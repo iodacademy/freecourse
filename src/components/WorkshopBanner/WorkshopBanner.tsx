@@ -48,6 +48,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
   const [claimError, setClaimError] = useState("");
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [claimedCertId, setClaimedCertId] = useState<string | null>(null);
+  const [alreadyClaimed, setAlreadyClaimed] = useState(false);
 
   // Tentukan mode: "upcoming" atau "claim"
   const isPassed = workshopData.date ? isEventPassed(workshopData.date) : false;
@@ -91,11 +92,12 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
     if (e.target === e.currentTarget) handleDismiss();
   };
 
-  const handleClaimWorkshopCert = useCallback(async () => {
+  const handleClaimWorkshopCert = useCallback(async (isReclaim = false) => {
     if (!user || !enrollmentId) return;
     setClaimModalOpen(true);
     setClaimStep(0);
     setClaimError("");
+    setAlreadyClaimed(false);
     setIsClaiming(true);
 
     const newWindow = window.open('about:blank', '_blank');
@@ -111,6 +113,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
+        body: JSON.stringify({ reclaim: isReclaim }),
       });
 
       const data = await res.json();
@@ -119,6 +122,14 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
         if (newWindow) newWindow.close();
         setClaimStep(-1);
         setClaimError(data.error || "Gagal mengklaim sertifikat. Coba lagi.");
+        return;
+      }
+
+      if (data.message === "Sertifikat workshop sudah diklaim sebelumnya") {
+        if (newWindow) newWindow.close();
+        setClaimStep(-1);
+        setClaimError("Sertifikat sudah diklaim sebelumnya.");
+        setAlreadyClaimed(true);
         return;
       }
 
@@ -288,7 +299,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
               ) : (
                 <button
                   className="wb-cta-primary"
-                  onClick={handleClaimWorkshopCert}
+                  onClick={() => handleClaimWorkshopCert(false)}
                   disabled={isClaiming || !enrollmentId}
                 >
                   <Award size={14} />Klaim Sertifikat Kehadiran
@@ -375,7 +386,18 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
                 </div>
                 <h3 className="ccm-title" style={{ color: 'var(--color-primary)' }}>Gagal</h3>
                 <p className="ccm-error-msg">{claimError}</p>
-                <button className="ccm-retry-btn" onClick={() => setClaimModalOpen(false)}>Tutup</button>
+                <div style={{ display: "flex", gap: 8, width: "100%", marginTop: 16 }}>
+                  {alreadyClaimed ? (
+                    <>
+                      <button className="ccm-retry-btn" style={{ flex: 1, background: "var(--color-primary)", color: "white", border: "none" }} onClick={() => handleClaimWorkshopCert(true)}>
+                        Klaim Ulang
+                      </button>
+                      <button className="ccm-retry-btn" style={{ flex: 1 }} onClick={() => setClaimModalOpen(false)}>Tutup</button>
+                    </>
+                  ) : (
+                    <button className="ccm-retry-btn" style={{ width: "100%" }} onClick={() => setClaimModalOpen(false)}>Tutup</button>
+                  )}
+                </div>
               </>
             )}
           </div>

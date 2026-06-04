@@ -41,6 +41,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const decoded = await requireAuth(req);
     const { id } = await params;
 
+    let reqBody: any = {};
+    try { reqBody = await req.json(); } catch(e) {}
+    const isReclaim = reqBody.reclaim === true;
+
     const db = getAdminDb();
     const enrollRef = db.collection("enrollments").doc(id);
     const enrollDoc = await enrollRef.get();
@@ -62,8 +66,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       return json({ error: "Kamu harus mengklaim sertifikat kursus utama terlebih dahulu" }, 400);
     }
 
-    // Validasi: belum pernah diklaim
-    if (enrollData.workshopCertificateClaimed) {
+    // Validasi: belum pernah diklaim (kecuali jika klaim ulang)
+    if (enrollData.workshopCertificateClaimed && !isReclaim) {
       return json({
         message: "Sertifikat workshop sudah diklaim sebelumnya",
         certId: enrollData.workshopCertificateId,
@@ -102,29 +106,67 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       || decoded.name
       || "Peserta";
 
-    // Generate ID sertifikat workshop
-    const year = new Date().getFullYear();
-    const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
-    const wsCertId = `WS-CERT-${year}-${randomHex}`;
+    // Generate ID sertifikat workshop (gunakan yang lama jika reclaim)
+    let wsCertId: string;
+    if (isReclaim && enrollData.workshopCertificateId) {
+      wsCertId = enrollData.workshopCertificateId;
+    } else {
+      const year = new Date().getFullYear();
+      const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
+      wsCertId = `WS-CERT-${year}-${randomHex}`;
+    }
 
+    // Jika reclaim, hapus file lama di Google Drive
+    if (isReclaim && enrollData.workshopCertificateFileId && gasWebAppUrl) {
+      try {
+        await fetch(gasWebAppUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delete_old_cert",
+            fileId: enrollData.workshopCertificateFileId,
+          }),
+        });
+      } catch (delErr) {
+        console.error("[claim-workshop-cert] Delete old file error:", delErr);
+      }
+    }
 
     // Update enrollment
-    await enrollRef.update({
-      workshopCertificateClaimed: true,
-      workshopCertificateClaimedAt: FieldValue.serverTimestamp(),
-      workshopCertificateId: wsCertId,
-      workshopCertificateName: userName,
-      workshopTitle: workshopData.title || "Workshop IODA Academy",
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    if (isReclaim) {
+      await enrollRef.update({
+        workshopCertificateName: userName,
+        workshopTitle: workshopData.title || "Workshop IODA Academy",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      await enrollRef.update({
+        workshopCertificateClaimed: true,
+        workshopCertificateClaimedAt: FieldValue.serverTimestamp(),
+        workshopCertificateId: wsCertId,
+        workshopCertificateName: userName,
+        workshopTitle: workshopData.title || "Workshop IODA Academy",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
 
     // 3. Panggil GAS untuk generate PDF sertifikat dan kirim email
     let downloadUrl: string | null = null;
+    let fileId: string | null = null;
     if (gasWebAppUrl) {
       try {
         const now = new Date();
         const bulanNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-        const claimDate = `${now.getDate()} ${bulanNames[now.getMonth()]} ${now.getFullYear()}`;
+        
+        let claimDate: string;
+        if (isReclaim && enrollData.workshopCertificateClaimedAt) {
+          const origDate = typeof enrollData.workshopCertificateClaimedAt === "object" && (enrollData.workshopCertificateClaimedAt as any)._seconds
+            ? new Date((enrollData.workshopCertificateClaimedAt as any)._seconds * 1000)
+            : new Date(enrollData.workshopCertificateClaimedAt as any);
+          claimDate = `${origDate.getDate()} ${bulanNames[origDate.getMonth()]} ${origDate.getFullYear()}`;
+        } else {
+          claimDate = `${now.getDate()} ${bulanNames[now.getMonth()]} ${now.getFullYear()}`;
+        }
 
         const gasPayload = {
           action: "generate_workshop_cert",
@@ -150,9 +192,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         if (gasRes.ok) {
           const gasData = await gasRes.json();
           downloadUrl = gasData.downloadUrl || gasData.pdfUrl || null;
+          fileId = gasData.fileId || null;
           
           if (downloadUrl) {
-            await enrollRef.update({ workshopCertificateDriveUrl: downloadUrl });
+            await enrollRef.update({ 
+              workshopCertificateDriveUrl: downloadUrl,
+              workshopCertificateFileId: fileId || ""
+            });
           }
         }
       } catch (gasErr) {
@@ -163,7 +209,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     return json({
       success: true,
-      message: "Sertifikat kehadiran workshop berhasil diklaim!",
+      message: isReclaim ? "Sertifikat workshop berhasil dibuat ulang!" : "Sertifikat kehadiran workshop berhasil diklaim!",
       certId: wsCertId,
       downloadUrl,
     });
