@@ -181,7 +181,7 @@ function generateWorkshopCert(data) {
 
   // 1. Copy template
   var templateFile = DriveApp.getFileById(templateId);
-  var fileName = userName + " - Sertifikat Workshop";
+  var fileName = "Workshop - " + userName + " - " + workshopTitle;
   var folder = DriveApp.getFolderById(CERT_FOLDER_ID);
   var copy = templateFile.makeCopy(fileName, folder);
   var slideId = copy.getId();
