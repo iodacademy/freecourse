@@ -677,7 +677,7 @@ export default function LMSPlayer({
       
       return (
         <button className="lms-btn-red" onClick={handleQuizCheck} disabled={!allQuizAnswered}>
-          {qzFailed ? "Cek Jawaban Lagi" : "Cek Jawaban"}
+          {qzFailed ? "Coba Lagi" : "Cek Jawaban"}
         </button>
       );
     }
