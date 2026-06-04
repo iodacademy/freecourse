@@ -37,6 +37,43 @@ function formatTanggal(date) {
   return date.getDate() + " " + MONTHS[date.getMonth()] + " " + date.getFullYear();
 }
 
+// Helper untuk menterjemahkan Hari & Bulan ke Bahasa Inggris
+function translateToEnglish(text) {
+  if (!text) return "";
+  var map = {
+    // Hari
+    "senin": "Monday",
+    "selasa": "Tuesday",
+    "rabu": "Wednesday",
+    "kamis": "Thursday",
+    "jum'at": "Friday",
+    "jumat": "Friday",
+    "sabtu": "Saturday",
+    "minggu": "Sunday",
+    
+    // Bulan
+    "januari": "January",
+    "februari": "February",
+    "maret": "March",
+    "april": "April",
+    "mei": "May",
+    "juni": "June",
+    "juli": "July",
+    "agustus": "August",
+    "september": "September",
+    "oktober": "October",
+    "november": "November",
+    "desember": "December"
+  };
+
+  var translated = text.toString();
+  for (var key in map) {
+    var regex = new RegExp("\\b" + key + "\\b", "gi");
+    translated = translated.replace(regex, map[key]);
+  }
+  return translated;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // WEB APP ENTRY POINT
 // ═══════════════════════════════════════════════════════════════
@@ -110,10 +147,11 @@ function sendEmail(data) {
 // ═══════════════════════════════════════════════════════════════
 
 function generateMainCert(data) {
-  var userName   = data.userName || "Peserta";
-  var certId     = data.certId || "CERT-XXXX";
-  var claimDate  = data.claimDate || formatTanggal(new Date());
-  var templateId = data.templateId || MAIN_TEMPLATE_ID;
+  var certId      = data.certId || "CERT-XXXX";
+  var userName    = data.userName || "Peserta";
+  var courseName  = data.courseName || "Kursus";
+  var claimDate   = translateToEnglish(data.claimDate || formatTanggal(new Date()));
+  var templateId  = data.templateId || MAIN_TEMPLATE_ID;
 
   // 1. Copy template
   var templateFile = DriveApp.getFileById(templateId);
@@ -170,10 +208,10 @@ function generateMainCert(data) {
 function generateWorkshopCert(data) {
   var userName       = data.userName || "Peserta";
   var certId         = data.certId || "WS-CERT-XXXX";
-  var claimDate      = data.claimDate || formatTanggal(new Date());
+  var claimDate      = translateToEnglish(data.claimDate || formatTanggal(new Date()));
   var workshopTitle  = data.workshopTitle || "Workshop IODA Academy";
-  var workshopDate   = data.workshopDate || "";
-  var workshopDay    = data.workshopDay || "";
+  var workshopDate   = translateToEnglish(data.workshopDate || "");
+  var workshopDay    = translateToEnglish(data.workshopDay || "");
   var workshopTime   = data.workshopTime || "";
   var speakerName    = data.speakerName || "";
   var speakerTitle   = data.speakerTitle || "";
