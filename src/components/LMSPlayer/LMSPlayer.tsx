@@ -12,6 +12,7 @@ export interface QuizQuestion {
   feedbackCorrect: string;
   feedbackWrong: string;
   explanation?: string;
+  points?: number; // bobot nilai per soal (opsional, default: bagi rata)
 }
 
 export interface SurveyQuestion {
@@ -195,14 +196,35 @@ export default function LMSPlayer({
   }, [screen, qIdx, revIdx, survSec]);
 
   const correctCount = shuffledQuestions.filter((q) => answers[q.id] === q.correctAnswer).length;
-  const score = shuffledQuestions.length > 0 ? Math.round((correctCount / shuffledQuestions.length) * 100) : 0;
+
+  // ── Hitung nilai berbobot ──
+  // Jika soal punya field `points`, gunakan. Jika tidak, bagi rata (100 / jumlah soal)
+  function calcWeightedScore(qs: typeof shuffledQuestions, ans: Record<string, string>): number {
+    if (qs.length === 0) return 0;
+    const totalPoints = qs.reduce((sum, q) => sum + (q.points ?? 0), 0);
+    const useWeighted = totalPoints > 0;
+    if (useWeighted) {
+      const earnedPoints = qs
+        .filter(q => ans[q.id] === q.correctAnswer)
+        .reduce((sum, q) => sum + (q.points ?? 0), 0);
+      return Math.round((earnedPoints / totalPoints) * 100);
+    } else {
+      // Fallback: bagi rata
+      const correct = qs.filter(q => ans[q.id] === q.correctAnswer).length;
+      return Math.round((correct / qs.length) * 100);
+    }
+  }
+
+  const score = shuffledQuestions.length > 0 ? calcWeightedScore(shuffledQuestions, answers) : 0;
   const passed = score >= kkm;
 
   // REDESIGN quiz results
   const qzCorrectCount = Object.values(quizResults).filter(r => r === "correct").length;
   const qzAllAnswered = shuffledQuestions.every(q => answers[q.id]);
-  const qzPassed = quizSubmitted && qzCorrectCount === shuffledQuestions.length;
-  const qzFailed = quizSubmitted && qzCorrectCount < shuffledQuestions.length;
+  // qzScore: nilai berbobot dari soal yang sudah dicek (quizResults)
+  const qzScore = quizSubmitted ? calcWeightedScore(shuffledQuestions, answers) : 0;
+  const qzPassed = quizSubmitted && qzScore >= kkm;
+  const qzFailed = quizSubmitted && qzScore < kkm;
 
   function nav(s: LMSScreen, q = qIdx, r = revIdx, sec = survSec) {
     onStateChange?.(s, q, r, sec);
@@ -225,8 +247,8 @@ export default function LMSPlayer({
     setQuizResults(newResults);
     setQuizSubmitted(true);
 
-    const newCorrect = Object.values(newResults).filter(r => r === "correct").length;
-    const newScore = shuffledQuestions.length > 0 ? Math.round((newCorrect / shuffledQuestions.length) * 100) : 0;
+    // Hitung nilai berbobot dari hasil terbaru
+    const newScore = calcWeightedScore(shuffledQuestions, answers);
     if (newScore >= kkm) {
       onPass?.(newScore);
     }
@@ -360,12 +382,9 @@ export default function LMSPlayer({
               </span>
               <div>
                 {qzPassed ? (
-                  <><b>Kamu benar {qzCorrectCount} dari {shuffledQuestions.length}.</b> Mantap. Siap lanjut ke materi berikutnya.</>
+                  <><b>Nilai kamu: {qzScore}.</b> Kamu benar {qzCorrectCount} dari {shuffledQuestions.length} soal. Mantap! 🎉</>
                 ) : (
-                  <>
-                    <b>Kamu benar {qzCorrectCount} dari {shuffledQuestions.length}.</b> Pilih jawaban baru di soal merah
-                    <span className="qb-arrow">↓</span> lalu klik <b>Cek Jawaban Lagi</b>.
-                  </>
+                  <><b>Nilai kamu: {qzScore}.</b> Kamu benar {qzCorrectCount} dari {shuffledQuestions.length} soal. Perbaiki jawaban yang salah (merah) lalu klik <b>Cek Jawaban Lagi</b>.</>
                 )}
               </div>
             </div>
@@ -639,10 +658,10 @@ export default function LMSPlayer({
   function renderFooter() {
     if (screen === "quiz") {
       if (qzPassed) {
-        // Already passed — show proceed button
+        // Sudah lulus — tampilkan tombol HIJAU
         return (
           <button
-            className="lms-btn-red"
+            className="lms-btn-green"
             onClick={hasSurvey ? showSurvey : (hasAdditionalMaterial ? saveProgressAndShowAdditional : proceedNext)}
           >
             {hasSurvey 
@@ -687,7 +706,7 @@ export default function LMSPlayer({
 
     if (screen === "survey") {
       return (
-        <button className="lms-btn-red" onClick={sendSurvey} disabled={!allRequiredSurveyAnswered}>
+        <button className="lms-btn-green" onClick={sendSurvey} disabled={!allRequiredSurveyAnswered}>
           {hasAdditionalMaterial
             ? "Kirim Jawaban"
             : isLastStep 

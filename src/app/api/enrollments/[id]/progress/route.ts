@@ -32,13 +32,29 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     // Update assessment
     if (assessmentResult) {
+      const prevResult = stepData.assessmentResult || {};
+      const newScore = assessmentResult.score ?? 0;
+      const kkm = assessmentResult.kkm ?? 60;
+      const isNewlyPassing = newScore >= kkm;
+      const alreadyPassed = prevResult.passed === true || prevResult.firstPassScore != null;
+
+      // Jika sudah pernah lulus, TOLAK update (kuis terkunci)
+      if (alreadyPassed) {
+        return json({ error: "Kuis sudah selesai dan terkunci." }, 403);
+      }
+
       stepData.assessmentResult = {
-        ...stepData.assessmentResult,
+        ...prevResult,
         ...assessmentResult,
         lastAttemptAt: FieldValue.serverTimestamp(),
+        // Kumulatif attempts
+        attempts: (prevResult.attempts || 0) + 1,
+        totalAttempts: (prevResult.totalAttempts || 0) + 1,
+        // firstPassScore: hanya disimpan sekali, saat pertama kali nilainya >= KKM
+        ...(isNewlyPassing && !prevResult.firstPassScore
+          ? { firstPassScore: newScore, passed: true }
+          : {}),
       };
-      if (!stepData.assessmentResult.attempts) stepData.assessmentResult.attempts = 1;
-      else stepData.assessmentResult.attempts += 1;
     }
 
     // Update survey

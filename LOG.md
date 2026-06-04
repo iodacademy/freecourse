@@ -1,5 +1,40 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 006] - 04 Juni 2026
+**Deskripsi Perubahan:**
+Mengubah sistem kuis dari model "harus benar semua" menjadi sistem penilaian berbasis nilai berbobot (Score-Based Quiz) dengan KKM 60. Peserta kini bisa memperbaiki jawaban yang salah langsung tanpa reset semua, dan tombol berubah jadi HIJAU saat lulus.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/lib/types.ts`**: Menambahkan field `points?: number` ke `AssessmentQuestion` (bobot nilai per soal), serta `firstPassScore` dan `totalAttempts` ke `StepProgress.assessmentResult` (untuk menyimpan nilai pertama kali lulus).
+2. **`src/app/globals.css`**: Menambahkan class CSS baru `.lms-btn-green` (tombol hijau untuk tombol Isi Survei & Kirim Jawaban setelah lulus kuis).
+3. **`src/components/LMSPlayer/LMSPlayer.tsx`**:
+   - Menambahkan field `points?: number` ke interface lokal `QuizQuestion`.
+   - Menambahkan fungsi `calcWeightedScore()` yang menghitung nilai berbobot berdasarkan poin per soal (jika tidak diset, otomatis bagi rata).
+   - Mengubah `qzPassed` dari "semua soal benar" menjadi "nilai ≥ KKM".
+   - Mengubah banner hasil kuis: sekarang menampilkan nilai angka + jumlah soal benar.
+   - Mengubah tombol footer dari `lms-btn-red` menjadi `lms-btn-green` saat kuis lulus.
+   - Mengubah tombol Survey dari merah menjadi hijau.
+4. **`src/app/api/enrollments/[id]/progress/route.ts`**: Logika baru penyimpanan nilai kuis — `firstPassScore` hanya disimpan satu kali (pertama kali nilainya ≥ KKM), kuis terkunci setelah lulus (menolak update dengan HTTP 403), dan `attempts` dihitung secara kumulatif.
+5. **`src/app/learn/[step]/page.tsx`**: Menyertakan nilai `kkm` saat mengirim `assessmentResult` ke API backend, agar backend bisa memvalidasi apakah peserta lulus atau tidak.
+6. **`src/lib/dashboard-aggregator.ts`**:
+   - Menambahkan field `statusKuis: "LULUS" | "TIDAK LULUS" | "-"` ke tipe `DashboardStudent`.
+   - Logika penentuan status: LULUS jika `firstPassScore` ada atau `passed === true`, TIDAK LULUS jika pernah mengerjakan tapi belum lulus, `-` jika belum pernah kuis.
+   - Menambahkan kolom "Status Kuis" di `SHEET_HEADERS` dan `studentToRow()` untuk export Excel.
+7. **`src/app/admin/students/page.tsx`**:
+   - Menambahkan kolom "Status Kuis" di tabel daftar siswa dengan badge berwarna hijau (✓ LULUS) atau merah (✕ TIDAK LULUS).
+   - Menambahkan baris "Status Kuis" di modal detail siswa.
+8. **`src/app/admin/courses/page.tsx`**:
+   - Menambahkan input **Poin** (angka) di setiap kotak soal kuis di halaman editor kursus admin.
+   - Menambahkan banner ringkasan poin: jika poin diisi → hijau "Total poin: XX, sistem berbobot"; jika belum → kuning "Poin belum diisi, sistem bagi rata otomatis".
+   - Default poin saat buat soal baru = 0 (bagi rata otomatis).
+
+**Cara Undo (jika ingin kembali ke versi sebelumnya):**
+- Kembalikan `qzPassed` di `LMSPlayer.tsx` ke: `quizSubmitted && qzCorrectCount === shuffledQuestions.length`
+- Hapus fungsi `calcWeightedScore()` dari `LMSPlayer.tsx`
+- Ganti semua `lms-btn-green` kembali ke `lms-btn-red` di `LMSPlayer.tsx`
+- Kembalikan logika `assessmentResult` di `progress/route.ts` ke versi sebelumnya
+- Hapus field `statusKuis` dari `DashboardStudent` dan `SHEET_HEADERS`
+
 ## [VERSI 005] - 03 Juni 2026
 **Deskripsi Perubahan:**
 Membedakan antarmuka *Landing Page* (Halaman Pendaftaran) secara dinamis agar khusus bagi kelas beasiswa berjenis WPB atau Bootcamp dapat menampilkan daftar Topik Pelatihan dan Jadwal yang relevan secara langsung dari pengaturan Admin. Menjadikan Nama Kelas sebagai *slug* URL.

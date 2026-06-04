@@ -142,7 +142,8 @@ export default function SingleCourseEditor() {
         correctAnswer: "A",
         feedbackCorrect: "Benar!",
         feedbackWrong: "Salah.",
-        hint: ""
+        hint: "",
+        points: 0     // default 0 = sistem bagi rata otomatis
       };
       return {
         ...step,
@@ -417,12 +418,45 @@ export default function SingleCourseEditor() {
                                   />
                                 </div>
                               </div>
+
+                              {/* Ringkasan poin */}
+                              {(() => {
+                                const totalPoin = activeStep.assessment.questions.reduce((sum, q) => sum + (q.points ?? 0), 0);
+                                const adaPoin = totalPoin > 0;
+                                return (
+                                  <div style={{
+                                    background: adaPoin ? '#f0fdf4' : '#fffbeb',
+                                    border: `1px solid ${adaPoin ? '#86efac' : '#fde68a'}`,
+                                    borderRadius: 8,
+                                    padding: '8px 12px',
+                                    fontSize: 12,
+                                    color: adaPoin ? '#16a34a' : '#92400e',
+                                    marginBottom: 12
+                                  }}>
+                                    {adaPoin
+                                      ? `✓ Total poin: ${totalPoin}. Sistem akan menghitung nilai berbobot.`
+                                      : `⚠ Poin belum diisi. Sistem otomatis akan membagi rata (setiap soal bernilai sama).`}
+                                  </div>
+                                );
+                              })()}
                               
                               {activeStep.assessment.questions.map((q, qIndex) => (
                                 <div key={q.id} className={styles.questionBox}>
                                   <div className={styles.questionHeader}>
                                     <h4>Pertanyaan {qIndex + 1}</h4>
-                                    <button className={styles.deleteIconBtn} onClick={() => removeAssessmentQuestion(qIndex)}><Trash2 size={14}/></button>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                      <label style={{ fontSize: '11px', color: '#555', whiteSpace: 'nowrap' }}>Poin soal ini:</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        className={styles.inputSmall}
+                                        style={{ width: 60 }}
+                                        value={q.points ?? 0}
+                                        onChange={e => updateAssessmentQuestion(qIndex, prev => ({ ...prev, points: Number(e.target.value) }))}
+                                        title="Poin untuk soal ini. Isi 0 untuk bagi rata otomatis."
+                                      />
+                                      <button className={styles.deleteIconBtn} onClick={() => removeAssessmentQuestion(qIndex)}><Trash2 size={14}/></button>
+                                    </div>
                                   </div>
                                   <textarea 
                                     className={styles.textarea}

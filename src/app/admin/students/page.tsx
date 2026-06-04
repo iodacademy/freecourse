@@ -345,6 +345,16 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
                 : <span style={{ color: "#f59e0b", fontWeight: 600 }}>{status}</span>
               }
             />
+            <InfoRow
+              icon={(student as any).statusKuis === "LULUS" ? CheckCircle2 : XCircle}
+              label="Status Kuis"
+              value={(student as any).statusKuis === "LULUS"
+                ? <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ LULUS</span>
+                : (student as any).statusKuis === "TIDAK LULUS"
+                  ? <span style={{ color: "#dc2626", fontWeight: 700 }}>✕ TIDAK LULUS</span>
+                  : <span style={{ color: "#94a3b8" }}>— Belum mengerjakan kuis</span>
+              }
+            />
             <InfoRow icon={CheckCircle2} label="Nilai Quiz" value={nilaiQuiz} />
             <InfoRow icon={CheckCircle2} label="Survei Awal" value={survei1} />
             <InfoRow icon={CheckCircle2} label="Survei Akhir" value={survei2} />
@@ -936,6 +946,7 @@ export default function AdminStudentsPage() {
                 <th>Disabilitas</th>
                 <th>Minat</th>
                 <th>Status</th>
+                <th>Status Kuis</th>
                 <th>Nilai Quiz</th>
                 <th>Survei 1</th>
                 <th>Survei 2</th>
@@ -964,6 +975,15 @@ export default function AdminStudentsPage() {
                     <span className={`${styles.statusBadge} ${s.status === 'Selesai' || s.status === 'Tersertifikasi' ? styles.complete : styles.incomplete}`}>
                       {s.status}
                     </span>
+                  </td>
+                  <td>
+                    {s.statusKuis === 'LULUS' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>✓ LULUS</span>
+                    ) : s.statusKuis === 'TIDAK LULUS' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>✕ TIDAK LULUS</span>
+                    ) : (
+                      <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
+                    )}
                   </td>
                   <td className={styles.textSm}>{s.nilaiQuiz}</td>
                   <td className={styles.textSm}>{s.nilaiSurvei1}</td>

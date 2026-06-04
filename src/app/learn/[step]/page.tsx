@@ -252,7 +252,9 @@ export default function StepPage() {
         },
         body: JSON.stringify({
           stepId: activeStep.id,
-          assessmentResult: results?.assessment,
+          assessmentResult: results?.assessment
+            ? { ...results.assessment, kkm }   // sertakan nilai KKM agar backend bisa validasi
+            : undefined,
           surveyResult: results?.survey,
           isCompleted: true,
           nextStepNumber: isLastStep ? stepNumber : stepNumber + 1

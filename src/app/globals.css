@@ -4041,6 +4041,25 @@ small {
 .lms-btn-red:hover { background: var(--color-primary-dark); }
 .lms-btn-red:disabled { background: #FCA5A5; cursor: not-allowed; }
 
+.lms-btn-green {
+  flex: 1;
+  padding: 11px 10px;
+  border-radius: 8px;
+  border: none;
+  background: #16A34A;
+  color: white;
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.lms-btn-green:hover { background: #15803D; }
+.lms-btn-green:disabled { background: #86EFAC; cursor: not-allowed; }
+
+
 /* ─── Animations ─── */
 @keyframes lms-slide-up {
   from { opacity: 0; transform: translateY(10px); }

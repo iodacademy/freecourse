@@ -56,6 +56,7 @@ export type DashboardStudent = {
   minat: string;
   // Bagian 2 — Completion
   status: "Belum Start" | "In Progress" | "Selesai" | "Tersertifikasi";
+  statusKuis: "LULUS" | "TIDAK LULUS" | "-"; // status kelulusan kuis
   nilaiQuiz: string;
   nilaiSurvei1: string;
   feedbackMateri: string;
@@ -539,12 +540,19 @@ export async function aggregateDashboard(
 
     const status = deriveStatus(enr, totalSteps);
 
-    // Nilai Quiz
+    // Nilai Quiz + statusKuis
     let quizScore: number | null = null;
+    let statusKuis: DashboardStudent["statusKuis"] = "-";
     if (quizStepId && enr?.stepProgress) {
       const sp: StepProgress | undefined = enr.stepProgress[quizStepId];
-      if (sp?.assessmentResult?.score != null) {
-        quizScore = sp.assessmentResult.score;
+      if (sp?.assessmentResult) {
+        // Ambil firstPassScore jika ada, fallback ke score
+        quizScore = sp.assessmentResult.firstPassScore ?? sp.assessmentResult.score ?? null;
+        if (sp.assessmentResult.passed === true || sp.assessmentResult.firstPassScore != null) {
+          statusKuis = "LULUS";
+        } else if (sp.assessmentResult.attempts > 0) {
+          statusKuis = "TIDAK LULUS";
+        }
       }
     }
 
@@ -582,6 +590,7 @@ export async function aggregateDashboard(
       jenisDisabilitas,
       minat,
       status,
+      statusKuis,
       nilaiQuiz: quizScore != null ? String(quizScore) : "-",
       nilaiSurvei1: rawSurvey1 != null ? String(rawSurvey1) : "-",
       feedbackMateri: rawFeedback != null ? String(rawFeedback) : "-",
@@ -842,6 +851,7 @@ export const SHEET_HEADERS = [
   "Minat",
   // Bagian 2
   "Status",
+  "Status Kuis",
   "Nilai Quiz",
   "Nilai Survei 1",
   "Feedback Materi",
@@ -866,6 +876,7 @@ export function studentToRow(s: DashboardStudent): (string | number)[] {
     s.jenisDisabilitas,
     s.minat,
     s.status,
+    s.statusKuis,
     s.nilaiQuiz,
     s.nilaiSurvei1,
     s.feedbackMateri,

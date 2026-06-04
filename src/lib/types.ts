@@ -94,6 +94,7 @@ export interface AssessmentQuestion {
   feedbackCorrect: string;
   feedbackWrong: string;
   hint: string;
+  points?: number; // bobot nilai per soal (default: dibagi rata)
 }
 
 export interface Assessment {
@@ -160,6 +161,8 @@ export interface StepProgress {
     attempts: number;
     lastAttemptAt: Date;
     answers: Record<string, string>;
+    firstPassScore?: number;   // nilai pertama kali lulus (>= KKM), tidak akan ditimpa
+    totalAttempts?: number;    // total seluruh percobaan (kumulatif)
   };
   surveyResult?: {
     submitted: boolean;
