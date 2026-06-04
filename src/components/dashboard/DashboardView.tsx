@@ -27,6 +27,8 @@ interface DashboardData {
     origin: Array<[string, number]>;
     topik: Array<[string, number]>;
     usia: Array<[string, number]>;
+    lulusKuis: number;
+    tidakLulusKuis: number;
     channelBreakdown: Record<string, { registered: number; completed: number }>;
     sourceList: Array<{ key: string; label: string; share: number }>;
   };
@@ -145,13 +147,20 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
       </div>
 
       {/* Row B — Metric */}
-      <div className={styles.row3}>
+      <div className={styles.row4} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <MetricCard
           label="Rerata Nilai Peserta"
           value={stats.rerata}
           suffix="/ 100"
           icon={<GraduationCap size={22} strokeWidth={1.75} />}
           foot="Rata-rata nilai akhir pelatihan"
+        />
+        <MetricCard
+          label="Lulus vs Gagal Kuis"
+          value={stats.lulusKuis}
+          suffix={` / ${stats.tidakLulusKuis}`}
+          icon={<GraduationCap size={22} strokeWidth={1.75} />}
+          foot="Total yang lulus vs tidak lulus kuis"
         />
         <RatingCard
           label="Kepuasan Peserta"

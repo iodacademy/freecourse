@@ -1,5 +1,12 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 007] - 04 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan metrik atau widget baru di halaman Dashboard untuk melacak jumlah siswa yang **LULUS** vs **GAGAL (Tidak Lulus)** kuis secara real-time.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/lib/dashboard-aggregator.ts`**: Menambahkan perhitungan agregasi `lulusKuis` dan `tidakLulusKuis` berdasarkan status kuis peserta. Menyisipkannya ke dalam tipe data `DashboardStats` yang dikembalikan oleh API.
+2. **`src/components/dashboard/DashboardView.tsx`**: Mengubah desain grid baris metrik (Row B) menjadi 4 kolom dan menyematkan satu `MetricCard` baru bertajuk "Lulus vs Gagal Kuis". Kartu ini menampilkan angka kelulusan berdampingan (contoh: 120 / 15).
 ## [VERSI 006] - 04 Juni 2026
 **Deskripsi Perubahan:**
 Mengubah sistem kuis dari model "harus benar semua" menjadi sistem penilaian berbasis nilai berbobot (Score-Based Quiz) dengan KKM 60. Peserta kini bisa memperbaiki jawaban yang salah langsung tanpa reset semua, dan tombol berubah jadi HIJAU saat lulus.

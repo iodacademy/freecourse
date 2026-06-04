@@ -89,6 +89,8 @@ export type DashboardStats = {
   origin: Array<[string, number]>; // [city, count] top N
   topik: Array<[string, number]>; // [topic name, count] top 5
   usia: Array<[string, number]>; // [bucket, count] 3 buckets
+  lulusKuis: number;
+  tidakLulusKuis: number;
   channelBreakdown: Record<string, { registered: number; completed: number }>;
   sourceList: Array<{ key: string; label: string; share: number }>;
 };
@@ -753,6 +755,9 @@ export async function aggregateDashboard(
     }
   }
 
+  const lulusKuis = filtered.filter((s) => s.statusKuis === "LULUS").length;
+  const tidakLulusKuis = filtered.filter((s) => s.statusKuis === "TIDAK LULUS").length;
+
   const stats: DashboardStats = {
     total,
     totalCompleted,
@@ -771,6 +776,8 @@ export async function aggregateDashboard(
     origin,
     topik,
     usia,
+    lulusKuis,
+    tidakLulusKuis,
     channelBreakdown,
     sourceList,
   };
