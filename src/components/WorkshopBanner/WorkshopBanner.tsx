@@ -100,7 +100,29 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
     setAlreadyClaimed(false);
     setIsClaiming(true);
 
-    const newWindow = window.open('about:blank', '_blank');
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>Memproses Sertifikat...</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f8f9fa; flex-direction: column; text-align: center; color: #333; }
+              .loader { border: 4px solid #e0e0e0; border-top: 4px solid #d32f2f; border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              h2 { margin: 0 0 10px 0; font-size: 20px; color: #212121; }
+              p { margin: 0; color: #666; font-size: 14px; max-width: 300px; line-height: 1.5; }
+            </style>
+          </head>
+          <body>
+            <div class="loader"></div>
+            <h2>Mohon Menunggu...</h2>
+            <p>Sertifikat Anda sedang diproses dan akan segera terbuka.</p>
+          </body>
+        </html>
+      `);
+    }
 
     try {
       await new Promise(r => setTimeout(r, 600));

@@ -170,16 +170,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
         const gasPayload = {
           action: "generate_workshop_cert",
-          templateId: workshopCertSlideTemplateId,
+          templateId: workshopData.certificateTemplateId || workshopCertSlideTemplateId,
           certId: wsCertId,
           userName,
-          claimDate,
           workshopTitle: workshopData.title || "Workshop IODA Academy",
-          workshopDate: formatDateID(workshopDate),
+          workshopDate: workshopData.date ? formatDateID(workshopData.date) : "",
           workshopDay: workshopData.dayLabel || "",
           workshopTime: workshopData.time || "",
           speakerName: workshopData.speakerName || "",
           speakerTitle: workshopData.speakerTitle || "",
+          claimDate: claimDate,
           email: decoded.email,
         };
 
