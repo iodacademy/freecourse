@@ -67,7 +67,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     // Validasi kelulusan quiz sebelum set completed = true
-    if (isCompleted) {
+    let shouldComplete = isCompleted;
+    if (shouldComplete) {
       const courseId = doc.data()?.courseId;
       if (courseId) {
         const stepDoc = await db.collection("courseSteps").doc(stepId).get();
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
             const kkm = stepDef.assessment.kkm;
             const currentScore = stepData.assessmentResult?.firstPassScore ?? stepData.assessmentResult?.score ?? 0;
             if (currentScore < kkm) {
-              isCompleted = false; // Tolak penyelesaian jika kuis belum lulus
+              shouldComplete = false; // Tolak penyelesaian jika kuis belum lulus
             }
           }
         }
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     // Status penyelesaian step
-    if (isCompleted) {
+    if (shouldComplete) {
       stepData.completed = true;
       stepData.completedAt = stepData.completedAt || FieldValue.serverTimestamp();
     }
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     // Cek apakah SEMUA step sudah selesai → update status ke "completed"
-    if (isCompleted) {
+    if (shouldComplete) {
       const allProgress = {
         ...doc.data()?.stepProgress,
         [stepId]: { ...stepData, completed: true },
