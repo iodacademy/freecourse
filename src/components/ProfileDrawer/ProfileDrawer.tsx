@@ -262,8 +262,8 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
                         <CheckCircle size={14} />
                         Sertifikat workshop sudah diklaim
                       </div>
-                      {enrollment?.workshopCertificateDriveUrl && (
-                        <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {enrollment?.workshopCertificateDriveUrl && (
                           <button
                             style={{
                               flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
@@ -275,26 +275,26 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
                           >
                             <Award size={14} /> Unduh Ulang
                           </button>
-                          
-                          <button
-                            style={{
-                              flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
-                              fontSize: 13, fontWeight: 600, cursor: claimingWorkshop ? "not-allowed" : "pointer",
-                              background: "#f8f9fa", color: "var(--color-primary)", border: "1px solid var(--color-primary)",
-                              borderRadius: 8, padding: "9px 12px", opacity: claimingWorkshop ? 0.7 : 1,
-                              transition: "opacity 0.2s",
-                            }}
-                            onClick={() => handleClaimWorkshopCert(true)}
-                            disabled={claimingWorkshop}
-                          >
-                            {claimingWorkshop ? (
-                              <><Loader2 size={14} className="animate-spin" />Memproses...</>
-                            ) : (
-                              <><Award size={14} /> Klaim Ulang</>
-                            )}
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        
+                        <button
+                          style={{
+                            flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                            fontSize: 13, fontWeight: 600, cursor: claimingWorkshop ? "not-allowed" : "pointer",
+                            background: "#f8f9fa", color: "var(--color-primary)", border: "1px solid var(--color-primary)",
+                            borderRadius: 8, padding: "9px 12px", opacity: claimingWorkshop ? 0.7 : 1,
+                            transition: "opacity 0.2s",
+                          }}
+                          onClick={() => handleClaimWorkshopCert(true)}
+                          disabled={claimingWorkshop}
+                        >
+                          {claimingWorkshop ? (
+                            <><Loader2 size={14} className="animate-spin" />Memproses...</>
+                          ) : (
+                            <><Award size={14} /> Klaim Ulang</>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ) : !mainCertClaimed ? (
                     // Sertifikat utama belum diklaim
