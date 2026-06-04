@@ -66,6 +66,24 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       };
     }
 
+    // Validasi kelulusan quiz sebelum set completed = true
+    if (isCompleted) {
+      const courseId = doc.data()?.courseId;
+      if (courseId) {
+        const stepDoc = await db.collection("courseSteps").doc(stepId).get();
+        if (stepDoc.exists) {
+          const stepDef = stepDoc.data() as any;
+          if (stepDef.hasAssessment && stepDef.assessment?.kkm) {
+            const kkm = stepDef.assessment.kkm;
+            const currentScore = stepData.assessmentResult?.firstPassScore ?? stepData.assessmentResult?.score ?? 0;
+            if (currentScore < kkm) {
+              isCompleted = false; // Tolak penyelesaian jika kuis belum lulus
+            }
+          }
+        }
+      }
+    }
+
     // Status penyelesaian step
     if (isCompleted) {
       stepData.completed = true;

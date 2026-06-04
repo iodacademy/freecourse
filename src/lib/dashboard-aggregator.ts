@@ -683,7 +683,7 @@ export async function aggregateDashboard(
 
   const quizScores = certifiedFiltered.map((s) => s._quizScore).filter((x): x is number => x != null);
   const rerata = quizScores.length
-    ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length)
+    ? Number((quizScores.reduce((a, b) => a + b, 0) / quizScores.length).toFixed(3))
     : 0;
 
   const s1Ratings = certifiedFiltered.map((s) => s._survey1Rating).filter((x): x is number => x != null);

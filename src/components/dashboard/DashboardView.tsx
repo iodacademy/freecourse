@@ -149,7 +149,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
       {/* Row B — Metric */}
       <div className={styles.row3}>
         <MetricCard
-          label="Rerata Nilai Peserta"
+          label="Rerata Nilai Peserta yang Lulus"
           value={stats.rerata}
           suffix="/ 100"
           icon={<GraduationCap size={22} strokeWidth={1.75} />}
