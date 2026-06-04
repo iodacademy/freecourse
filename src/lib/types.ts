@@ -144,6 +144,7 @@ export interface Enrollment {
   workshopCertificateClaimed: boolean;
   workshopCertificateClaimedAt: Date | null;
   workshopCertificateId: string | null;
+  workshopCertificateDriveUrl: string | null;
   bonusCourseTopicId: string | null;
   bonusCourseRedeemCode: string | null;
   waGroupLink?: string;

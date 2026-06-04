@@ -150,6 +150,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         if (gasRes.ok) {
           const gasData = await gasRes.json();
           downloadUrl = gasData.downloadUrl || gasData.pdfUrl || null;
+          
+          if (downloadUrl) {
+            await enrollRef.update({ workshopCertificateDriveUrl: downloadUrl });
+          }
         }
       } catch (gasErr) {
         console.error("[claim-workshop-cert] GAS error:", gasErr);

@@ -28,6 +28,7 @@ interface EnrollmentInfo {
   certificateId?: string;
   workshopCertificateClaimed?: boolean;
   workshopCertificateId?: string;
+  workshopCertificateDriveUrl?: string;
   currentStep?: number;
   totalSteps?: number;
   status?: "enrolled" | "in_progress" | "completed" | "certified";
@@ -101,6 +102,8 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
     setClaimingWorkshop(true);
     setWorkshopClaimError("");
 
+    const newWindow = window.open('about:blank', '_blank');
+
     try {
       const idToken = await user.getIdToken();
       const res = await fetch(`/api/enrollments/${enrollment.id}/claim-workshop-cert`, {
@@ -114,6 +117,7 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
       const data = await res.json();
 
       if (!res.ok) {
+        if (newWindow) newWindow.close();
         setWorkshopClaimError(data.error || "Gagal mengklaim sertifikat workshop.");
         return;
       }
@@ -123,10 +127,16 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
         ...prev,
         workshopCertificateClaimed: true,
         workshopCertificateId: data.certId,
+        workshopCertificateDriveUrl: data.downloadUrl,
       } : prev);
 
-      if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      if (data.downloadUrl && newWindow) {
+        newWindow.location.href = data.downloadUrl;
+      } else if (newWindow) {
+        newWindow.close();
+      }
     } catch {
+      if (newWindow) newWindow.close();
       setWorkshopClaimError("Terjadi kesalahan. Periksa koneksi internet dan coba lagi.");
     } finally {
       setClaimingWorkshop(false);
@@ -242,13 +252,28 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
                   <div className="pd-info-lbl" style={{ marginBottom: 6 }}>Sertifikat Kehadiran Workshop</div>
                   {(workshopClaimed || enrollment?.workshopCertificateClaimed) ? (
                     // Sudah diklaim
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      background: "#e8f5e9", border: "1px solid #a5d6a7",
-                      borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
-                    }}>
-                      <CheckCircle size={14} />
-                      Sertifikat workshop sudah diklaim
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: "#e8f5e9", border: "1px solid #a5d6a7",
+                        borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
+                      }}>
+                        <CheckCircle size={14} />
+                        Sertifikat workshop sudah diklaim
+                      </div>
+                      {enrollment?.workshopCertificateDriveUrl && (
+                        <button
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                            fontSize: 13, fontWeight: 600, cursor: "pointer",
+                            background: "var(--color-primary)", color: "white", border: "none",
+                            borderRadius: 8, padding: "9px 12px", transition: "opacity 0.2s",
+                          }}
+                          onClick={() => window.open(enrollment.workshopCertificateDriveUrl, "_blank")}
+                        >
+                          <Award size={14} /> Unduh Ulang Sertifikat
+                        </button>
+                      )}
                     </div>
                   ) : !mainCertClaimed ? (
                     // Sertifikat utama belum diklaim
