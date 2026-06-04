@@ -6,7 +6,7 @@ Menambahkan metrik atau widget baru di halaman Dashboard untuk melacak jumlah si
 
 **Ringkasan Kode yang Diubah:**
 1. **`src/lib/dashboard-aggregator.ts`**: Menambahkan perhitungan agregasi `lulusKuis` dan `tidakLulusKuis` berdasarkan status kuis peserta. Menyisipkannya ke dalam tipe data `DashboardStats` yang dikembalikan oleh API. Diperbaiki juga bug dimana peserta dengan nilai di atas KKM 60 terbaca "TIDAK LULUS" karena data lama tidak memiliki field `passed` dari database.
-2. **`src/components/dashboard/DashboardView.tsx`**: Mengubah desain grid baris metrik (Row B) menjadi 4 kolom dan menyematkan satu `MetricCard` baru bertajuk "Lulus vs Gagal Kuis". Kartu ini menampilkan angka kelulusan berdampingan (contoh: 120 / 15).
+2. **`src/components/dashboard/DashboardView.tsx` & `MetricCard.tsx`**: Menghapus kartu metrik kuis mandiri (yang membuat row jadi 4), lalu menggabungkannya ke dalam kotak `Rerata Nilai Peserta`. Angka kelulusan kini ditampilkan di dalam *highlight box* mungil bernada warna hijau/merah persis di bawah keterangan "Rata-rata nilai akhir pelatihan".
 ## [VERSI 006] - 04 Juni 2026
 **Deskripsi Perubahan:**
 Mengubah sistem kuis dari model "harus benar semua" menjadi sistem penilaian berbasis nilai berbobot (Score-Based Quiz) dengan KKM 60. Peserta kini bisa memperbaiki jawaban yang salah langsung tanpa reset semua, dan tombol berubah jadi HIJAU saat lulus.

@@ -11,9 +11,10 @@ interface Props {
   icon: ReactNode;
   foot?: string;
   iconVariant?: "red" | "ink";
+  children?: ReactNode;
 }
 
-export default function MetricCard({ label, value, suffix, icon, foot, iconVariant = "red" }: Props) {
+export default function MetricCard({ label, value, suffix, icon, foot, iconVariant = "red", children }: Props) {
   return (
     <div className={styles.metric}>
       <div className={styles.metricHead}>
@@ -27,6 +28,7 @@ export default function MetricCard({ label, value, suffix, icon, foot, iconVaria
         {suffix && <span className={styles.metricSuffix}>{suffix}</span>}
       </div>
       {foot && <p className={styles.metricFoot} dangerouslySetInnerHTML={{ __html: foot }} />}
+      {children}
     </div>
   );
 }
