@@ -50,13 +50,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         return json({ error: "Nilai quiz harus antara 0 dan 100" }, 400);
       }
 
-      // Ambil stepProgress existing agar tidak overwrite field lain
       const existingProgress = enrollData.stepProgress?.[quizStepId] || {};
       updates[`stepProgress.${quizStepId}`] = {
         ...existingProgress,
         assessmentResult: {
           ...(existingProgress.assessmentResult || {}),
           score,
+          firstPassScore: score,
           // Tandai bahwa ini diedit oleh admin
           editedByAdmin: true,
           editedAt: new Date().toISOString(),
