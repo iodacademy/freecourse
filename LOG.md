@@ -5,7 +5,7 @@
 Menambahkan metrik atau widget baru di halaman Dashboard untuk melacak jumlah siswa yang **LULUS** vs **GAGAL (Tidak Lulus)** kuis secara real-time.
 
 **Ringkasan Kode yang Diubah:**
-1. **`src/lib/dashboard-aggregator.ts`**: Menambahkan perhitungan agregasi `lulusKuis` dan `tidakLulusKuis` berdasarkan status kuis peserta. Menyisipkannya ke dalam tipe data `DashboardStats` yang dikembalikan oleh API.
+1. **`src/lib/dashboard-aggregator.ts`**: Menambahkan perhitungan agregasi `lulusKuis` dan `tidakLulusKuis` berdasarkan status kuis peserta. Menyisipkannya ke dalam tipe data `DashboardStats` yang dikembalikan oleh API. Diperbaiki juga bug dimana peserta dengan nilai di atas KKM 60 terbaca "TIDAK LULUS" karena data lama tidak memiliki field `passed` dari database.
 2. **`src/components/dashboard/DashboardView.tsx`**: Mengubah desain grid baris metrik (Row B) menjadi 4 kolom dan menyematkan satu `MetricCard` baru bertajuk "Lulus vs Gagal Kuis". Kartu ini menampilkan angka kelulusan berdampingan (contoh: 120 / 15).
 ## [VERSI 006] - 04 Juni 2026
 **Deskripsi Perubahan:**

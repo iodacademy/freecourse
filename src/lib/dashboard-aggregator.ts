@@ -550,7 +550,7 @@ export async function aggregateDashboard(
       if (sp?.assessmentResult) {
         // Ambil firstPassScore jika ada, fallback ke score
         quizScore = sp.assessmentResult.firstPassScore ?? sp.assessmentResult.score ?? null;
-        if (sp.assessmentResult.passed === true || sp.assessmentResult.firstPassScore != null) {
+        if (sp.assessmentResult.passed === true || sp.assessmentResult.firstPassScore != null || (quizScore != null && quizScore >= 60)) {
           statusKuis = "LULUS";
         } else if (sp.assessmentResult.attempts > 0) {
           statusKuis = "TIDAK LULUS";
