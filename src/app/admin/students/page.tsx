@@ -639,6 +639,12 @@ export default function AdminStudentsPage() {
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
 
+  // Filter tambahan
+  const [filterDetailChannel, setFilterDetailChannel] = useState("all");
+  const [filterKuisStatus, setFilterKuisStatus] = useState("all");
+  const [filterProgress, setFilterProgress] = useState("all");
+  const [sortUsia, setSortUsia] = useState("default");
+
   // State detail modal
   const [detailTarget, setDetailTarget] = useState<any | null>(null);
   // State progress modal
@@ -793,18 +799,57 @@ export default function AdminStudentsPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Filter lokal pada data yang sudah di-load (diurutkan terbaru ke terlama)
-  const filteredStudents = [...students].reverse().filter((s) => {
+  // Filter lokal pada data yang sudah di-load
+  let filteredStudents = [...students].filter((s) => {
+    // 1. Filter Channel Induk
     const matchChannel = filter === "all" || s.channelSource === filter || s.channel?.toLowerCase() === filter;
-    if (!activeSearch) return matchChannel;
+    
+    // 2. Filter Detail Channel
+    const matchDetail = filterDetailChannel === "all" || s.detailChannel === filterDetailChannel;
+    
+    // 3. Filter Status Kuis
+    const matchKuis = filterKuisStatus === "all" 
+      || s.statusKuis === filterKuisStatus 
+      || (filterKuisStatus === "Belum" && !s.statusKuis);
+      
+    // 4. Filter Status Progress
+    const matchProgress = filterProgress === "all" || s.status === filterProgress;
+
+    const matchAllFilters = matchChannel && matchDetail && matchKuis && matchProgress;
+
+    // Search
+    if (!activeSearch) return matchAllFilters;
     const q = activeSearch.toLowerCase();
-    return matchChannel && (
+    return matchAllFilters && (
       s.namaLengkap?.toLowerCase().includes(q) ||
       s.email?.toLowerCase().includes(q) ||
       (s.partnerCode || "").toLowerCase().includes(q) ||
       (s.detailChannel || "").toLowerCase().includes(q)
     );
   });
+
+  // Sorting
+  if (sortUsia === "Termuda") {
+    filteredStudents.sort((a, b) => (Number(a.umur) || 0) - (Number(b.umur) || 0));
+  } else if (sortUsia === "Tertua") {
+    filteredStudents.sort((a, b) => (Number(b.umur) || 0) - (Number(a.umur) || 0));
+  } else {
+    // Default urutkan dari terbaru ke terlama
+    filteredStudents.reverse();
+  }
+
+  // Menyiapkan opsi dropdown detail channel & hitungannya dari data yang SUDAH DIFILTER INDUK
+  // Agar opsi detail channel hanya muncul untuk data yang relevan dengan filter channel utama
+  const studentsForDropdowns = filter === "all" 
+    ? students 
+    : students.filter(s => s.channelSource === filter || s.channel?.toLowerCase() === filter);
+    
+  const detailChannelCounts = studentsForDropdowns.reduce((acc: Record<string, number>, s) => {
+    const dc = s.detailChannel;
+    if (dc) acc[dc] = (acc[dc] || 0) + 1;
+    return acc;
+  }, {});
+  const uniqueDetailChannels = Object.keys(detailChannelCounts).sort();
 
   // Enter di search box
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -819,9 +864,17 @@ export default function AdminStudentsPage() {
     setPage(1);
   };
 
+  const resetSubFilters = () => {
+    setFilterDetailChannel("all");
+    setFilterKuisStatus("all");
+    setFilterProgress("all");
+    setSortUsia("default");
+  };
+
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter);
     setSearchInput(""); setActiveSearch("");
+    resetSubFilters();
     setPage(1);
   };
 
@@ -928,6 +981,55 @@ export default function AdminStudentsPage() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Filter Tambahan Dropdowns */}
+        <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
+          <select 
+            value={filterDetailChannel} 
+            onChange={(e) => { setFilterDetailChannel(e.target.value); setPage(1); }}
+            style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13px", color: "#334155", background: "#fff", cursor: "pointer", minWidth: "200px" }}
+          >
+            <option value="all">Semua Detail Channel</option>
+            {uniqueDetailChannels.map(dc => (
+              <option key={dc} value={dc}>{dc} ({detailChannelCounts[dc]} peserta)</option>
+            ))}
+          </select>
+
+          <select 
+            value={filterKuisStatus} 
+            onChange={(e) => { setFilterKuisStatus(e.target.value); setPage(1); }}
+            style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13px", color: "#334155", background: "#fff", cursor: "pointer", minWidth: "160px" }}
+          >
+            <option value="all">Semua Status Kuis</option>
+            <option value="LULUS">LULUS</option>
+            <option value="TIDAK LULUS">TIDAK LULUS</option>
+            <option value="Belum">Belum Mengerjakan</option>
+          </select>
+
+          <select 
+            value={filterProgress} 
+            onChange={(e) => { setFilterProgress(e.target.value); setPage(1); }}
+            style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13px", color: "#334155", background: "#fff", cursor: "pointer", minWidth: "160px" }}
+          >
+            <option value="all">Semua Progress</option>
+            <option value="Tersertifikasi">Tersertifikasi</option>
+            <option value="Selesai">Selesai (Belum Klaim)</option>
+            <option value="Sedang Belajar">Sedang Belajar</option>
+            <option value="Belum Mulai">Belum Mulai</option>
+          </select>
+          
+          <div style={{ width: "1px", height: "24px", background: "#cbd5e1", margin: "0 4px" }} />
+
+          <select 
+            value={sortUsia} 
+            onChange={(e) => { setSortUsia(e.target.value); setPage(1); }}
+            style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13px", color: "#334155", background: "#f8fafc", cursor: "pointer", minWidth: "140px", fontWeight: 500 }}
+          >
+            <option value="default">Urutkan Usia</option>
+            <option value="Termuda">Termuda - Tertua</option>
+            <option value="Tertua">Tertua - Termuda</option>
+          </select>
         </div>
 
         <div className={styles.tableCard}>
@@ -1066,7 +1168,16 @@ export default function AdminStudentsPage() {
         onClose={() => setEditTarget(null)}
         getToken={getToken}
         onSaved={(updated) => {
-          setStudents(prev => prev.map(s => s.uid === updated.uid ? { ...s, nilaiQuiz: String(updated.newScore) } : s));
+          setStudents(prev => prev.map(s => {
+            if (s.uid === updated.uid) {
+              return { 
+                ...s, 
+                nilaiQuiz: String(updated.newScore),
+                statusKuis: updated.newScore >= 60 ? "LULUS" : "TIDAK LULUS"
+              };
+            }
+            return s;
+          }));
           setEditTarget(null);
         }}
       />
