@@ -222,7 +222,23 @@ export default function LMSPlayer({
   const qzCorrectCount = Object.values(quizResults).filter(r => r === "correct").length;
   const qzAllAnswered = shuffledQuestions.every(q => answers[q.id]);
   // qzScore: nilai berbobot dari soal yang sudah dicek (quizResults)
-  const qzScore = quizSubmitted ? calcWeightedScore(shuffledQuestions, answers) : 0;
+  const qzScore = useMemo(() => {
+    if (!quizSubmitted) return 0;
+    if (shuffledQuestions.length === 0) return 0;
+    
+    const totalPoints = shuffledQuestions.reduce((sum, q) => sum + (q.points ?? 0), 0);
+    const useWeighted = totalPoints > 0;
+    
+    if (useWeighted) {
+      const earnedPoints = shuffledQuestions
+        .filter(q => quizResults[q.id] === "correct")
+        .reduce((sum, q) => sum + (q.points ?? 0), 0);
+      return Math.round((earnedPoints / totalPoints) * 100);
+    } else {
+      const correct = shuffledQuestions.filter(q => quizResults[q.id] === "correct").length;
+      return Math.round((correct / shuffledQuestions.length) * 100);
+    }
+  }, [quizSubmitted, quizResults, shuffledQuestions]);
   const qzPassed = quizSubmitted && qzScore >= kkm;
   const qzFailed = quizSubmitted && qzScore < kkm;
 
