@@ -98,6 +98,8 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
     setClaimError("");
     setIsClaiming(true);
 
+    const newWindow = window.open('about:blank', '_blank');
+
     try {
       await new Promise(r => setTimeout(r, 600));
       setClaimStep(1);
@@ -114,6 +116,7 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
       const data = await res.json();
 
       if (!res.ok) {
+        if (newWindow) newWindow.close();
         setClaimStep(-1);
         setClaimError(data.error || "Gagal mengklaim sertifikat. Coba lagi.");
         return;
@@ -123,14 +126,17 @@ export default function WorkshopBanner({ workshopData, eventId, enrollmentId, fo
       setClaimSuccess(true);
       setClaimedCertId(data.certId);
 
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
+      if (data.downloadUrl && newWindow) {
+        newWindow.location.href = data.downloadUrl;
+      } else if (newWindow) {
+        newWindow.close();
       }
 
       // Auto close modal after success
       await new Promise(r => setTimeout(r, 1500));
       setClaimModalOpen(false);
     } catch {
+      if (newWindow) newWindow.close();
       setClaimStep(-1);
       setClaimError("Terjadi kesalahan. Periksa koneksi internet dan coba lagi.");
     } finally {
