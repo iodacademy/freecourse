@@ -755,8 +755,8 @@ export async function aggregateDashboard(
     }
   }
 
-  const lulusKuis = filtered.filter((s) => s.statusKuis === "LULUS").length;
-  const tidakLulusKuis = filtered.filter((s) => s.statusKuis === "TIDAK LULUS").length;
+  const lulusKuis = certifiedFiltered.filter((s) => s.statusKuis === "LULUS").length;
+  const tidakLulusKuis = certifiedFiltered.filter((s) => s.statusKuis === "TIDAK LULUS").length;
 
   const stats: DashboardStats = {
     total,
