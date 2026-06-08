@@ -436,6 +436,15 @@ export default function CertificatePage() {
                   ✏️ Ubah Nama di Sertifikat
                 </button>
 
+                {/* Tombol Review Materi */}
+                <button
+                  className="cert-edit-name-btn"
+                  style={{ marginTop: 10, background: "transparent", color: "var(--color-primary)", border: "1.5px solid var(--color-primary)" }}
+                  onClick={() => router.push("/learn/1")}
+                >
+                  📖 Review Materi
+                </button>
+
                 {/* Tombol Beasiswa Bonus */}
                 {enrollment?.channelSource === "beasiswa" && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && !enrollment?.bonusCourseRedeemCode && (
                   <button

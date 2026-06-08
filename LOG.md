@@ -1,5 +1,12 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 010] - 08 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan tombol navigasi "Review Materi" di halaman Sertifikat. Fitur ini memungkinkan peserta yang sudah lulus dan mengklaim sertifikat untuk sewaktu-waktu membaca kembali modul dan tahapan pembelajaran dari awal tanpa terkunci sistem.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/learn/certificate/page.tsx`**: Menyisipkan komponen tombol `Review Materi` tepat di bawah tombol 'Ubah Nama di Sertifikat'. Tombol ini memicu fungsi `router.push('/learn/1')`, yang akan mengembalikan peserta ke modul pertama. Karena progres belajar peserta sudah tersimpan secara lengkap (`completed`), sistem secara otomatis memberi mereka akses penuh (*unlocked*) untuk membolak-balik keseluruhan materi kursus menggunakan menu *drawer*.
+
 ## [VERSI 009] - 08 Juni 2026
 **Deskripsi Perubahan:**
 Mengimplementasikan validasi umur peserta di formulir profil untuk memastikan yang bisa mendaftar hanya yang berusia antara 18 hingga 29 tahun. Selain itu, mengubah logika Ekspor Excel di Dashboard agar data yang diunduh bersih (hanya memuat peserta wilayah Jabodetabek dan usia maksimal 29 tahun).
