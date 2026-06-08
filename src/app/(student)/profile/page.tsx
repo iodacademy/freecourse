@@ -275,8 +275,23 @@ function ProfileContent() {
           } else {
             if (!val || String(val).trim() === "") {
               errs[field.name] = `${field.label} wajib diisi`;
-            } else if (field.type === 'date' && typeof val === 'string' && val.startsWith('__display:')) {
-              errs[field.name] = `Format ${field.label} belum lengkap (DD/MM/YYYY)`;
+            } else if (field.type === 'date') {
+              if (typeof val === 'string' && val.startsWith('__display:')) {
+                errs[field.name] = `Format ${field.label} belum lengkap (DD/MM/YYYY)`;
+              } else if (field.name === 'tanggal_lahir' || field.label.toLowerCase().includes('lahir')) {
+                const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (m) {
+                   const birth = new Date(`${m[1]}-${m[2]}-${m[3]}`);
+                   const now = new Date();
+                   let age = now.getFullYear() - birth.getFullYear();
+                   const md = now.getMonth() - birth.getMonth();
+                   if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
+                   
+                   if (age < 18 || age > 29) {
+                     errs[field.name] = `Usia yang diperbolehkan adalah 18-29 tahun (Usia saat ini: ${age} tahun)`;
+                   }
+                }
+              }
             }
           }
         }

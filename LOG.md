@@ -1,5 +1,14 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 009] - 08 Juni 2026
+**Deskripsi Perubahan:**
+Mengimplementasikan validasi umur peserta di formulir profil untuk memastikan yang bisa mendaftar hanya yang berusia antara 18 hingga 29 tahun. Selain itu, mengubah logika Ekspor Excel di Dashboard agar data yang diunduh bersih (hanya memuat peserta wilayah Jabodetabek dan usia maksimal 29 tahun).
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/lib/dashboard-aggregator.ts`**: Menambahkan flag opsional `cleanExport` yang bertugas menyaring (*filter*) deretan (*array*) peserta. Logika filter akan mengeliminasi peserta berstatus umur `>29` dan mengecek apakah kota peserta mengandung kata "jakarta", "bogor", "depok", "tangerang", atau "bekasi".
+2. **`src/app/api/admin/dashboard/export-excel/route.ts` & `src/app/api/public/dashboard/export-excel/route.ts`**: Menyelipkan opsi `{ cleanExport: true }` ke fungsi `aggregateDashboard` yang dipanggil khusus saat _endpoint_ ini bekerja (tombol Unduh).
+3. **`src/app/(student)/profile/page.tsx`**: Melengkapi aturan validasi di formulir yang mengecek input field `tanggal_lahir`. Algoritma kalkulasi umur akan dijalankan dari tanggal (*date*) yang diisi; jika jatuh di bawah 18 atau melampaui 29 tahun (termasuk tanggal di masa depan/tahun sangat jauh), notifikasi validasi merah akan mengunci tombol kelanjutan form.
+
 ## [VERSI 008] - 08 Juni 2026
 **Deskripsi Perubahan:**
 Menambahkan fitur Klaim Ulang Sertifikat Utama di Laci Profil (Profile Drawer). Tombol ini akan menghasilkan kembali file PDF sertifikat utama di Google Drive apabila file yang lama terhapus, dengan mempertahankan nomor seri sertifikat dan tanggal aslinya.

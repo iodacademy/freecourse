@@ -284,7 +284,7 @@ function parseRating(val: unknown): number | null {
 
 export async function aggregateDashboard(
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean; exportOnlyCertified?: boolean } = {}
+  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean } = {}
 ): Promise<DashboardResult> {
   const db = getAdminDb();
 
@@ -784,7 +784,20 @@ export async function aggregateDashboard(
 
   // Strip internal fields kalau includeStudents
   // Export HANYA peserta yang sudah tersertifikasi JIKA flag exportOnlyCertified diset true
-  const sourceArray = options.exportOnlyCertified ? certifiedFiltered : filtered;
+  let sourceArray = options.exportOnlyCertified ? certifiedFiltered : filtered;
+
+  if (options.cleanExport) {
+    const jabodetabek = ["jakarta", "bogor", "depok", "tangerang", "bekasi"];
+    sourceArray = sourceArray.filter((s) => {
+      // Exclude age > 29
+      if (s._ageBucket === ">29") return false;
+      
+      // Keep only Jabodetabek
+      const kota = (s._kota || "").toLowerCase();
+      const isJabodetabek = jabodetabek.some((k) => kota.includes(k));
+      return isJabodetabek;
+    });
+  }
   
   // Sort sourceArray by _createdAt (oldest to newest)
   sourceArray.sort((a, b) => {

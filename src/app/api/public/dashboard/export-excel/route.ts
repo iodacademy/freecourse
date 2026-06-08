@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     // Terapkan filter dan generate data (termasuk students list karena disetel ke true)
     const filter = parseFilterFromSearchParams(req.nextUrl.searchParams);
-    const { students, generatedAt } = await aggregateDashboard(filter, { includeStudents: true, exportOnlyCertified: true });
+    const { students, generatedAt } = await aggregateDashboard(filter, { includeStudents: true, exportOnlyCertified: true, cleanExport: true });
 
     // Menyusun baris excel
     const rows = students.map(studentToRow);
