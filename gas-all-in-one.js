@@ -345,65 +345,32 @@ function setupTriggerHarian() {
 
 
 // ═══════════════════════════════════════════════════════════════
-// 6. AUTO-CLEANUP: Hapus PDF sertifikat > 5 hari
+// 6. AUTO-CLEANUP: Hapus PDF sertifikat > 5 hari (DINONAKTIFKAN PERMANEN)
 // ═══════════════════════════════════════════════════════════════
 
-var CERT_EXPIRY_DAYS = 5;
-
-/**
- * [FITUR INI DINONAKTIFKAN]
- * Awalnya fungsi ini akan menghapus PDF sertifikat yang lebih dari 5 hari.
- * Sekarang dinonaktifkan agar sertifikat disimpan secara permanen.
- */
 function cleanupExpiredCerts() {
-  Logger.log("[CLEANUP] Fungsi pembersihan sertifikat telah dinonaktifkan. Semua file disimpan permanen.");
+  Logger.log("[CLEANUP] Fungsi pembersihan sudah dimatikan total. Tidak akan ada lagi file yang dihapus.");
   return;
-  
-  try {
-    var folder = DriveApp.getFolderById(CERT_FOLDER_ID);
-    var files = folder.getFiles();
-    var now = new Date();
-    var cutoff = new Date(now.getTime() - (CERT_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
-    var deleted = 0;
-
-    while (files.hasNext()) {
-      var file = files.next();
-      var created = file.getDateCreated();
-
-      if (created < cutoff) {
-        Logger.log("[CLEANUP] (Dinonaktifkan) Seharusnya menghapus: " + file.getName());
-        // file.setTrashed(true); // BARIS INI DIMATIKAN
-        deleted++;
-      }
-    }
-
-    Logger.log("[CLEANUP] Selesai pengecekan. " + deleted + " file terdeteksi kedaluwarsa tapi TIDAK dihapus.");
-  } catch (e) {
-    Logger.log("[CLEANUP ERROR] " + e.toString());
-  }
 }
 
 /**
- * Jalankan SEKALI untuk memasang trigger harian cleanup (jam 2 pagi WIB).
- * Setelah dipasang, jangan jalankan lagi.
+ * Jalankan fungsi di bawah ini (Pilih removeCleanupTrigger lalu klik Run di atas) 
+ * HANYA SEKALI untuk benar-benar menghapus trigger penghapusan otomatis dari Google Apps Script.
  */
-function setupCleanupTrigger() {
-  // Hapus trigger lama
+function removeCleanupTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
+  var deleted = 0;
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === "cleanupExpiredCerts") {
       ScriptApp.deleteTrigger(triggers[i]);
+      deleted++;
     }
   }
-
-  // Pasang trigger baru: setiap hari jam 2 pagi
-  ScriptApp.newTrigger("cleanupExpiredCerts")
-    .timeBased()
-    .everyDays(1)
-    .atHour(2)
-    .create();
-
-  Logger.log("Trigger cleanup harian jam 2 pagi berhasil dipasang!");
+  if (deleted > 0) {
+    Logger.log("BERHASIL: " + deleted + " Trigger cleanupExpiredCerts berhasil dihapus secara permanen!");
+  } else {
+    Logger.log("AMAN: Tidak ada trigger cleanupExpiredCerts yang aktif.");
+  }
 }
 
 

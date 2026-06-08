@@ -26,6 +26,7 @@ interface EnrollmentInfo {
   channelSource?: string;
   certificateClaimed: boolean;
   certificateId?: string;
+  certificateDriveUrl?: string;
   workshopCertificateClaimed?: boolean;
   workshopCertificateId?: string;
   workshopCertificateDriveUrl?: string;
@@ -45,6 +46,8 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
 
   const [enrollment, setEnrollment] = useState<EnrollmentInfo | null>(null);
   const [totalSteps, setTotalSteps] = useState(0);
+  const [claimingMain, setClaimingMain] = useState(false);
+  const [mainClaimError, setMainClaimError] = useState("");
   const [claimingWorkshop, setClaimingWorkshop] = useState(false);
   const [workshopClaimError, setWorkshopClaimError] = useState("");
   const [workshopClaimed, setWorkshopClaimed] = useState(false);
@@ -96,6 +99,72 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
 
     loadEnrollment();
   }, [open, user]);
+
+  const handleClaimMainCert = useCallback(async () => {
+    if (!user || !enrollment) return;
+    setClaimingMain(true);
+    setMainClaimError("");
+
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>Memproses Sertifikat...</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f8f9fa; flex-direction: column; text-align: center; color: #333; }
+              .loader { border: 4px solid #e0e0e0; border-top: 4px solid #d32f2f; border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+              h2 { margin: 0 0 10px 0; font-size: 20px; color: #212121; }
+              p { margin: 0; color: #666; font-size: 14px; max-width: 300px; line-height: 1.5; }
+            </style>
+          </head>
+          <body>
+            <div class="loader"></div>
+            <h2>Mohon Menunggu...</h2>
+            <p>Sertifikat Anda sedang diproses dan akan segera terbuka.</p>
+          </body>
+        </html>
+      `);
+    }
+
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/enrollments/${enrollment.id}/claim-cert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ reclaim: true }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (newWindow) newWindow.close();
+        setMainClaimError(data.error || "Gagal mengklaim ulang sertifikat.");
+        return;
+      }
+
+      setEnrollment((prev) => prev ? {
+        ...prev,
+        certificateDriveUrl: data.driveUrl,
+      } : prev);
+
+      if (data.driveUrl && newWindow) {
+        newWindow.location.href = data.driveUrl;
+      } else if (newWindow) {
+        newWindow.close();
+      }
+    } catch {
+      if (newWindow) newWindow.close();
+      setMainClaimError("Terjadi kesalahan. Periksa koneksi internet dan coba lagi.");
+    } finally {
+      setClaimingMain(false);
+    }
+  }, [user, enrollment]);
 
   const handleClaimWorkshopCert = useCallback(async (isReclaim = false) => {
     if (!user || !enrollment) return;
@@ -234,13 +303,56 @@ export default function ProfileDrawer({ open, onClose }: ProfileDrawerProps) {
                 <div className="pd-info-lbl" style={{ marginBottom: 6 }}>Sertifikat Financial Literacy</div>
                 {mainCertClaimed && mainCertId ? (
                   // Sudah diklaim
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    background: "#e8f5e9", border: "1px solid #a5d6a7",
-                    borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
-                  }}>
-                    <CheckCircle size={14} />
-                    Sertifikat sudah diklaim · {mainCertId}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: "#e8f5e9", border: "1px solid #a5d6a7",
+                      borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#2e7d32", fontWeight: 600,
+                    }}>
+                      <CheckCircle size={14} />
+                      Sertifikat sudah diklaim · {mainCertId}
+                    </div>
+                    {mainClaimError && (
+                      <div style={{
+                        fontSize: 11, color: "#c62828", background: "#ffebee",
+                        border: "1px solid #ef9a9a", borderRadius: 6, padding: "6px 10px",
+                      }}>
+                        {mainClaimError}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {enrollment?.certificateDriveUrl && (
+                        <button
+                          style={{
+                            flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                            fontSize: 13, fontWeight: 600, cursor: "pointer",
+                            background: "var(--color-primary)", color: "white", border: "none",
+                            borderRadius: 8, padding: "9px 12px", transition: "opacity 0.2s",
+                          }}
+                          onClick={() => window.open(enrollment.certificateDriveUrl, "_blank")}
+                        >
+                          <Award size={14} /> Unduh Ulang
+                        </button>
+                      )}
+                      
+                      <button
+                        style={{
+                          flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+                          fontSize: 13, fontWeight: 600, cursor: claimingMain ? "not-allowed" : "pointer",
+                          background: "#f8f9fa", color: "var(--color-primary)", border: "1px solid var(--color-primary)",
+                          borderRadius: 8, padding: "9px 12px", opacity: claimingMain ? 0.7 : 1,
+                          transition: "opacity 0.2s",
+                        }}
+                        onClick={handleClaimMainCert}
+                        disabled={claimingMain}
+                      >
+                        {claimingMain ? (
+                          <><Loader2 size={14} className="animate-spin" />Memproses...</>
+                        ) : (
+                          <><Award size={14} /> Klaim Ulang</>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ) : isAllStepsDone ? (
                   // Semua materi selesai, belum klaim

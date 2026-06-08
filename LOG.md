@@ -1,5 +1,15 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 008] - 08 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan fitur Klaim Ulang Sertifikat Utama di Laci Profil (Profile Drawer). Tombol ini akan menghasilkan kembali file PDF sertifikat utama di Google Drive apabila file yang lama terhapus, dengan mempertahankan nomor seri sertifikat dan tanggal aslinya.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/components/ProfileDrawer/ProfileDrawer.tsx`**:
+   - Menambahkan *state* `claimingMain` dan `mainClaimError` untuk menangani indikator pemrosesan dan pesan kesalahan.
+   - Menambahkan fungsi `handleClaimMainCert` yang memanggil `POST /api/enrollments/[id]/claim-cert` dengan payload `{ reclaim: true }`.
+   - Mengubah antarmuka UI di bagian "Sertifikat Financial Literacy" agar memunculkan dua buah tombol berjajar: "Unduh Ulang" dan "Klaim Ulang".
+
 ## [VERSI 007] - 04 Juni 2026
 **Deskripsi Perubahan:**
 Menambahkan metrik atau widget baru di halaman Dashboard untuk melacak jumlah siswa yang **LULUS** vs **GAGAL (Tidak Lulus)** kuis secara real-time.
