@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import { Loader2, Check, Copy, ExternalLink } from "lucide-react";
@@ -14,6 +14,7 @@ interface BonusTopic {
   category?: string;
   groupLink?: string;
   portalUrl?: string;
+  lastSessionDate?: string;
 }
 
 interface EnrollmentData {
@@ -28,6 +29,8 @@ interface EnrollmentData {
 export default function BonusCoursePage() {
   const { user, profile } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetCategory = searchParams.get("cat");
 
   const [loading, setLoading] = useState(true);
   const [enrollment, setEnrollment] = useState<EnrollmentData | null>(null);
@@ -55,7 +58,10 @@ export default function BonusCoursePage() {
         const enrollments: EnrollmentData[] = await enrollRes.json();
         const main = enrollments.find((e) => e.courseId === "course-main");
         if (!main) { router.push("/learn"); return; }
-        if (main.channelSource !== "beasiswa") { router.push("/learn"); return; }
+        if (main.channelSource !== "beasiswa" && main.channelSource !== "kemitraan") { 
+          router.push("/learn"); 
+          return; 
+        }
         if (!main.certificateClaimed) { router.push("/learn/certificate"); return; }
         setEnrollment(main);
         if (main.bonusCourseRedeemCode) {
@@ -82,12 +88,25 @@ export default function BonusCoursePage() {
           headers: { Authorization: `Bearer ${idToken}` },
           cache: "no-store",
         });
-        if (topicsRes.ok) setTopics(await topicsRes.json());
+        if (topicsRes.ok) {
+          const tData: BonusTopic[] = await topicsRes.json();
+          const filteredTopics = tData.filter((t) => {
+            if (main.channelSource === "beasiswa") {
+              return t.category === "vl" || !t.category;
+            }
+            if (main.channelSource === "kemitraan" && targetCategory) {
+              const cat = t.category || "vl";
+              return cat === targetCategory;
+            }
+            return true; // fallback
+          });
+          setTopics(filteredTopics);
+        }
       } catch { setError("Gagal memuat data."); }
       finally { setLoading(false); }
     }
     load();
-  }, [user, router]);
+  }, [user, router, targetCategory]);
 
   async function handleConfirm() {
     if (!selectedTopic || !enrollment || !user) return;
@@ -166,7 +185,7 @@ export default function BonusCoursePage() {
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
                           <span className="bonus-topic-name">{topic.name}</span>
                           {(topic.category === "wpb" || topic.category === "bootcamp") && topic.description && (
-                            <span style={{ fontSize: 13, color: "var(--color-gray-600)", textAlign: "left", lineHeight: 1.4 }}>
+                            <span style={{ fontSize: 13, color: "var(--color-gray-600)", textAlign: "left", lineHeight: 1.4, marginTop: 4 }}>
                               {topic.description}
                             </span>
                           )}

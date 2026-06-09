@@ -57,10 +57,15 @@ export async function POST(req: NextRequest) {
     const redeemCodeUpper = redeemCode.toUpperCase();
     const now = new Date().toISOString();
 
+    const category = topicData.category || "vl";
+    const waGroupLink = topicData.groupLink || "";
+
     // Simpan ke enrollment
     await enrollRef.update({
       bonusCourseTopicId: topicId,
       bonusCourseRedeemCode: redeemCode,
+      beasiswaType: category,
+      waGroupLink: waGroupLink,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
@@ -69,7 +74,6 @@ export async function POST(req: NextRequest) {
       const scDb = getScDb();
       const docId = `LITERASI_FINANSIAL_${redeemCodeUpper}`;
       
-      const category = topicData.category || "vl";
       const userEmail = decoded.email || userData.email || "";
       const userWa = userData.no_wa || userData.phone || userData.phoneNumber || "";
 

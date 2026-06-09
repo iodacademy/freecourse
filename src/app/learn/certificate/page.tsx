@@ -55,6 +55,9 @@ export default function CertificatePage() {
   // Konfirmasi nama sebelum klaim
   const [certName, setCertName] = useState("");
 
+  // Modal pilih kategori kursus (khusus kemitraan)
+  const [catModalOpen, setCatModalOpen] = useState(false);
+
   // Fetch enrollment & course steps
   useEffect(() => {
     if (!user) return;
@@ -445,17 +448,23 @@ export default function CertificatePage() {
                   📖 Review Materi
                 </button>
 
-                {/* Tombol Beasiswa Bonus */}
-                {enrollment?.channelSource === "beasiswa" && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && !enrollment?.bonusCourseRedeemCode && (
+                {/* Tombol Beasiswa/Kemitraan Bonus */}
+                {(enrollment?.channelSource === "beasiswa" || enrollment?.channelSource === "kemitraan") && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && !enrollment?.bonusCourseRedeemCode && (
                   <button
                     className="btn btn-secondary w-full"
-                    onClick={() => router.push("/learn/bonus")}
+                    onClick={() => {
+                      if (enrollment.channelSource === "kemitraan") {
+                        setCatModalOpen(true);
+                      } else {
+                        router.push("/learn/bonus");
+                      }
+                    }}
                   >
                     🎁 Pilih Kursus Tambahan Gratis!
                   </button>
                 )}
 
-                {enrollment?.channelSource === "beasiswa" && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && enrollment?.bonusCourseRedeemCode && (
+                {(enrollment?.channelSource === "beasiswa" || enrollment?.channelSource === "kemitraan") && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && enrollment?.bonusCourseRedeemCode && (
                   <div style={{
                     background: "var(--color-bg-accent)", border: "1px solid rgba(204,0,0,0.15)",
                     borderRadius: 8, padding: "12px 16px", fontSize: 14, textAlign: "left",
@@ -467,7 +476,7 @@ export default function CertificatePage() {
                   </div>
                 )}
 
-                {enrollment?.channelSource === "beasiswa" && (enrollment?.beasiswaType === "wpb" || enrollment?.beasiswaType === "bootcamp") && enrollment?.bonusCourseRedeemCode && (
+                {(enrollment?.channelSource === "beasiswa" || enrollment?.channelSource === "kemitraan") && (enrollment?.beasiswaType === "wpb" || enrollment?.beasiswaType === "bootcamp") && enrollment?.bonusCourseRedeemCode && (
                   <div style={{
                     background: "#f0fdf4", border: "1px solid #16a34a",
                     borderRadius: 8, padding: "16px", fontSize: 14, textAlign: "left", display: "flex", flexDirection: "column", gap: 12
@@ -588,6 +597,76 @@ export default function CertificatePage() {
           </div>
         </div>
       )}
+
+      {/* 🎓 Pilih Kategori Bonus Modal (Kemitraan) */}
+      {catModalOpen && (
+        <div className="ccm-overlay" onClick={() => setCatModalOpen(false)}>
+          <div className="ccm-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500, width: '90%', padding: 24 }}>
+            <h3 className="ccm-title" style={{ textAlign: "left", marginBottom: 8, fontSize: 20 }}>Pilih Kategori Kursus</h3>
+            <p style={{ fontSize: 14, color: "#666", marginBottom: 20, lineHeight: 1.5, textAlign: "left" }}>
+              Kamu bebas memilih salah satu program berikut. Pilihlah dengan bijak karena program hanya dapat dipilih 1 kali.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Option 1: Video Learning */}
+              <button 
+                onClick={() => router.push("/learn/bonus?cat=vl")}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
+                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--color-primary)"}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
+              >
+                <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>🎥 Video Learning</strong>
+                <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
+                  Akses Modul Video Rekaman yang bisa kamu pelajari kapan saja secara mandiri.
+                </span>
+              </button>
+
+              {/* Option 2: WPB */}
+              <button 
+                onClick={() => router.push("/learn/bonus?cat=wpb")}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
+                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--color-primary)"}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
+              >
+                <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>💼 Workshop Praktikal Berproject (WPB)</strong>
+                <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
+                  Webinar gratis dengan mentor selama 1 atau 2 sesi. Dapatkan Sertifikat pelatihan Resmi dari ioda academy.
+                </span>
+              </button>
+
+              {/* Option 3: Bootcamp */}
+              <button 
+                onClick={() => router.push("/learn/bonus?cat=bootcamp")}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
+                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--color-primary)"}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
+              >
+                <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>🚀 Specialized Bootcamp</strong>
+                <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
+                  Pelatihan intensif dengan mentor selama 4 sesi. Dapatkan sertifikat kompetensi resmi dari ioda academy.
+                </span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setCatModalOpen(false)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#f3f4f6", border: "none", color: "#444", fontWeight: 600, marginTop: 20, cursor: "pointer" }}
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
 
     </>
   );

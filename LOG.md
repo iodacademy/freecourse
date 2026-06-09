@@ -181,3 +181,8 @@ Perbaikan bug materi yang tidak termuat (Loading Terkendala / Race Condition) sa
 3. **`src/app/learn/[step]/page.tsx`**: Menghapus logika pendaftaran kursus ganda (`auto-enroll`). Pendaftaran (enroll) secara penuh disentralisasi saat peserta mengirimkan data dirinya di halaman Profil (`src/app/(student)/profile/page.tsx`).
 
 Dengan perubahan ini, proses pendaftaran tidak lagi saling bertabrakan, menghindari gagal muat di awal yang selama ini memaksa peserta untuk me-_refresh_ halaman.
+
+### VERSI 018: Perbaikan Stabilitas Role Admin Public
+- Waktu: 2026-06-09 11.13.06
+- Detail: Mengubah semua baris kode yang memvalidasi role admin_public agar lebih kebal dari perbedaan format penulisan spasi dan huruf kapital di Firestore, serta mencegah aplikasi crash (menampilkan layar putih/kosong) saat memuat tabel data siswa.
+
