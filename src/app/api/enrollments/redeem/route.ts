@@ -64,26 +64,76 @@ export async function POST(req: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // ── Daftarkan ke student-center-ioda > users_vl ──
+    // ── Daftarkan ke student-center-ioda berdasarkan kategori ──
     try {
       const scDb = getScDb();
       const docId = `LITERASI_FINANSIAL_${redeemCodeUpper}`;
-      await scDb.collection("users_vl").doc(docId).set({
-        Created_By_Admin:  false,
-        Data_Source:       "free course literasi digital",
-        Kode_Basis:        kodeBasis.toUpperCase(),
-        Kode_Redeem:       redeemCodeUpper,
-        Kode_Redeem_Lower: redeemCode,
-        Nama_Kelas:        namaKelas,
-        Nama_Kelas_Sertif: namaKelas,
-        Nama_Lower:        namaLengkap.toLowerCase(),
-        Nama_Peserta:      namaLengkap,
-        Program:           "Video Learning",
-        Role:              "participant",
-        Tanggal_Daftar:    now,
-        _syncedAt:         now,
-        _syncedBy:         "Literacy Financial",
-      });
+      
+      const category = topicData.category || "vl";
+      const userEmail = decoded.email || userData.email || "";
+      const userWa = userData.no_wa || userData.phone || userData.phoneNumber || "";
+
+      if (category === "wpb") {
+        await scDb.collection("users_wpb").doc(docId).set({
+          Created_By_Admin:  false,
+          Data_Source:       "free course literasi digital",
+          Email:             userEmail,
+          Kode_Basis:        kodeBasis.toUpperCase(),
+          Kode_Kelas:        classCode.toUpperCase(),
+          Kode_Redeem:       redeemCodeUpper,
+          Kode_Redeem_Lower: redeemCode,
+          Nama_Kelas:        namaKelas,
+          Nama_Kelas_Sertif: namaKelas,
+          Nama_Lower:        namaLengkap.toLowerCase(),
+          Nama_Peserta:      namaLengkap,
+          No_WA:             userWa,
+          Program:           "WPB",
+          Project:           0,
+          Role:              "student",
+          Tanggal_Sesi_Terakhir: topicData.lastSessionDate || "",
+          _syncedAt:         now,
+          _syncedBy:         "Literacy Financial",
+        });
+      } else if (category === "bootcamp") {
+        await scDb.collection("users_bootcamp").doc(docId).set({
+          Created_By_Admin:  false,
+          Data_Source:       "free course literasi digital",
+          Email:             userEmail,
+          Kode_Basis:        kodeBasis.toUpperCase(),
+          Kode_Kelas:        classCode.toUpperCase(),
+          Kode_Redeem:       redeemCodeUpper,
+          Kode_Redeem_Lower: redeemCode,
+          Nama_Kelas:        namaKelas,
+          Nama_Kelas_Sertif: namaKelas,
+          Nama_Lower:        namaLengkap.toLowerCase(),
+          Nama_Peserta:      namaLengkap,
+          No_WA:             userWa,
+          Program:           "BOOTCAMP",
+          Project:           0,
+          Role:              "participant",
+          Tanggal_Sesi_Terakhir: topicData.lastSessionDate || "",
+          _syncedAt:         now,
+          _syncedBy:         "Literacy Financial",
+        });
+      } else {
+        // default: Video Learning (users_vl)
+        await scDb.collection("users_vl").doc(docId).set({
+          Created_By_Admin:  false,
+          Data_Source:       "free course literasi digital",
+          Kode_Basis:        kodeBasis.toUpperCase(),
+          Kode_Redeem:       redeemCodeUpper,
+          Kode_Redeem_Lower: redeemCode,
+          Nama_Kelas:        namaKelas,
+          Nama_Kelas_Sertif: namaKelas,
+          Nama_Lower:        namaLengkap.toLowerCase(),
+          Nama_Peserta:      namaLengkap,
+          Program:           "Video Learning",
+          Role:              "participant",
+          Tanggal_Daftar:    now,
+          _syncedAt:         now,
+          _syncedBy:         "Literacy Financial",
+        });
+      }
     } catch (scErr) {
       // Log tapi jangan gagalkan seluruh request — kode sudah tersimpan di freecourse
       console.error("[redeem] Gagal daftar ke student-center-ioda:", scErr);

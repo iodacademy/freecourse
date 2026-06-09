@@ -27,9 +27,12 @@ export default function ProtectedRoute({
   useEffect(() => {
     if (loading) return;
 
+    const role = profile?.role?.toLowerCase() || "";
+    const isAdminType = role === "admin" || role.includes("public");
+
     if (requireAdmin) {
       // Admin pages: redirect ke /admin/login jika belum login atau bukan admin
-      if (!user || profile?.role !== "admin") {
+      if (!user || !isAdminType) {
         router.push("/admin/login");
         return;
       }
@@ -41,7 +44,7 @@ export default function ProtectedRoute({
       }
 
       // Blokir Admin: Admin tidak boleh masuk ke halaman siswa
-      if (profile?.role === "admin") {
+      if (isAdminType) {
         router.push("/admin");
         return;
       }
@@ -60,9 +63,12 @@ export default function ProtectedRoute({
   // karena auth context sudah sangat cepat dan halaman /learn punya loading-nya sendiri
   if (loading) return null;
 
+  const role = profile?.role?.toLowerCase() || "";
+  const isAdminType = role === "admin" || role.includes("public");
+
   // Guard checks (render-time block — mencegah flash konten)
   if (requireAdmin) {
-    if (!user || profile?.role !== "admin") return null;
+    if (!user || !isAdminType) return null;
   } else {
     if (!user) return null;
     if (requireProfile && (!profile || !profile.profileCompleted)) return null;

@@ -626,7 +626,7 @@ function StudentEditModal({ student, onClose, getToken, onSaved }: StudentEditMo
 
 export default function AdminStudentsPage() {
 
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [students, setStudents] = useState<any[]>([]); // Array of DashboardStudent
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -787,9 +787,14 @@ export default function AdminStudentsPage() {
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students || []);
+      } else {
+        const err = await res.text();
+        console.error("API Error:", res.status, err);
+        alert(`Gagal memuat data (Status ${res.status}): ${err}`);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("Fetch error:", e);
+      alert(`Terjadi kesalahan saat memuat data: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -922,20 +927,24 @@ export default function AdminStudentsPage() {
             <p className={styles.subtitle}>Pantau pendaftaran dan progress belajar siswa.</p>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
-            <a 
-              href="/admin/students/fix-names"
-              target="_blank"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#475569", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
-            >
-              <UserX size={15} /> Auto Deteksi Nama Aneh
-            </a>
-            <button
-              onClick={openBulkModal}
-              className="btn btn-secondary" 
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500 }}
-            >
-              <CheckCircle2 size={15} /> Luluskan Semua (Massal)
-            </button>
+            {!(profile?.role || "").toLowerCase().includes("public") && (
+              <>
+                <a 
+                  href="/admin/students/fix-names"
+                  target="_blank"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#475569", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
+                >
+                  <UserX size={15} /> Auto Deteksi Nama Aneh
+                </a>
+                <button
+                  onClick={openBulkModal}
+                  className="btn btn-secondary" 
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500 }}
+                >
+                  <CheckCircle2 size={15} /> Luluskan Semua (Massal)
+                </button>
+              </>
+            )}
             <button className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <Download size={15} /> Export ke Excel
             </button>
@@ -1108,14 +1117,16 @@ export default function AdminStudentsPage() {
                     >
                       <Eye size={15} />
                     </button>
-                    <button
-                      className={styles.iconBtn}
-                      title="Edit Data Siswa"
-                      style={{ color: "#2563eb" }}
-                      onClick={(e) => { e.stopPropagation(); setEditTarget(s); }}
-                    >
-                      <Pencil size={15} />
-                    </button>
+                    {!(profile?.role || "").toLowerCase().includes("public") && (
+                      <button
+                        className={styles.iconBtn}
+                        title="Edit Data Siswa"
+                        style={{ color: "#2563eb" }}
+                        onClick={(e) => { e.stopPropagation(); setEditTarget(s); }}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    )}
                     <button
                       className={`${styles.iconBtn} ${styles.deleteBtn}`}
                       title="Hapus Akun Siswa"

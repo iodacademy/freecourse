@@ -1,5 +1,65 @@
 # Log Aktivitas Pengembangan (Version Control)
 
+## [VERSI 017] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan role (peran) `admin_public` dengan pembatasan akses. Admin dengan role ini dapat masuk ke dasbor tetapi tidak akan melihat menu pengaturan, kursus, maupun memiliki akses edit data krusial di halaman Siswa.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/lib/types.ts`**: Menambahkan `"admin_public"` (dan `"mitra"`) ke dalam tipe gabungan untuk `role` di `UserProfile`.
+2. **`src/app/admin/settings/administrators/page.tsx`**: Menambahkan *opsi* `Admin Public` pada menu pilih *role* saat menambah administrator baru.
+3. **`src/components/ProtectedRoute/ProtectedRoute.tsx`**: Mengubah sistem perlindungan *route* admin agar menerima `admin` dan juga `admin_public`.
+4. **`src/components/AdminSidebar/AdminSidebar.tsx`**: Membuat logika `filter` pada daftar *menu* (Sidebar) yang akan menyembunyikan "Modul Financial Literacy", "Kursus Tambahan", dan "Pengaturan" jika yang masuk adalah `admin_public`.
+5. **`src/app/admin/students/page.tsx`**: Membungkus tombol aksi spesifik (seperti Luluskan Massal, Auto Deteksi Nama Aneh, dan Edit Data Siswa) dengan validasi role agar tombol tersebut tidak ditampilkan bagi pengguna `admin_public`.
+
+## [VERSI 016] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Mengubah tata letak (layout) pop-up *Tambah Kelas* dari satu baris vertikal menjadi 2 kolom (tabel/grid) agar tampak lebih proporsional, memanjang ke samping, dan tidak memakan terlalu banyak ruang vertikal. 
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/admin/bonus-courses/page.module.css`**: Memperlebar `.modal` menjadi `max-width: 650px`. Mengubah kontainer isian utama (`.formBody`) menggunakan teknologi `display: grid` dengan `grid-template-columns: 1fr 1fr` (dua kolom sejajar). Menambahkan *class* bantuan `.fullWidth` untuk menginstruksikan baris tertentu memakan lebar penuh (2 kolom sekaligus).
+2. **`src/app/admin/bonus-courses/page.tsx`**: Menyuntikkan properti kelas `.fullWidth` kepada kolom "Judul", "Deskripsi & Jadwal", serta "Link Grup WA" karena isiannya cenderung panjang. Sementara itu, "Kategori", "Kode Basis", "Kode Kelas", dan "Tanggal" akan berdampingan cantik menjadi dua kolom.
+
+## [VERSI 015] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Merombak kembali logika CSS pop-up *Tambah Kelas* untuk mengatasi isu terpotong pada kondisi layar yang di-zoom atau layar sangat sempit. Alih-alih membuat isi form yang tergulir (yang ternyata masih bermasalah pada browser saat di-zoom), sekarang **seluruh area latar belakang abu-abu gelap (overlay) yang menjadi area gulir (scroll)**.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/admin/bonus-courses/page.module.css`**: Mengatur `.overlay` menjadi `overflow-y: auto` dan `align-items: flex-start`. Lalu pada `.modal`, batasan `max-height` dilepas total, dan diganti dengan teknik `margin: auto;`. Teknik ini memastikan: jika layar besar, form akan tegak lurus di tengah; jika layar kecil/di-zoom, bagian atas form tidak akan pernah terpotong, dan pengguna cukup men-scroll layar utama untuk melihat bagian bawah form dan tombol aksi.
+
+## [VERSI 014] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Menyempurnakan tata letak (layout) pop-up *Tambah Kelas* di halaman Admin. Sebelumnya tombol "Tambah" dan "Batal" ikut tergulir (scroll) ke bawah karena berada di dalam kotak formulir utama, sehingga bisa terpotong jika layar pengguna terlalu kecil.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/admin/bonus-courses/page.tsx`**: Memisahkan elemen kotak isian (inputs) ke dalam kontainer baru bernama `.formBody` agar terpisah secara hirarki dari tombol-tombol konfirmasi aksi (`.modalActions`).
+2. **`src/app/admin/bonus-courses/page.module.css`**: Memberikan properti `flex: 1` dengan `overflow-y: auto` khusus untuk `.formBody`, sehingga sekarang **hanya area kotak isian yang bisa digeser/gulir**, sementara tombol "Batal" dan "Tambah" tetap *fixed* (diam) di bagian dasar pop-up agar selalu mudah diklik pada ukuran layar berapapun.
+
+## [VERSI 013] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan field **Tanggal Sesi Terakhir** (`lastSessionDate`) khusus untuk kategori WPB dan Bootcamp saat admin membuat atau mengubah kelas. Data ini kemudian otomatis disinkronkan ke dalam `student-center-ioda` (Firestore) ke kolom `Tanggal_Sesi_Terakhir` pada saat pengguna melakukan klaim sertifikat (redeem).
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/api/bonus-courses/route.ts` & `[id]/route.ts`**: Menambahkan deklarasi dan kapabilitas penyimpanan field `lastSessionDate` ke dalam database kelas.
+2. **`src/app/admin/bonus-courses/page.tsx`**: Menambahkan *state* `formLastSessionDate` dan komponen input `<input type="date">` yang hanya muncul apabila kategori yang dipilih adalah WPB atau Bootcamp.
+3. **`src/app/api/enrollments/redeem/route.ts`**: Memodifikasi payload injeksi ke dalam koleksi `users_wpb` dan `users_bootcamp` agar menggunakan nilai riil dari `topicData.lastSessionDate`, bukan lagi *string* kosong (`""`).
+
+## [VERSI 012] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Memperbaiki tampilan form modal *Tambah Kelas* di halaman admin agar lebih responsif terhadap ukuran layar (khususnya untuk layar beresolusi kecil). Form sekarang otomatis bisa di-scroll secara vertikal jika isiannya terlalu panjang, sehingga tombol Tambah/Batal di bagian bawah tidak lagi terpotong.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/admin/bonus-courses/page.module.css`**: Menambahkan deklarasi CSS `max-height: calc(100vh - 40px);`, `display: flex;` dan `flex-direction: column;` pada `.modal` untuk membatasi tinggi maksimal pop-up sesuai tinggi layar. Serta menambahkan `overflow-y: auto;` pada `.form` untuk memungkinkan efek gulir (scroll) pada bagian isian tanpa memengaruhi bagian atas (*header*).
+
+## [VERSI 011] - 09 Juni 2026
+**Deskripsi Perubahan:**
+Menambahkan fitur Kategori pada Bonus Course (Video Learning, WPB, dan Bootcamp). Mengimplementasikan alur khusus untuk WPB dan Bootcamp yang menampilkan tautan Grup WhatsApp, serta menyinkronkan pendaftaran *redeem* peserta ke koleksi Firestore yang berbeda (`users_vl`, `users_wpb`, `users_bootcamp`) sesuai dengan kategorinya.
+
+**Ringkasan Kode yang Diubah:**
+1. **`src/app/api/bonus-courses/route.ts` & `src/app/api/bonus-courses/[id]/route.ts`**: Menambahkan kapabilitas pembacaan dan penyimpanan field `category`, `description`, dan `groupLink`. Kategori bawaan kelas lama akan dianggap sebagai Video Learning (vl).
+2. **`src/app/admin/bonus-courses/page.tsx`**: Mengubah UI form modal admin untuk memunculkan _Dropdown_ Kategori. Menyembunyikan dan menampilkan kotak isian "Deskripsi & Jadwal" serta "Link Grup WA" berdasarkan pilihan kategori WPB/Bootcamp.
+3. **`src/app/learn/bonus/page.tsx`**: Menambahkan tampilan teks deskripsi/jadwal di setiap pilihan kotak khusus kategori WPB dan Bootcamp. Pada bagian halaman sukses, menyuntikkan tombol hijau untuk _Gabung Grup WhatsApp_.
+4. **`src/app/api/enrollments/redeem/route.ts`**: Mengubah alur pendaftaran SC Database (`student-center-ioda`). Jika kategori WPB, peserta disimpan ke `users_wpb` dengan "Program: WPB" dan "Role: student". Jika Bootcamp, disimpan ke `users_bootcamp` dengan "Program: BOOTCAMP" dan "Role: participant".
+
 ## [VERSI 010] - 08 Juni 2026
 **Deskripsi Perubahan:**
 Menambahkan tombol navigasi "Review Materi" di halaman Sertifikat. Fitur ini memungkinkan peserta yang sudah lulus dan mengklaim sertifikat untuk sewaktu-waktu membaca kembali modul dan tahapan pembelajaran dari awal tanpa terkunci sistem.

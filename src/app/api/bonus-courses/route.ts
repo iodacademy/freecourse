@@ -15,7 +15,14 @@ export async function GET(req: NextRequest) {
       .where("status", "==", "active")
       .get();
     const docs = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
+      .map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          category: data.category || "vl",
+        };
+      })
       .sort((a: any, b: any) => {
         const ta = a.createdAt?.toMillis?.() ?? 0;
         const tb = b.createdAt?.toMillis?.() ?? 0;
@@ -38,8 +45,12 @@ export async function POST(req: NextRequest) {
 
     const data = {
       name: body.name,
+      category: body.category || "vl",
       classCode: String(body.classCode).toUpperCase(),
       Kode_Basis: String(body.kodeBase ?? "").toUpperCase(),
+      description: body.description || "",
+      groupLink: body.groupLink || "",
+      lastSessionDate: body.lastSessionDate || "",
       portalUrl: body.portalUrl ?? "https://app.iodacademy.id/portal-belajar/",
       status: "active",
       createdAt: FieldValue.serverTimestamp(),

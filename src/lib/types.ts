@@ -19,7 +19,7 @@ export interface UserProfile {
   emailUsername: string; // bagian sebelum @
   displayName: string;
   photoURL: string | null;
-  role: "student" | "admin";
+  role: "student" | "admin" | "admin_public" | "mitra";
   profileCompleted: boolean;
   profileData: ProfileFormData;
   channelSource: "umum" | "beasiswa" | "kemitraan" | "workshop" | null;

@@ -10,6 +10,10 @@ interface BonusTopic {
   id: string;
   name: string;
   classCode: string;
+  category?: string;
+  description?: string;
+  groupLink?: string;
+  lastSessionDate?: string;
   Kode_Basis?: string;
 }
 
@@ -29,8 +33,12 @@ export default function AdminBonusCoursesPage() {
   const [modalMode, setModalMode] = useState<ModalMode>("add");
   const [editId, setEditId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
+  const [formCategory, setFormCategory] = useState("vl");
   const [formKodeBase, setFormKodeBase] = useState("");
   const [formCode, setFormCode] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formGroupLink, setFormGroupLink] = useState("");
+  const [formLastSessionDate, setFormLastSessionDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -59,8 +67,12 @@ export default function AdminBonusCoursesPage() {
     setModalMode("add");
     setEditId(null);
     setFormName("");
+    setFormCategory("vl");
     setFormKodeBase("");
     setFormCode("");
+    setFormDescription("");
+    setFormGroupLink("");
+    setFormLastSessionDate("");
     setSaveError("");
     setShowModal(true);
   }
@@ -69,8 +81,12 @@ export default function AdminBonusCoursesPage() {
     setModalMode("edit");
     setEditId(topic.id);
     setFormName(topic.name);
+    setFormCategory(topic.category || "vl");
     setFormKodeBase(topic.Kode_Basis || "");
     setFormCode(topic.classCode);
+    setFormDescription(topic.description || "");
+    setFormGroupLink(topic.groupLink || "");
+    setFormLastSessionDate(topic.lastSessionDate || "");
     setSaveError("");
     setShowModal(true);
   }
@@ -95,8 +111,12 @@ export default function AdminBonusCoursesPage() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
           body: JSON.stringify({
             name: formName.trim(),
+            category: formCategory,
             kodeBase: formKodeBase.trim().toUpperCase(),
             classCode: formCode.trim().toUpperCase(),
+            description: formDescription.trim(),
+            groupLink: formGroupLink.trim(),
+            lastSessionDate: formLastSessionDate,
           }),
         });
         if (!res.ok) {
@@ -110,8 +130,12 @@ export default function AdminBonusCoursesPage() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
           body: JSON.stringify({
             name: formName.trim(),
+            category: formCategory,
             Kode_Basis: formKodeBase.trim().toUpperCase(),
             classCode: formCode.trim().toUpperCase(),
+            description: formDescription.trim(),
+            groupLink: formGroupLink.trim(),
+            lastSessionDate: formLastSessionDate,
           }),
         });
         if (!res.ok) {
@@ -164,6 +188,7 @@ export default function AdminBonusCoursesPage() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>Kategori</th>
                 <th>Judul</th>
                 <th>Kode Basis</th>
                 <th>Kode Kelas</th>
@@ -181,6 +206,9 @@ export default function AdminBonusCoursesPage() {
               ) : topics.length === 0 ? null : (
                 topics.map((topic) => (
                   <tr key={topic.id}>
+                    <td>
+                      {topic.category === "wpb" ? "WPB" : topic.category === "bootcamp" ? "Bootcamp" : "Video Learning"}
+                    </td>
                     <td>{topic.name}</td>
                     <td>
                       {topic.Kode_Basis
@@ -218,7 +246,7 @@ export default function AdminBonusCoursesPage() {
               {/* Baris placeholder Tambah Kelas */}
               {!loading && (
                 <tr className={styles.addRow} onClick={openAdd}>
-                  <td colSpan={4}>
+                  <td colSpan={5}>
                     <span className={styles.addRowInner}>
                       <Plus size={15} />
                       Tambah Kelas
@@ -277,7 +305,8 @@ export default function AdminBonusCoursesPage() {
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>
-              <div className={styles.formGroup}>
+              <div className={styles.formBody}>
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                 <label className={styles.label} htmlFor="formName">Judul</label>
                 <input
                   id="formName"
@@ -289,6 +318,20 @@ export default function AdminBonusCoursesPage() {
                   autoFocus
                   required
                 />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label} htmlFor="formCategory">Kategori</label>
+                <select
+                  id="formCategory"
+                  className={styles.input}
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                >
+                  <option value="vl">Video Learning</option>
+                  <option value="wpb">WPB (Workshop / Pelatihan)</option>
+                  <option value="bootcamp">Bootcamp</option>
+                </select>
               </div>
 
               <div className={styles.formGroup}>
@@ -318,7 +361,49 @@ export default function AdminBonusCoursesPage() {
                 />
               </div>
 
-              {saveError && <p className={styles.errorMsg}>{saveError}</p>}
+              {(formCategory === "wpb" || formCategory === "bootcamp") && (
+                <>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label} htmlFor="formLastSessionDate">Tanggal Sesi Terakhir</label>
+                    <input
+                      id="formLastSessionDate"
+                      className={styles.input}
+                      type="date"
+                      value={formLastSessionDate}
+                      onChange={(e) => setFormLastSessionDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                    <label className={styles.label} htmlFor="formDescription">Deskripsi & Jadwal</label>
+                    <textarea
+                      id="formDescription"
+                      className={styles.input}
+                      placeholder="Contoh: Kelas ini membahas AI. Jadwal: 12 Nov 2026."
+                      value={formDescription}
+                      onChange={(e) => setFormDescription(e.target.value)}
+                      rows={3}
+                      style={{ resize: "vertical" }}
+                      required
+                    />
+                  </div>
+                  <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                    <label className={styles.label} htmlFor="formGroupLink">Link Grup WA</label>
+                    <input
+                      id="formGroupLink"
+                      className={styles.input}
+                      type="url"
+                      placeholder="https://chat.whatsapp.com/..."
+                      value={formGroupLink}
+                      onChange={(e) => setFormGroupLink(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {saveError && <p className={styles.errorMsg} style={{ marginTop: 10 }}>{saveError}</p>}
+              </div>
 
               <div className={styles.modalActions}>
                 <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={saving}>

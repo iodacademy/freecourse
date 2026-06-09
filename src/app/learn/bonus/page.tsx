@@ -9,8 +9,10 @@ import { Loader2, Check, Copy, ExternalLink } from "lucide-react";
 interface BonusTopic {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   classCode: string;
+  category?: string;
+  groupLink?: string;
   portalUrl?: string;
 }
 
@@ -36,6 +38,8 @@ export default function BonusCoursePage() {
   const [redeemCode, setRedeemCode] = useState("");
   const [selectedTopicName, setSelectedTopicName] = useState("");
   const [portalUrl, setPortalUrl] = useState("https://app.iodacademy.id/portal-belajar/");
+  const [groupLink, setGroupLink] = useState("");
+  const [selectedTopicCategory, setSelectedTopicCategory] = useState("vl");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -56,6 +60,22 @@ export default function BonusCoursePage() {
         setEnrollment(main);
         if (main.bonusCourseRedeemCode) {
           setRedeemCode(main.bonusCourseRedeemCode);
+          // fetch topic to get category/groupLink
+          const topicsRes = await fetch("/api/bonus-courses", {
+            headers: { Authorization: `Bearer ${idToken}` },
+            cache: "no-store",
+          });
+          if (topicsRes.ok) {
+             const tData: BonusTopic[] = await topicsRes.json();
+             setTopics(tData);
+             const topic = tData.find((t) => t.id === main.bonusCourseTopicId);
+             if (topic) {
+               setSelectedTopicName(topic.name);
+               setPortalUrl(topic.portalUrl || "https://app.iodacademy.id/portal-belajar/");
+               setSelectedTopicCategory(topic.category || "vl");
+               setGroupLink(topic.groupLink || "");
+             }
+          }
           return;
         }
         const topicsRes = await fetch("/api/bonus-courses", {
@@ -85,8 +105,10 @@ export default function BonusCoursePage() {
       const topic = topics.find((t) => t.id === selectedTopic);
       setRedeemCode(data.redeemCode);
       setSelectedTopicName(topic?.name || "");
+      setSelectedTopicCategory(topic?.category || "vl");
+      setGroupLink(topic?.groupLink || "");
       setPortalUrl(topic?.portalUrl || "https://app.iodacademy.id/portal-belajar/");
-      setEnrollment((prev) => prev ? { ...prev, bonusCourseRedeemCode: data.redeemCode } : prev);
+      setEnrollment((prev) => prev ? { ...prev, bonusCourseRedeemCode: data.redeemCode, bonusCourseTopicId: selectedTopic } : prev);
     } catch { setError("Terjadi kesalahan jaringan."); }
     finally { setConfirming(false); }
   }
@@ -141,7 +163,14 @@ export default function BonusCoursePage() {
                         onClick={() => setSelectedTopic(topic.id)}
                       >
                         <span className="bonus-topic-num">{index + 1}</span>
-                        <span className="bonus-topic-name">{topic.name}</span>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                          <span className="bonus-topic-name">{topic.name}</span>
+                          {(topic.category === "wpb" || topic.category === "bootcamp") && topic.description && (
+                            <span style={{ fontSize: 13, color: "var(--color-gray-600)", textAlign: "left", lineHeight: 1.4 }}>
+                              {topic.description}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -203,12 +232,27 @@ export default function BonusCoursePage() {
                 <ExternalLink size={15} />
               </a>
 
+              {(selectedTopicCategory === "wpb" || selectedTopicCategory === "bootcamp") && groupLink && (
+                <a
+                  href={groupLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bonus-portal-btn"
+                  style={{ marginTop: 10, background: "#25D366", color: "#fff" }}
+                >
+                  Gabung Grup WhatsApp
+                  <ExternalLink size={15} />
+                </a>
+              )}
+
               <div className="bonus-steps">
                 <p className="bonus-steps-title">Cara penggunaan</p>
                 <ol className="bonus-steps-list">
-                  <li>Klik tombol di atas untuk membuka portal belajar</li>
-                  <li>Masukkan kode redeem di halaman login</li>
-                  <li>Akses materi kursus langsung</li>
+                  <li>Klik tombol Buka Portal Belajar di atas</li>
+                  <li>Masukkan kode redeem di halaman login portal</li>
+                  {(selectedTopicCategory === "wpb" || selectedTopicCategory === "bootcamp") && (
+                    <li>Jangan lupa untuk bergabung dengan Grup WhatsApp melalui tombol di atas.</li>
+                  )}
                 </ol>
               </div>
             </div>

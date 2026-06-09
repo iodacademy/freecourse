@@ -15,13 +15,17 @@ export default function AdminLoginPage() {
 
   // Kalau sudah login sebagai admin, redirect — harus di useEffect, bukan saat render
   useEffect(() => {
-    if (!loading && profile?.role === "admin") {
+    const role = profile?.role?.toLowerCase() || "";
+    const isAdminType = role === "admin" || role.includes("public");
+    if (!loading && isAdminType) {
       router.push("/admin");
     }
   }, [loading, profile, router]);
 
   // Tampilkan loading state saat redirect
-  if (!loading && profile?.role === "admin") {
+  const role = profile?.role?.toLowerCase() || "";
+  const isAdminType = role === "admin" || role.includes("public");
+  if (!loading && isAdminType) {
     return null;
   }
 
