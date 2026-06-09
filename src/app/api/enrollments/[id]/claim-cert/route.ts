@@ -217,16 +217,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
             const collectionName = bc.type === "wpb" ? "users_wpb" : "users_bootcamp";
             
             const nowStr = new Date().toISOString();
+            const userEmail = decoded.email || userDoc.data()?.email || "";
+            const userWa = userDoc.data()?.no_wa || userDoc.data()?.phone || userDoc.data()?.phoneNumber || "";
+
             await scDb.collection(collectionName).doc(docId).set({
               Created_By_Admin: false,
               Data_Source: "free course literasi digital",
+              Email: userEmail,
               Kode_Basis: kodeBasis.toUpperCase(),
+              Kode_Kelas: kodeKelas.toUpperCase(),
               Kode_Redeem: redeemCodeUpper,
               Kode_Redeem_Lower: newRedeemCode,
               Nama_Kelas: bc.namaKelas || courseName,
               Nama_Kelas_Sertif: bc.namaKelas || courseName,
               Nama_Lower: userName.toLowerCase(),
               Nama_Peserta: userName,
+              No_WA: userWa,
               Program: bc.type === "wpb" ? "WPB" : "Bootcamp",
               Role: "participant",
               Tanggal_Daftar: nowStr,
