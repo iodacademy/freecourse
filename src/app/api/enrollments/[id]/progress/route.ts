@@ -38,23 +38,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       const isNewlyPassing = newScore >= kkm;
       const alreadyPassed = prevResult.passed === true || prevResult.firstPassScore != null;
 
-      // Jika sudah pernah lulus, TOLAK update (kuis terkunci)
-      if (alreadyPassed) {
-        return json({ error: "Kuis sudah selesai dan terkunci." }, 403);
+      // Jika sudah pernah lulus, abaikan update kuis (jangan di-overwrite), tapi jangan throw error
+      // supaya surveyResult (jika ada) tetap bisa diproses di bawah.
+      if (!alreadyPassed) {
+        stepData.assessmentResult = {
+          ...prevResult,
+          ...assessmentResult,
+          lastAttemptAt: FieldValue.serverTimestamp(),
+          // Kumulatif attempts
+          attempts: (prevResult.attempts || 0) + 1,
+          totalAttempts: (prevResult.totalAttempts || 0) + 1,
+          // firstPassScore: hanya disimpan sekali, saat pertama kali nilainya >= KKM
+          ...(isNewlyPassing && !prevResult.firstPassScore
+            ? { firstPassScore: newScore, passed: true }
+            : {}),
+        };
       }
-
-      stepData.assessmentResult = {
-        ...prevResult,
-        ...assessmentResult,
-        lastAttemptAt: FieldValue.serverTimestamp(),
-        // Kumulatif attempts
-        attempts: (prevResult.attempts || 0) + 1,
-        totalAttempts: (prevResult.totalAttempts || 0) + 1,
-        // firstPassScore: hanya disimpan sekali, saat pertama kali nilainya >= KKM
-        ...(isNewlyPassing && !prevResult.firstPassScore
-          ? { firstPassScore: newScore, passed: true }
-          : {}),
-      };
     }
 
     // Update survey
