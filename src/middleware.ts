@@ -13,6 +13,7 @@ const PUBLIC_API_ROUTES = [
   '/api/cron',                    // Cron jobs (workshop reminder) — auth via query key
   '/api/public/dashboard',        // Dashboard public view — auth via URL token
   '/api/sync/sheet-data',         // GAS cron sync — auth via X-Sync-Key header
+  '/api/public/standalone',       // Standalone freecourse submit
 ];
 
 export function middleware(request: NextRequest) {

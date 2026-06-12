@@ -7,7 +7,7 @@ import { Check, X } from "lucide-react";
 interface AssessmentProps {
   questions: AssessmentQuestion[];
   kkm: number;
-  onPass: (score: number) => void;
+  onPass: (score: number, answers: Record<string, string>) => void;
   disabled?: boolean;
   previousScore?: number | null;
   previousPassed?: boolean;
@@ -47,14 +47,35 @@ export default function Assessment({
     }));
   }, [questions, sessionSeed]);
 
-  const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
-  const [results, setResults] = useState<Record<string, "correct" | "wrong">>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers || {});
+  
+  const [results, setResults] = useState<Record<string, "correct" | "wrong">>(() => {
+    if (disabled && previousPassed && initialAnswers && Object.keys(initialAnswers).length > 0) {
+      const initResults: Record<string, "correct" | "wrong"> = {};
+      for (const q of questions) {
+        if (initialAnswers[q.id]) {
+          initResults[q.id] = initialAnswers[q.id] === q.correctAnswer ? "correct" : "wrong";
+        }
+      }
+      return initResults;
+    }
+    return {};
+  });
+
+  const [submitted, setSubmitted] = useState(disabled && previousPassed);
 
   const correctCount = Object.values(results).filter(r => r === "correct").length;
+  
+  let currentScore = 0;
+  shuffledQuestions.forEach(q => {
+    if (results[q.id] === "correct") {
+      currentScore += q.points !== undefined ? q.points : (100 / shuffledQuestions.length);
+    }
+  });
+
   const allAnswered = shuffledQuestions.every(q => answers[q.id]);
-  const passed = submitted && correctCount === shuffledQuestions.length;
-  const failed = submitted && correctCount < shuffledQuestions.length;
+  const passed = submitted && currentScore >= kkm;
+  const failed = submitted && currentScore < kkm;
 
   function handlePick(qid: string, oid: string) {
     if (results[qid] === "correct") return; // locked
@@ -68,41 +89,32 @@ export default function Assessment({
 
   function handleCheck() {
     const newResults = { ...results };
+    let newScore = 0;
+    
     for (const q of shuffledQuestions) {
-      if (newResults[q.id] === "correct") continue;
-      newResults[q.id] = answers[q.id] === q.correctAnswer ? "correct" : "wrong";
+      if (newResults[q.id] !== "correct") {
+        newResults[q.id] = answers[q.id] === q.correctAnswer ? "correct" : "wrong";
+      }
+      if (newResults[q.id] === "correct") {
+        newScore += q.points !== undefined ? q.points : (100 / shuffledQuestions.length);
+      }
     }
+    
     setResults(newResults);
     setSubmitted(true);
 
-    const newCorrect = Object.values(newResults).filter(r => r === "correct").length;
-    if (newCorrect === shuffledQuestions.length) {
-      const score = 100;
-      onPass(score);
+    if (newScore >= kkm) {
+      onPass(newScore, answers);
     }
   }
 
-  // Locked (already passed before)
-  if (disabled && previousPassed) {
-    return (
-      <div className="qz-wrap">
-        <div className="qz-locked-wrap">
-          <div className="qz-badge qz-badge--correct" style={{ fontSize: 12, padding: "4px 12px", margin: "0 auto 8px" }}>
-            <Check size={12} /> Nilai: {previousScore}
-          </div>
-          <p style={{ fontSize: 12, color: "var(--color-gray-500)", margin: 0 }}>
-            🔒 Assessment sudah selesai dan terkunci.
-          </p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="qz-wrap">
       {/* ── Score + Pellets ── */}
       <div className="qz-score">
-        <span>Skor sementara <b>{correctCount} / {shuffledQuestions.length}</b></span>
+        <span>Skor sementara <b>{currentScore}</b> (KKM: {kkm})</span>
         <span className="qz-pellets">
           {shuffledQuestions.map(q => (
             <span
@@ -124,10 +136,10 @@ export default function Assessment({
           </span>
           <div>
             {passed ? (
-              <><b>Kamu benar {correctCount} dari {shuffledQuestions.length}.</b> Mantap. Siap lanjut ke materi berikutnya.</>
+              <><b>Skor kamu {currentScore}.</b> Mantap. Siap lanjut ke materi berikutnya.</>
             ) : (
               <>
-                <b>Kamu benar {correctCount} dari {shuffledQuestions.length}.</b> Pilih jawaban baru di soal merah
+                <b>Skor kamu {currentScore} (KKM: {kkm}).</b> Pilih jawaban baru di soal merah
                 <span className="qb-arrow">↓</span> lalu klik <b>Cek Jawaban Lagi</b>.
               </>
             )}
@@ -138,13 +150,15 @@ export default function Assessment({
       {/* ── Cards per soal ── */}
       {shuffledQuestions.map((q, idx) => {
         const r = results[q.id];
-        const cardClass = `qz-card ${
-          r === "correct" ? "qz-card--correct" :
-          r === "wrong" ? "qz-card--wrong" : ""
+        const cardClass = `qz-item ${
+          r === "correct" ? "qz-item--correct" :
+          r === "wrong" ? "qz-item--wrong" : ""
         }`;
 
         return (
-          <div key={q.id} className={cardClass}>
+          <div key={q.id}>
+            {idx > 0 && <hr className="qz-separator" />}
+            <div className={cardClass}>
             <div className="qz-head">
               <span className="qz-num">Soal {idx + 1}</span>
               {r === "correct" && (
@@ -197,9 +211,25 @@ export default function Assessment({
                 <Check size={11} />Terkunci. Jawaban benar.
               </div>
             )}
+            </div>
           </div>
         );
       })}
+
+      {/* ── Action Button ── */}
+      {!disabled && !passed && (
+        <div className="qz-action" style={{ marginTop: "24px" }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: "100%" }}
+            disabled={!allAnswered}
+            onClick={handleCheck}
+          >
+            {submitted && failed ? "Cek Jawaban Lagi" : "Cek Jawaban"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
