@@ -261,6 +261,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         : "Sertifikat berhasil diklaim",
       certId,
       driveUrl,
+      redeemCode,
+      waGroupLink,
+      beasiswaType,
     });
   } catch (e) {
     return handleError(e);

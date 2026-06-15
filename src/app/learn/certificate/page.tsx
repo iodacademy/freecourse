@@ -96,7 +96,7 @@ export default function CertificatePage() {
         if (main.certificateDriveUrl) setDriveUrl(main.certificateDriveUrl);
 
         // Auto-sync beasiswaType dan generate redeem code jika missing
-        if (main.channelSource === "beasiswa" && main.eventId && !main.beasiswaType) {
+        if (main.channelSource === "beasiswa" && main.eventId && (!main.beasiswaType || !main.bonusCourseRedeemCode)) {
           try {
             const reclaimRes = await fetch(`/api/enrollments/${main.id}/claim-cert`, {
               method: "POST",
@@ -186,7 +186,14 @@ export default function CertificatePage() {
 
       setCertId(data.certId);
       setEnrollment((prev) =>
-        prev ? { ...prev, certificateClaimed: true, certificateId: data.certId } : prev
+        prev ? { 
+          ...prev, 
+          certificateClaimed: true, 
+          certificateId: data.certId,
+          bonusCourseRedeemCode: data.redeemCode || prev.bonusCourseRedeemCode,
+          waGroupLink: data.waGroupLink || prev.waGroupLink,
+          beasiswaType: data.beasiswaType || prev.beasiswaType
+        } : prev
       );
     } catch {
       setClaimError("Terjadi kesalahan. Periksa koneksi dan coba lagi.");
@@ -218,7 +225,14 @@ export default function CertificatePage() {
       setCertId(data.certId);
       if (data.driveUrl) setDriveUrl(data.driveUrl);
       setCertName(editNameInput.trim());
-      setEnrollment((prev: any) => prev ? { ...prev, certificateId: data.certId, certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl } : prev);
+      setEnrollment((prev: any) => prev ? { 
+        ...prev, 
+        certificateId: data.certId, 
+        certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl,
+        bonusCourseRedeemCode: data.redeemCode || prev.bonusCourseRedeemCode,
+        waGroupLink: data.waGroupLink || prev.waGroupLink,
+        beasiswaType: data.beasiswaType || prev.beasiswaType
+      } : prev);
       setEditNameOpen(false);
       setEditNameInput("");
     } catch {
@@ -258,7 +272,14 @@ export default function CertificatePage() {
 
       setCertId(data.certId);
       if (data.driveUrl) setDriveUrl(data.driveUrl);
-      setEnrollment((prev: any) => prev ? { ...prev, certificateId: data.certId, certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl } : prev);
+      setEnrollment((prev: any) => prev ? { 
+        ...prev, 
+        certificateId: data.certId, 
+        certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl,
+        bonusCourseRedeemCode: data.redeemCode || prev.bonusCourseRedeemCode,
+        waGroupLink: data.waGroupLink || prev.waGroupLink,
+        beasiswaType: data.beasiswaType || prev.beasiswaType
+      } : prev);
 
       setReclaimStep(2);
       await new Promise(r => setTimeout(r, 1500));
