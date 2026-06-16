@@ -14,6 +14,8 @@ const PUBLIC_API_ROUTES = [
   '/api/public/dashboard',        // Dashboard public view — auth via URL token
   '/api/sync/sheet-data',         // GAS cron sync — auth via X-Sync-Key header
   '/api/public/standalone',       // Standalone freecourse submit
+  '/api/public/leads',            // Ingest leads Meta Instant Form (GAS) — auth via X-Sync-Key header
+  '/api/public/meta',             // Gerbang verifikasi peserta Meta (search & verify) — publik
 ];
 
 export function middleware(request: NextRequest) {
