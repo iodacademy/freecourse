@@ -150,6 +150,7 @@ export async function POST(req: NextRequest) {
 
     const db = getAdminDb();
     let saved = 0;
+    let created = 0;
     const skipped: string[] = [];
 
     for (const row of rows) {
@@ -161,15 +162,27 @@ export async function POST(req: NextRequest) {
       const ref = db.collection("leads").doc(lead.email);
       const snap = await ref.get();
       const payload: Record<string, any> = { ...lead };
-      if (!snap.exists) {
+      const isNew = !snap.exists;
+      if (isNew) {
         payload.createdAt = FieldValue.serverTimestamp();
         payload.verified = false;
+        created++;
       }
       await ref.set(payload, { merge: true });
       saved++;
     }
 
-    return json({ success: true, saved, skipped: skipped.length, skippedDetail: skipped });
+    // Catatan: pengiriman email ajakan dilakukan oleh script GAS (akun
+    // studentcenter@iodacademy.id), bukan oleh website. Field `created` di bawah
+    // memberi tahu GAS berapa lead baru, tapi GAS menentukan sendiri baris mana
+    // yang perlu dikirimi email berdasarkan kolom penanda di Sheet.
+    return json({
+      success: true,
+      saved,
+      created,
+      skipped: skipped.length,
+      skippedDetail: skipped,
+    });
   } catch (e) {
     return handleError(e);
   }
