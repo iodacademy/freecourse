@@ -43,10 +43,16 @@ export async function GET(req: NextRequest) {
     // Dibatasi agar tidak memindai seluruh koleksi.
     const snap = await db.collection("leads").limit(500).get();
 
-    const results: { leadId: string; nama: string; maskedEmail: string }[] = [];
+    const results: {
+      leadId: string;
+      nama: string;
+      maskedEmail: string;
+      verified: boolean;
+    }[] = [];
     for (const doc of snap.docs) {
       if (results.length >= 8) break;
       const d = doc.data();
+
       const email = String(d.email || doc.id || "").toLowerCase();
       const nama = String(d.nama || d.profileData?.nama_lengkap || "");
       const namaLower = nama.toLowerCase();
@@ -56,6 +62,8 @@ export async function GET(req: NextRequest) {
           leadId: email, // dipakai langkah verify; verify memvalidasi ulang
           nama: nama || "(Tanpa nama)",
           maskedEmail: maskEmail(email),
+          // Tandai sudah diverifikasi → komponen menampilkan label "lanjutkan belajar".
+          verified: d.verified === true,
         });
       }
     }

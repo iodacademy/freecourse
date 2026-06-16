@@ -7,6 +7,7 @@ interface SearchResult {
   leadId: string;
   nama: string;
   maskedEmail: string;
+  verified?: boolean;
 }
 
 interface MetaVerifyGateProps {
@@ -171,6 +172,22 @@ export default function MetaVerifyGate({ onVerified }: MetaVerifyGateProps) {
                       {r.nama}
                     </div>
                     <div style={{ fontSize: "0.8rem", color: "#666" }}>{r.maskedEmail}</div>
+                    {r.verified && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginTop: 4,
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          color: "#166534",
+                          background: "#DCFCE7",
+                          borderRadius: 999,
+                          padding: "2px 8px",
+                        }}
+                      >
+                        ✓ Sudah diverifikasi — lanjutkan belajar
+                      </span>
+                    )}
                   </div>
                   {isSel && <CheckCircle2 size={20} style={{ color: "var(--color-primary)" }} />}
                 </button>
@@ -235,6 +252,8 @@ export default function MetaVerifyGate({ onVerified }: MetaVerifyGateProps) {
               <>
                 <Loader2 className="animate-spin" size={18} /> Memverifikasi...
               </>
+            ) : selected.verified ? (
+              <>Lanjutkan Belajar</>
             ) : (
               <>Ini Saya, Lanjutkan</>
             )}
