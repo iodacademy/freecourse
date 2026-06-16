@@ -52,8 +52,22 @@
  *       - Lalu pilih "syncNewLeads" → Run sekali untuk uji penuh.
  *
  * E. PASANG TRIGGER (ikon jam "Triggers" → Add Trigger):
+ *    Data Meta masuk lewat integrasi resmi (Conversions API for CRM), yang
+ *    menulis ke Sheet via Google API — BUKAN ketikan manusia. Karena itu
+ *    pasang DUA trigger agar sinkron instan TAPI tetap aman:
+ *
+ *    Trigger 1 — INSTAN (begitu ada data baru):
+ *       - Function: onChangeSync
+ *       - Event source: From spreadsheet → On change
+ *
+ *    Trigger 2 — JARING PENGAMAN (cadangan, menangkap yang terlewat):
  *       - Function: syncNewLeads
- *       - Event source: Time-driven → Minutes timer → Every 5 minutes
+ *       - Event source: Time-driven → Minutes timer → Every minute (atau 5 menit)
+ *
+ *    Catatan: onChange dari Sheet TIDAK SELALU terpicu untuk perubahan dari
+ *    API/otomatisasi luar — itu sebabnya Trigger 2 wajib sebagai pengaman.
+ *    Kedua trigger aman dijalankan bersamaan karena ada penanda _synced/_emailed
+ *    (tidak akan simpan/kirim email dobel).
  *
  * CATATAN KOLOM PENANDA (dibuat otomatis di Sheet, JANGAN dihapus):
  *   - "_synced"  : "OK" jika baris sudah tersimpan ke database.
@@ -95,7 +109,35 @@ function ensureColumn_(sheet, headers, name) {
   return idx;
 }
 
+/**
+ * Dipanggil oleh trigger "On change" — sinkron INSTAN begitu ada data baru.
+ * Hanya melanjutkan untuk perubahan jenis penambahan baris / edit (mengabaikan
+ * perubahan format dll), lalu menjalankan proses sync yang sama.
+ */
+function onChangeSync(e) {
+  // e.changeType bisa: EDIT, INSERT_ROW, INSERT_GRID, REMOVE_ROW, dll.
+  // Untuk aman, jalankan untuk semua jenis kecuali yang jelas tidak menambah data.
+  if (e && e.changeType && (e.changeType === 'REMOVE_ROW' || e.changeType === 'REMOVE_COLUMN' || e.changeType === 'FORMAT')) {
+    return;
+  }
+  syncNewLeads();
+}
+
 function syncNewLeads() {
+  // Cegah dua proses (onChange + trigger waktu) jalan bersamaan agar tidak dobel.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    Logger.log('Proses sync lain sedang berjalan. Lewati eksekusi ini.');
+    return;
+  }
+  try {
+    _runSync();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _runSync() {
   var props = PropertiesService.getScriptProperties();
   var baseUrl = props.getProperty('NEXTJS_URL');
   var syncKey = props.getProperty('SYNC_KEY');
