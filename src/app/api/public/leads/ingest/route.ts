@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireSyncKey, json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { syncUserFromLead } from "@/lib/leads-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
     let saved = 0;
     let created = 0;
+    let userSynced = 0; // berapa peserta sudah-verifikasi yang ikut diperbarui
     const skipped: string[] = [];
 
     for (const row of rows) {
@@ -170,6 +172,19 @@ export async function POST(req: NextRequest) {
       }
       await ref.set(payload, { merge: true });
       saved++;
+
+      // Jika peserta ini SUDAH verifikasi (punya dokumen users), samakan
+      // profileData & displayName di users/enrollments dengan data lead terbaru.
+      try {
+        const result = await syncUserFromLead(
+          lead.email,
+          lead.profileData,
+          lead.nama
+        );
+        if (result === "updated") userSynced++;
+      } catch (syncErr) {
+        console.error("[leads-ingest] Gagal samakan users:", lead.email, syncErr);
+      }
     }
 
     // Catatan: pengiriman email ajakan dilakukan oleh script GAS (akun
@@ -180,6 +195,7 @@ export async function POST(req: NextRequest) {
       success: true,
       saved,
       created,
+      userSynced,
       skipped: skipped.length,
       skippedDetail: skipped,
     });
