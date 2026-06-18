@@ -367,6 +367,238 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
 }
 
 /* ─── Student Edit Modal ─────────────────────────────────── */
+/* ─── Edit Identitas Peserta Modal ──────────────────────── */
+interface StudentProfileEditModalProps {
+  student: any | null;
+  onClose: () => void;
+  getToken: () => Promise<string>;
+  onSaved: (updated: {
+    uid: string;
+    namaLengkap: string;
+    jenisKelamin?: string;
+    asalDaerah?: string;
+    newCertUrl?: string | null;
+  }) => void;
+}
+
+// Ambil nilai dari profileData dengan dukungan dua gaya nama field.
+function pickProfile(pd: any, snake: string, camel: string): string {
+  if (!pd) return "";
+  const v = pd[snake] !== undefined && pd[snake] !== "" ? pd[snake] : pd[camel];
+  if (Array.isArray(v)) return v.join(", ");
+  return v != null ? String(v) : "";
+}
+
+function StudentProfileEditModal({ student, onClose, getToken, onSaved }: StudentProfileEditModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+
+  const [form, setForm] = useState({
+    nama_lengkap: "",
+    jenis_kelamin: "",
+    tanggal_lahir: "",
+    nomor_whatsapp: "",
+    asal_daerah: "",
+    disabilitas: "",
+    kategori_disabilitas: "",
+    minat: "",
+  });
+
+  useEffect(() => {
+    if (!student) return;
+    function handler(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", handler);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [student, onClose]);
+
+  useEffect(() => {
+    if (!student?.uid) return;
+    setError(""); setInfo(""); setLoading(true);
+    (async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api/users/${student.uid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("Gagal memuat data peserta");
+        const u = await res.json();
+        const pd = u.profileData || {};
+        setForm({
+          nama_lengkap: pickProfile(pd, "nama_lengkap", "namaLengkap") || u.displayName || "",
+          jenis_kelamin: pickProfile(pd, "jenis_kelamin", "jenisKelamin"),
+          tanggal_lahir: pickProfile(pd, "tanggal_lahir", "tanggalLahir"),
+          nomor_whatsapp: pickProfile(pd, "nomor_whatsapp", "nomorWA"),
+          asal_daerah: pickProfile(pd, "asal_daerah", "kotaKabupaten"),
+          disabilitas: pickProfile(pd, "disabilitas", "disabilitas"),
+          kategori_disabilitas: pickProfile(pd, "kategori_disabilitas_yang_anda_miliki", "kategoriDisabilitas"),
+          minat: pickProfile(pd, "jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati", "minat"),
+        });
+      } catch (e: any) {
+        setError(e.message || "Gagal memuat data");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [student, getToken]);
+
+  const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+
+  async function handleSave() {
+    if (!student?.uid) return;
+    if (!form.nama_lengkap.trim()) { setError("Nama lengkap wajib diisi."); return; }
+    setSaving(true); setError(""); setInfo("");
+    try {
+      const token = await getToken();
+      const body: Record<string, any> = {
+        nama_lengkap: form.nama_lengkap.trim(),
+        jenis_kelamin: form.jenis_kelamin,
+        tanggal_lahir: form.tanggal_lahir,
+        nomor_whatsapp: form.nomor_whatsapp,
+        asal_daerah: form.asal_daerah,
+        disabilitas: form.disabilitas,
+        kategori_disabilitas_yang_anda_miliki: form.kategori_disabilitas,
+        jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati: form.minat,
+      };
+      const res = await fetch(`/api/admin/students/${student.uid}/full-edit`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan");
+
+      if (data.certRegenerated) {
+        setInfo("Data tersimpan. Sertifikat berhasil dibuat ulang dengan nama baru.");
+      } else if (data.nameChanged) {
+        setInfo("Data tersimpan. (Sertifikat tidak dibuat ulang karena peserta belum punya sertifikat.)");
+      } else {
+        setInfo("Data berhasil disimpan.");
+      }
+
+      // Beri jeda singkat agar admin sempat membaca pesan, lalu tutup & refresh.
+      setTimeout(() => {
+        onSaved({
+          uid: student.uid,
+          namaLengkap: form.nama_lengkap.trim(),
+          jenisKelamin: form.jenis_kelamin,
+          asalDaerah: form.asal_daerah,
+          newCertUrl: data.newCertUrl || null,
+        });
+      }, 900);
+    } catch (e: any) {
+      setError(e.message || "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!student) return null;
+
+  const fieldStyle: React.CSSProperties = { marginBottom: 14 };
+  const labelStyle: React.CSSProperties = { display: "block", fontSize: "0.8rem", fontWeight: 600, color: "#374151", marginBottom: 4 };
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: "0.9rem" };
+
+  return (
+    <div className={styles.modalOverlay} onClick={() => !saving && onClose()}>
+      <div className={styles.detailModal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.detailHeader}>
+          <div className={styles.detailHeaderInfo}>
+            <h2 className={styles.detailName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CircleUserRound size={18} /> Edit Identitas Peserta
+            </h2>
+            <div className={styles.detailEmail}>{student.email}</div>
+          </div>
+          <button className={styles.detailClose} onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <div className={styles.detailBody}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 32 }}>
+              <Loader2 className="animate-spin" size={28} /> <p>Memuat data...</p>
+            </div>
+          ) : (
+            <>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Nama Lengkap *</label>
+                <input style={inputStyle} value={form.nama_lengkap} onChange={(e) => set("nama_lengkap", e.target.value)} />
+                <div style={{ fontSize: "0.72rem", color: "#9ca3af", marginTop: 4 }}>
+                  Mengubah nama akan otomatis membuat ulang sertifikat (jika sudah pernah klaim).
+                </div>
+              </div>
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Jenis Kelamin</label>
+                <select style={inputStyle} value={form.jenis_kelamin} onChange={(e) => set("jenis_kelamin", e.target.value)}>
+                  <option value="">— Pilih —</option>
+                  <option value="Laki-laki">Laki-laki</option>
+                  <option value="Perempuan">Perempuan</option>
+                </select>
+              </div>
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Tanggal Lahir</label>
+                <input type="date" style={inputStyle} value={form.tanggal_lahir} onChange={(e) => set("tanggal_lahir", e.target.value)} />
+              </div>
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Nomor WhatsApp</label>
+                <input style={inputStyle} value={form.nomor_whatsapp} onChange={(e) => set("nomor_whatsapp", e.target.value)} placeholder="contoh: 8123456789" />
+              </div>
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Asal Daerah / Domisili</label>
+                <input style={inputStyle} value={form.asal_daerah} onChange={(e) => set("asal_daerah", e.target.value)} />
+              </div>
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Status Disabilitas</label>
+                <select style={inputStyle} value={form.disabilitas} onChange={(e) => set("disabilitas", e.target.value)}>
+                  <option value="">— Pilih —</option>
+                  <option value="Tidak">Tidak</option>
+                  <option value="Ya">Ya</option>
+                </select>
+              </div>
+
+              {form.disabilitas === "Ya" && (
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Kategori Disabilitas</label>
+                  <input style={inputStyle} value={form.kategori_disabilitas} onChange={(e) => set("kategori_disabilitas", e.target.value)} />
+                </div>
+              )}
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Minat Pelatihan</label>
+                <input style={inputStyle} value={form.minat} onChange={(e) => set("minat", e.target.value)} />
+              </div>
+
+              {error && <div style={{ background: "#FEE2E2", color: "#B91C1C", padding: "10px 12px", borderRadius: 8, fontSize: "0.85rem", marginTop: 8 }}>{error}</div>}
+              {info && <div style={{ background: "#DCFCE7", color: "#166534", padding: "10px 12px", borderRadius: 8, fontSize: "0.85rem", marginTop: 8 }}>{info}</div>}
+            </>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: 16, borderTop: "1px solid #eee" }}>
+          <button className={styles.pageBtn} onClick={onClose} disabled={saving}>Batal</button>
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "#7c3aed", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}
+          >
+            {saving ? <><Loader2 className="animate-spin" size={16} /> Menyimpan...</> : <><Save size={16} /> Simpan Perubahan</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface StudentEditModalProps {
   student: any | null;
   onClose: () => void;
@@ -649,8 +881,10 @@ export default function AdminStudentsPage() {
   const [detailTarget, setDetailTarget] = useState<any | null>(null);
   // State progress modal
   const [progressTarget, setProgressTarget] = useState<any | null>(null);
-  // State edit modal
+  // State edit modal (nilai kuis)
   const [editTarget, setEditTarget] = useState<any | null>(null);
+  // State edit identitas/profil peserta
+  const [profileEditTarget, setProfileEditTarget] = useState<any | null>(null);
 
   // State untuk konfirmasi hapus
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -1118,14 +1352,24 @@ export default function AdminStudentsPage() {
                       <Eye size={15} />
                     </button>
                     {!(profile?.role || "").toLowerCase().includes("public") && (
-                      <button
-                        className={styles.iconBtn}
-                        title="Edit Data Siswa"
-                        style={{ color: "#2563eb" }}
-                        onClick={(e) => { e.stopPropagation(); setEditTarget(s); }}
-                      >
-                        <Pencil size={15} />
-                      </button>
+                      <>
+                        <button
+                          className={styles.iconBtn}
+                          title="Edit Identitas Peserta"
+                          style={{ color: "#7c3aed" }}
+                          onClick={(e) => { e.stopPropagation(); setProfileEditTarget(s); }}
+                        >
+                          <CircleUserRound size={15} />
+                        </button>
+                        <button
+                          className={styles.iconBtn}
+                          title="Edit Nilai / Progress"
+                          style={{ color: "#2563eb" }}
+                          onClick={(e) => { e.stopPropagation(); setEditTarget(s); }}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      </>
                     )}
                     <button
                       className={`${styles.iconBtn} ${styles.deleteBtn}`}
@@ -1190,6 +1434,29 @@ export default function AdminStudentsPage() {
             return s;
           }));
           setEditTarget(null);
+        }}
+      />
+
+      {/* Edit Identitas Peserta Modal */}
+      <StudentProfileEditModal
+        student={profileEditTarget}
+        onClose={() => setProfileEditTarget(null)}
+        getToken={getToken}
+        onSaved={(updated) => {
+          setStudents(prev => prev.map(s => {
+            if (s.uid === updated.uid) {
+              return {
+                ...s,
+                namaLengkap: updated.namaLengkap,
+                displayName: updated.namaLengkap,
+                jenisKelamin: updated.jenisKelamin || s.jenisKelamin,
+                kota: updated.asalDaerah || s.kota,
+                ...(updated.newCertUrl ? { linkSertifikat: updated.newCertUrl } : {}),
+              } as any;
+            }
+            return s;
+          }));
+          setProfileEditTarget(null);
         }}
       />
 
