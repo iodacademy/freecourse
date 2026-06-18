@@ -30,35 +30,47 @@ export async function POST(req: NextRequest) {
 
     let body: any = {};
     try { body = await req.json(); } catch { /* body opsional */ }
-    const from = String(body.from || "standalone");
+    // Sumber channel yang dimigrasi: standalone & fb_instant_form (bisa dioverride).
+    const fromList: string[] = Array.isArray(body.from)
+      ? body.from.map((s: any) => String(s))
+      : body.from
+        ? [String(body.from)]
+        : ["standalone", "fb_instant_form"];
     const to = String(body.to || "beasiswa");
+    const detailChannel = String(body.detailChannel || "All Beasiswa - Facebook Instant Forms");
 
     const db = getAdminDb();
 
     async function migrateCollection(name: string): Promise<number> {
-      const snap = await db
-        .collection(name)
-        .where("channelSource", "==", from)
-        .get();
       let count = 0;
-      // Tulis per batch (maks 500 operasi per batch Firestore).
-      let batch = db.batch();
-      let ops = 0;
-      for (const doc of snap.docs) {
-        batch.set(
-          doc.ref,
-          { channelSource: to, updatedAt: FieldValue.serverTimestamp() },
-          { merge: true }
-        );
-        count++;
-        ops++;
-        if (ops >= 450) {
-          await batch.commit();
-          batch = db.batch();
-          ops = 0;
+      for (const from of fromList) {
+        const snap = await db
+          .collection(name)
+          .where("channelSource", "==", from)
+          .get();
+        // Tulis per batch (maks 500 operasi per batch Firestore).
+        let batch = db.batch();
+        let ops = 0;
+        for (const doc of snap.docs) {
+          batch.set(
+            doc.ref,
+            {
+              channelSource: to,
+              detailChannel,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          count++;
+          ops++;
+          if (ops >= 450) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+          }
         }
+        if (ops > 0) await batch.commit();
       }
-      if (ops > 0) await batch.commit();
       return count;
     }
 
@@ -67,8 +79,9 @@ export async function POST(req: NextRequest) {
 
     return json({
       success: true,
-      from,
+      from: fromList,
       to,
+      detailChannel,
       usersUpdated,
       enrollmentsUpdated,
     });

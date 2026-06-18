@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
         email: email,
         displayName: payload.nama_lengkap || '',
         channelSource: payload.channelSource || 'beasiswa',
+        detailChannel: payload.detailChannel || 'All Beasiswa - Facebook Instant Forms',
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         profileCompleted: true,
@@ -57,8 +58,9 @@ export async function POST(request: NextRequest) {
           userId: userId,
           email: email,
           displayName: payload.nama_lengkap || '',
-          courseId: 'course-main', 
+          courseId: 'course-main',
           channelSource: payload.channelSource || 'beasiswa',
+          detailChannel: payload.detailChannel || 'All Beasiswa - Facebook Instant Forms',
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
           currentStep: 1, // Step 1 is material

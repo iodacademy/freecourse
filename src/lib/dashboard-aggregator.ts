@@ -473,7 +473,12 @@ export async function aggregateDashboard(
     };
     const channel = channelLabel[rawChannel] || rawChannel;
     let detailChannel = "-";
-    if (rawChannel === "beasiswa" || rawChannel === "workshop") {
+    // Prioritaskan detailChannel yang tersimpan langsung di data (mis. peserta
+    // standalone/Meta yang ditandai "All Beasiswa - Facebook Instant Forms").
+    const storedDetail = ((enr as any)?.detailChannel || (u as any).detailChannel || "").toString().trim();
+    if (storedDetail) {
+      detailChannel = storedDetail;
+    } else if (rawChannel === "beasiswa" || rawChannel === "workshop") {
       const evId = enr?.eventId || u.eventId;
       if (evId) {
         detailChannel = eventsById.get(evId)?.name || "-";
