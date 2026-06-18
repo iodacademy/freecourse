@@ -55,6 +55,11 @@ export default function MetaJourney() {
   const [selectedCategory, setSelectedCategory] = useState<string>("vl");
   const [isClient, setIsClient] = useState(false);
 
+  // Konfirmasi nama untuk sertifikat (popup)
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
+  const [nameError, setNameError] = useState("");
+
   // Redeem state
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -264,8 +269,22 @@ export default function MetaJourney() {
 
   const showSuccessRedeem = !!redeemCode;
 
-  const handleClaimCertificate = async () => {
+  // Buka popup konfirmasi nama (isi awal dari nama yang ada).
+  const openNameModal = () => {
+    setConfirmName(userData?.nama_lengkap || "");
+    setNameError("");
+    setShowNameModal(true);
+  };
+
+  // Setelah nama dikonfirmasi → klaim sertifikat dengan nama itu.
+  const handleConfirmNameAndClaim = async () => {
+    const trimmed = (confirmName || "").trim();
+    if (!trimmed) {
+      setNameError("Nama wajib diisi.");
+      return;
+    }
     setIsLoading(true);
+    setNameError("");
     try {
       const res = await fetch("/api/public/standalone/submit", {
         method: "POST",
@@ -273,21 +292,25 @@ export default function MetaJourney() {
         body: JSON.stringify({
           action: "certificate",
           email: userData.alamat_email,
-          payload: {}
+          payload: { confirmedName: trimmed }
         })
       });
       if (!res.ok) throw new Error("Gagal mengklaim sertifikat");
       const data = await res.json();
+
+      // Perbarui nama lokal agar tampilan sertifikat memakai nama final.
+      setUserData((prev: any) => ({ ...prev, nama_lengkap: trimmed }));
 
       if (data.driveUrl) {
         setCertDriveUrl(data.driveUrl);
         window.open(data.driveUrl, "_blank");
       }
 
+      setShowNameModal(false);
       setCurrentStep("sertifikat");
       window.scrollTo(0, 0);
     } catch (error) {
-      alert("Terjadi kesalahan. Silakan coba lagi.");
+      setNameError("Terjadi kesalahan. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -456,12 +479,12 @@ export default function MetaJourney() {
                     </a>
 
                     <button
-                      onClick={handleClaimCertificate}
+                      onClick={openNameModal}
                       disabled={isLoading}
                       className="btn btn-primary w-full flex items-center justify-center gap-2"
                     >
-                      {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Award size={20} />}
-                      {isLoading ? "Memproses Sertifikat..." : "Klaim Sertifikat"}
+                      <Award size={20} />
+                      Klaim Sertifikat
                     </button>
                   </div>
                 </div>
@@ -681,6 +704,86 @@ export default function MetaJourney() {
 
         </div>
       </div>
+
+      {/* ── POPUP KONFIRMASI NAMA UNTUK SERTIFIKAT ── */}
+      {showNameModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            padding: "16px",
+          }}
+          onClick={() => { if (!isLoading) setShowNameModal(false); }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: "28px 24px",
+              width: "100%",
+              maxWidth: 440,
+              boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <Award size={36} style={{ color: "var(--color-primary)" }} />
+            </div>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, textAlign: "center", margin: "0 0 8px", color: "#111" }}>
+              Konfirmasi Nama di Sertifikat
+            </h2>
+            <p style={{ fontSize: "0.9rem", color: "#666", textAlign: "center", margin: "0 0 20px", lineHeight: 1.5 }}>
+              Pastikan nama berikut sudah benar karena akan tercetak di sertifikat.
+              Anda bisa memperbaikinya bila perlu.
+            </p>
+
+            <label className="pf-label" style={{ display: "block", marginBottom: 6 }}>
+              Nama Lengkap
+            </label>
+            <input
+              type="text"
+              className="pf-input"
+              value={confirmName}
+              onChange={(e) => { setConfirmName(e.target.value); setNameError(""); }}
+              placeholder="Tulis nama lengkap Anda"
+              autoFocus
+            />
+            {nameError && (
+              <div style={{ color: "#B91C1C", fontSize: "0.85rem", marginTop: 8 }}>{nameError}</div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: 1 }}
+                disabled={isLoading}
+                onClick={() => setShowNameModal(false)}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                disabled={isLoading}
+                onClick={handleConfirmNameAndClaim}
+              >
+                {isLoading ? (
+                  <><Loader2 className="animate-spin" size={18} /> Memproses...</>
+                ) : (
+                  <>Nama Sudah Benar, Klaim</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

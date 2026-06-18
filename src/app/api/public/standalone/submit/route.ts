@@ -3,6 +3,25 @@ import type { NextRequest } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
+/**
+ * Rapikan nama untuk sertifikat:
+ * - buang emoji & karakter aneh (sisakan huruf, spasi, titik, apostrof, strip)
+ * - rapikan spasi berlebih
+ * - jadikan Title Case (Huruf Besar Di Awal Kata)
+ */
+function rapikanNama(input: string): string {
+  if (!input) return "";
+  let s = String(input);
+  // Sisakan huruf (termasuk aksen), spasi, titik, apostrof, dan strip.
+  s = s.replace(/[^\p{L}\s.'-]/gu, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  s = s
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ""))
+    .join(" ");
+  return s;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -114,11 +133,36 @@ export async function POST(request: NextRequest) {
     if (action === 'certificate') {
       // 4. Claim Certificate
       const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
-      const userDoc = await db.collection('users').doc(userId).get();
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
       const settingsDoc = await db.collection("settings").doc("app").get();
 
-      const userName = userDoc.data()?.displayName || "Peserta";
+      // Jika peserta mengonfirmasi/memperbaiki nama saat klaim sertifikat,
+      // pakai nama itu (dirapikan) untuk sertifikat DAN simpan ke semua data.
+      const confirmedNameRaw = (payload && payload.confirmedName) || "";
+      const confirmedName = rapikanNama(confirmedNameRaw);
+      const userName = confirmedName || userDoc.data()?.displayName || "Peserta";
       const issuerName = 'IODA Academy';
+
+      // Sinkronkan nama ke users (displayName + profileData.nama_lengkap)
+      // dan enrollments (displayName) agar semua data ikut nama sertifikat.
+      if (confirmedName) {
+        await userRef.set(
+          {
+            displayName: confirmedName,
+            profileData: { nama_lengkap: confirmedName },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        await enrollmentRef.set(
+          {
+            displayName: confirmedName,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
       
       const year = new Date().getFullYear();
       const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
