@@ -4,22 +4,13 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 /**
- * Rapikan nama untuk sertifikat:
- * - buang emoji & karakter aneh (sisakan huruf, spasi, titik, apostrof, strip)
- * - rapikan spasi berlebih
- * - jadikan Title Case (Huruf Besar Di Awal Kata)
+ * Rapikan nama untuk sertifikat — sesuai keputusan: pakai APA ADANYA.
+ * Hanya rapikan spasi berlebih di awal/akhir & di tengah. Huruf besar/kecil
+ * dan karakter dibiarkan persis seperti yang diketik peserta.
  */
 function rapikanNama(input: string): string {
   if (!input) return "";
-  let s = String(input);
-  // Sisakan huruf (termasuk aksen), spasi, titik, apostrof, dan strip.
-  s = s.replace(/[^\p{L}\s.'-]/gu, " ");
-  s = s.replace(/\s+/g, " ").trim();
-  s = s
-    .split(" ")
-    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ""))
-    .join(" ");
-  return s;
+  return String(input).replace(/\s+/g, " ").trim();
 }
 
 export async function POST(request: NextRequest) {
