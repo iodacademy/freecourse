@@ -179,9 +179,13 @@ export async function autoCompleteLead(
     let driveUrl: string | null = null;
     let driveFileId: string | null = null;
 
+    // Tanggal sertifikat = 1 hari setelah tanggal daftar (created_time form),
+    // agar tanggal klaim berbeda dari tanggal daftar (terlihat natural).
+    const certDate = new Date(formDate || new Date());
+    certDate.setDate(certDate.getDate() + 1);
+
     if (gasWebAppUrl) {
-      const claimBase = formDate || new Date();
-      const claimDate = `${claimBase.getDate()} ${MONTHS[claimBase.getMonth()]} ${claimBase.getFullYear()}`;
+      const claimDate = `${certDate.getDate()} ${MONTHS[certDate.getMonth()]} ${certDate.getFullYear()}`;
       try {
         const gasRes = await fetch(gasWebAppUrl, {
           method: "POST",
@@ -210,7 +214,7 @@ export async function autoCompleteLead(
       {
         status: "certified",
         certificateClaimed: true,
-        certificateClaimedAt: formDate || FieldValue.serverTimestamp(),
+        certificateClaimedAt: certDate,
         certificateCourseName: courseName,
         certificateIssuer: issuerName,
         certificateId: certId,
