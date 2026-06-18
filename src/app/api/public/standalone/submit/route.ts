@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         uid: userId,
         email: email,
         displayName: payload.nama_lengkap || '',
-        channelSource: payload.channelSource || 'standalone',
+        channelSource: payload.channelSource || 'beasiswa',
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         profileCompleted: true,
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           email: email,
           displayName: payload.nama_lengkap || '',
           courseId: 'course-main', 
-          channelSource: payload.channelSource || 'standalone',
+          channelSource: payload.channelSource || 'beasiswa',
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
           currentStep: 1, // Step 1 is material
