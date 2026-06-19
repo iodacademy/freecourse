@@ -9,8 +9,11 @@ export async function GET(req: NextRequest) {
     await requireAdmin(req);
     
     const filter = parseFilterFromSearchParams(req.nextUrl.searchParams);
-    const result = await aggregateDashboard(filter, { includeStudents: true });
-    
+    const bypassCache = req.nextUrl.searchParams.get("refresh") === "1";
+    // Dashboard hanya butuh `stats` (DashboardView tidak merender students) →
+    // includeStudents:false agar payload kecil & cepat.
+    const result = await aggregateDashboard(filter, { includeStudents: false, bypassCache });
+
     return json(result);
   } catch (e) {
     return handleError(e);

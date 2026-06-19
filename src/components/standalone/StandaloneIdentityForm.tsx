@@ -20,6 +20,7 @@ export default function StandaloneIdentityForm({ onSubmit, isLoading }: Standalo
     const errs: Record<string, string> = {};
     const requiredFields = [
       "apakah_anda_setuju_dan_bersedia_untuk_mengisi_data_pada_form_ini",
+      "pretest_pernah_belajar_financial_literacy",
       "nama_lengkap",
       "jenis_kelamin",
       "tanggal_lahir",
@@ -87,7 +88,11 @@ export default function StandaloneIdentityForm({ onSubmit, isLoading }: Standalo
 
     // Resolusi "__other__" sebelum disubmit
     const payload = { ...answers };
-    
+
+    // Pre-test: hitung bobot poin — "Pernah" = 30, "Belum Pernah" = 10
+    payload.pretest_score =
+      payload.pretest_pernah_belajar_financial_literacy === "Pernah" ? 30 : 10;
+
     if (payload.kategori_disabilitas_yang_anda_miliki === "__other__") {
       payload.kategori_disabilitas_yang_anda_miliki = payload.kategori_disabilitas_yang_anda_miliki__other;
     }
@@ -154,6 +159,28 @@ export default function StandaloneIdentityForm({ onSubmit, isLoading }: Standalo
                 <p className="pf-blocked-inline__body">
                   Tidak apa-apa. Kami butuh persetujuanmu dulu sebelum lanjut. Kamu bisa balik kapan saja.
                 </p>
+              </div>
+            )}
+
+            {/* PRE-TEST: muncul setelah consent disetujui (1 halaman dengan consent) */}
+            {answers.apakah_anda_setuju_dan_bersedia_untuk_mengisi_data_pada_form_ini === "Ya" && (
+              <div className="pf-field-group" style={{ marginTop: 24 }}>
+                <label className="pf-label">
+                  Apakah kamu pernah mempelajari Financial Literacy sebelumnya? <span className="yr-req">*</span>
+                </label>
+                <div className="pf-segmented" role="radiogroup">
+                  {["Pernah", "Belum Pernah"].map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className={`pf-segmented__opt ${answers.pretest_pernah_belajar_financial_literacy === opt ? 'pf-segmented__opt--active' : ''}`}
+                      onClick={() => setAnswer("pretest_pernah_belajar_financial_literacy", opt)}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                {errors.pretest_pernah_belajar_financial_literacy && <div className="pf-error">{errors.pretest_pernah_belajar_financial_literacy}</div>}
               </div>
             )}
           </div>

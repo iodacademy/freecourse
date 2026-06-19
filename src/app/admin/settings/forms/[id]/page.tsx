@@ -637,14 +637,41 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                                 className={styles.optionInput}
                                 value={opt}
                                 onChange={e => {
+                                  const oldVal = opt;
+                                  const newVal = e.target.value;
                                   const newOpts = [...(field.options || [])];
-                                  newOpts[optIdx] = e.target.value;
-                                  updateField(section.id, field.id, { options: newOpts });
+                                  newOpts[optIdx] = newVal;
+                                  const upd: Partial<DynamicFormField> = { options: newOpts };
+                                  // Jaga agar map poin tetap mengikuti teks opsi saat di-rename
+                                  if (field.optionPoints && oldVal in field.optionPoints) {
+                                    const np = { ...field.optionPoints };
+                                    np[newVal] = np[oldVal];
+                                    if (newVal !== oldVal) delete np[oldVal];
+                                    upd.optionPoints = np;
+                                  }
+                                  updateField(section.id, field.id, upd);
                                 }}
                                 placeholder={`Opsi ${optIdx + 1}`}
                               />
-                              <button 
-                                className={styles.iconBtn} 
+                              {field.usePoints && field.type !== 'checkbox' && (
+                                <input
+                                  type="number"
+                                  className={styles.optionInput}
+                                  style={{ maxWidth: 90, flex: 'none' }}
+                                  value={field.optionPoints?.[opt] ?? ""}
+                                  onChange={e => {
+                                    const np = { ...(field.optionPoints || {}) };
+                                    const v = e.target.value;
+                                    if (v === "") delete np[opt];
+                                    else np[opt] = Number(v);
+                                    updateField(section.id, field.id, { optionPoints: np });
+                                  }}
+                                  placeholder="Poin"
+                                  title="Poin untuk opsi ini"
+                                />
+                              )}
+                              <button
+                                className={styles.iconBtn}
                                 onClick={() => {
                                   const newOpts = (field.options || []).filter((_, i) => i !== optIdx);
                                   updateField(section.id, field.id, { options: newOpts });
@@ -687,6 +714,33 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                               </div>
                             )}
                           </div>
+
+                          {/* ── Pembobotan poin per-opsi (radio/select saja) ── */}
+                          {field.type !== 'checkbox' && (
+                            <div className={styles.allowOtherRow}>
+                              <label className={styles.allowOtherLabel}>
+                                <input
+                                  type="checkbox"
+                                  checked={field.usePoints || false}
+                                  onChange={e => updateField(section.id, field.id, {
+                                    usePoints: e.target.checked,
+                                    ...(e.target.checked ? {} : { isPretest: false }),
+                                  })}
+                                />
+                                Aktifkan pembobotan poin per-opsi
+                              </label>
+                              {field.usePoints && (
+                                <label className={styles.allowOtherLabel} style={{ marginTop: 6 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={field.isPretest || false}
+                                    onChange={e => updateField(section.id, field.id, { isPretest: e.target.checked })}
+                                  />
+                                  Jadikan sumber Nilai Pre-test (disimpan ke data peserta)
+                                </label>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 

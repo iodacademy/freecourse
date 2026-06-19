@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { invalidateDashboardCache } from '@/lib/dashboard-aggregator';
 import { FieldValue } from 'firebase-admin/firestore';
 
 /**
@@ -70,6 +71,22 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ success: true, message: 'Identity saved' });
+    }
+
+    if (action === 'pretest') {
+      // Simpan jawaban + nilai Pre-test ke users.profileData (bukan enrollments).
+      const answer = payload?.pretest_pernah_belajar_financial_literacy ?? "";
+      const score = answer === "Pernah" ? 30 : 10;
+      const userRef = db.collection('users').doc(userId);
+      await userRef.set({
+        updatedAt: FieldValue.serverTimestamp(),
+        profileData: {
+          pretest_pernah_belajar_financial_literacy: answer,
+          pretest_score: score,
+        },
+      }, { merge: true });
+
+      return NextResponse.json({ success: true, message: 'Pre-test saved', score });
     }
 
     if (action === 'quiz') {
@@ -214,6 +231,8 @@ export async function POST(request: NextRequest) {
         certificateDriveUrl: driveUrl || "",
         certificateDriveFileId: driveFileId || "",
       }, { merge: true });
+
+      invalidateDashboardCache();
 
       return NextResponse.json({ success: true, message: 'Certificate claimed', certId, driveUrl });
     }

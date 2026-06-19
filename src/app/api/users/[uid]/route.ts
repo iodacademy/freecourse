@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { requireAuth, requireAdmin, json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function GET(
@@ -66,6 +67,7 @@ export async function PATCH(
     // set dengan merge:true → berfungsi sebagai upsert (create-or-update)
     await ref.set(updateData, { merge: true });
     const updated = await ref.get();
+    invalidateDashboardCache();
     return json(updated.data());
   } catch (e) {
     console.error("[PATCH /api/users/[uid]] Error:", e);
@@ -130,6 +132,7 @@ export async function DELETE(
       await certBatch.commit();
     }
 
+    invalidateDashboardCache();
     return json({ success: true, message: `User ${uid} berhasil dihapus sepenuhnya.` });
   } catch (e) {
     return handleError(e);

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
@@ -117,7 +118,9 @@ export async function POST(req: NextRequest) {
       await batch.commit();
     }
 
-    return json({ 
+    invalidateDashboardCache();
+
+    return json({
       success: true, 
       message: `Berhasil meluluskan ${updatedCount} peserta secara massal.`,
       updatedCount 

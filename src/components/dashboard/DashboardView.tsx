@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Users, Heart, Accessibility, GraduationCap, Smile, ShieldCheck,
-  MapPin, TrendingUp, Cake,
+  MapPin, TrendingUp, Cake, BookOpen,
 } from "lucide-react";
 import KpiCard from "./KpiCard";
 import MetricCard from "./MetricCard";
@@ -22,7 +22,7 @@ interface DashboardData {
     total: number; totalCompleted: number; totalTarget: number;
     perempuan: number; perempuanCompleted: number; perempuanTarget: number;
     disabilitas: number; disabilitasCompleted: number; disabilitasTarget: number;
-    rerata: number; kepuasan: number; keyakinan: number;
+    rerata: number; rerataPretest: number; kepuasan: number; keyakinan: number;
     respondenSurvei1: number; respondenSurvei2: number;
     origin: Array<[string, number]>;
     topik: Array<[string, number]>;
@@ -147,9 +147,16 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
       </div>
 
       {/* Row B — Metric */}
-      <div className={styles.row3}>
+      <div className={styles.row4}>
         <MetricCard
-          label="Rerata Nilai Peserta yang Lulus"
+          label="Rerata Nilai Pre-test"
+          value={stats.rerataPretest}
+          suffix="/ 100"
+          icon={<BookOpen size={22} strokeWidth={1.75} />}
+          foot="Rata-rata nilai pre-test peserta"
+        />
+        <MetricCard
+          label="Rerata Nilai Post-test"
           value={stats.rerata}
           suffix="/ 100"
           icon={<GraduationCap size={22} strokeWidth={1.75} />}

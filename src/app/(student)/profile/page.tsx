@@ -392,6 +392,23 @@ function ProfileContent() {
         }
       }
 
+      // Hitung Nilai Pre-test dari field yang ditandai isPretest (pembobotan poin per-opsi).
+      // Disimpan ke profileData.pretest_score agar dibaca dashboard & export.
+      let pretestScore: number | null = null;
+      if (activeForm) {
+        for (const sec of activeForm.sections) {
+          for (const f of sec.fields) {
+            if (f.isPretest && f.usePoints && f.optionPoints) {
+              const ans = cleanAnswers[f.name];
+              if (typeof ans === "string" && ans in f.optionPoints) {
+                pretestScore = (pretestScore ?? 0) + f.optionPoints[ans];
+              }
+            }
+          }
+        }
+      }
+      if (pretestScore != null) cleanAnswers.pretest_score = pretestScore;
+
       await updateUserProfile({
         profileCompleted: true,
         channelSource,

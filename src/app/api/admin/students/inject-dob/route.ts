@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 
 export async function POST(req: NextRequest) {
   try {
@@ -85,8 +86,10 @@ export async function POST(req: NextRequest) {
       await batch.commit();
     }
 
-    return json({ 
-      success: true, 
+    invalidateDashboardCache();
+
+    return json({
+      success: true,
       message: `Berhasil menyuntikkan tanggal lahir acak (usia 18-29) untuk ${injectedCount} peserta terpilih.`
     });
     

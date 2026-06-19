@@ -859,17 +859,24 @@ function StudentEditModal({ student, onClose, getToken, onSaved }: StudentEditMo
 export default function AdminStudentsPage() {
 
   const { user, profile } = useAuth();
-  const [students, setStudents] = useState<any[]>([]); // Array of DashboardStudent
+  const [students, setStudents] = useState<any[]>([]); // 1 halaman DashboardStudent dari server
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Search state
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
 
-  // Client-side pagination
+  // Server-side pagination
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+
+  // Ringkasan & opsi dropdown dari server
+  const [channelSummary, setChannelSummary] = useState<Record<string, number>>({});
+  const [detailChannelOptions, setDetailChannelOptions] = useState<Array<{ value: string; count: number }>>([]);
 
   // Filter tambahan
   const [filterDetailChannel, setFilterDetailChannel] = useState("all");
@@ -903,26 +910,29 @@ export default function AdminStudentsPage() {
   const [queueProgress, setQueueProgress] = useState({ current: 0, total: 0, success: 0, fail: 0 });
   const [bulkError, setBulkError] = useState("");
 
-  const openBulkModal = () => {
-    // Cari semua siswa yang belum lulus (belum punya sertifikat)
-    const pendingStudents = students.filter(s => s.status !== "Tersertifikasi");
-    
-    // Group by tanggalDaftar
-    const grouped: Record<string, any[]> = {};
-    pendingStudents.forEach(s => {
-      const d = s.tanggalDaftar?.split(" ")[0] || "Tanggal Tidak Diketahui";
-      if (!grouped[d]) grouped[d] = [];
-      grouped[d].push(s);
-    });
-
-    const groupsArray = Object.keys(grouped).map(k => ({ date: k, students: grouped[k] }));
-    groupsArray.sort((a, b) => b.date.localeCompare(a.date)); // Sort terbaru di atas
-    
-    setDateGroups(groupsArray);
+  const openBulkModal = async () => {
     setSelectedDates([]);
     setQueueStatus("idle");
     setBulkError("");
+    setDateGroups([]);
     setBulkConfirmOpen(true);
+    // Ambil SEMUA siswa pending dari server (dikelompokkan per tanggal) — bukan
+    // hanya 1 halaman, karena fitur Luluskan Massal butuh seluruh data pending.
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/students/pending-groups", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("Gagal memuat data pending.");
+      const data = await res.json();
+      setDateGroups((data.groups || []).map((g: any) => ({
+        date: (g.date || "").split(" ")[0] || g.date,
+        students: g.students || [],
+      })));
+    } catch (e: any) {
+      setBulkError(e.message || "Gagal memuat data pending.");
+    }
   };
 
   const toggleDate = (date: string) => {
@@ -992,9 +1002,9 @@ export default function AdminStudentsPage() {
 
       setQueueProgress(prev => ({ ...prev, success: successes, fail: fails }));
       setQueueStatus("done");
-      
-      // Refresh layar
-      fetchUsers();
+
+      // Refresh layar — ambil data terbaru (bypass cache server)
+      fetchPage({ refresh: true });
     } catch (e: any) {
       setBulkError(e.message);
       setQueueStatus("idle");
@@ -1008,89 +1018,94 @@ export default function AdminStudentsPage() {
     try { return await (user as any).getIdToken(); } catch { return ""; }
   }, [user]);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
+  // Ambil 1 halaman dari server (filter/search/sort/paginate dilakukan server).
+  // refresh=true → bypass cache server (data terbaru). Default: SWR (cepat).
+  const fetchPage = useCallback(async (opts?: { refresh?: boolean; silent?: boolean; signal?: AbortSignal }) => {
+    if (opts?.refresh) setRefreshing(true);
+    else if (!opts?.silent) setLoading(true);
     try {
       const token = await getToken();
       if (!token) return;
-      
-      const res = await fetch(`/api/admin/dashboard/stats?_t=${Date.now()}`, {
+
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+        channel: filter,
+        detailChannel: filterDetailChannel,
+        statusKuis: filterKuisStatus,
+        status: filterProgress,
+        search: activeSearch,
+        sortUsia,
+      });
+      if (opts?.refresh) params.set("refresh", "1");
+
+      const res = await fetch(`/api/admin/students/list?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store'
+        cache: "no-store",
+        signal: opts?.signal,
       });
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students || []);
-      } else {
+        setTotalPages(data.totalPages || 1);
+        setFilteredTotal(data.filteredTotal || 0);
+        setChannelSummary(data.channelSummary || {});
+        setDetailChannelOptions(data.detailChannelOptions || []);
+        // Jika halaman aktif melewati total (mis. setelah filter), mundurkan.
+        if (data.page && data.page !== page) setPage(data.page);
+      } else if (!opts?.silent) {
         const err = await res.text();
         console.error("API Error:", res.status, err);
         alert(`Gagal memuat data (Status ${res.status}): ${err}`);
       }
     } catch (e: any) {
-      console.error("Fetch error:", e);
-      alert(`Terjadi kesalahan saat memuat data: ${e.message}`);
+      if (e?.name === "AbortError") return;
+      if (!opts?.silent) {
+        console.error("Fetch error:", e);
+        alert(`Terjadi kesalahan saat memuat data: ${e.message}`);
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [getToken]);
+  }, [getToken, page, filter, filterDetailChannel, filterKuisStatus, filterProgress, activeSearch, sortUsia]);
 
+  // Re-fetch tiap kali filter/halaman/sort/search berubah. AbortController cegah race.
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    const ctrl = new AbortController();
+    fetchPage({ signal: ctrl.signal });
+    return () => ctrl.abort();
+  }, [fetchPage]);
 
-  // Filter lokal pada data yang sudah di-load
-  let filteredStudents = [...students].filter((s) => {
-    // 1. Filter Channel Induk
-    const matchChannel = filter === "all" || s.channelSource === filter || s.channel?.toLowerCase() === filter;
-    
-    // 2. Filter Detail Channel
-    const matchDetail = filterDetailChannel === "all" || s.detailChannel === filterDetailChannel;
-    
-    // 3. Filter Status Kuis
-    const matchKuis = filterKuisStatus === "all" 
-      || s.statusKuis === filterKuisStatus 
-      || (filterKuisStatus === "Belum" && !s.statusKuis);
-      
-    // 4. Filter Status Progress
-    const matchProgress = filterProgress === "all" || s.status === filterProgress;
+  // Auto background refresh tiap 60 dtk (tanpa bypass — manfaatkan SWR server).
+  useEffect(() => {
+    const id = setInterval(() => fetchPage({ silent: true }), 60_000);
+    return () => clearInterval(id);
+  }, [fetchPage]);
 
-    const matchAllFilters = matchChannel && matchDetail && matchKuis && matchProgress;
+  // Debounce search → set activeSearch + reset halaman setelah user berhenti mengetik.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const q = searchInput.trim();
+      setActiveSearch((prev) => {
+        if (prev !== q) { setPage(1); return q; }
+        return prev;
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-    // Search
-    if (!activeSearch) return matchAllFilters;
-    const q = activeSearch.toLowerCase();
-    return matchAllFilters && (
-      s.namaLengkap?.toLowerCase().includes(q) ||
-      s.email?.toLowerCase().includes(q) ||
-      (s.partnerCode || "").toLowerCase().includes(q) ||
-      (s.detailChannel || "").toLowerCase().includes(q)
-    );
-  });
+  // Tombol Refresh manual — ambil data terbaru (bypass cache server).
+  const handleRefresh = () => fetchPage({ refresh: true });
 
-  // Sorting
-  if (sortUsia === "Termuda") {
-    filteredStudents.sort((a, b) => (Number(a.umur) || 0) - (Number(b.umur) || 0));
-  } else if (sortUsia === "Tertua") {
-    filteredStudents.sort((a, b) => (Number(b.umur) || 0) - (Number(a.umur) || 0));
-  } else {
-    // Default urutkan dari terbaru ke terlama
-    filteredStudents.reverse();
-  }
+  // Server sudah mengirim 1 halaman terfilter & terurut.
+  const slice = students;
+  const detailChannelCounts: Record<string, number> = Object.fromEntries(
+    detailChannelOptions.map((o) => [o.value, o.count])
+  );
+  const uniqueDetailChannels = detailChannelOptions.map((o) => o.value);
 
-  // Menyiapkan opsi dropdown detail channel & hitungannya dari data yang SUDAH DIFILTER INDUK
-  // Agar opsi detail channel hanya muncul untuk data yang relevan dengan filter channel utama
-  const studentsForDropdowns = filter === "all" 
-    ? students 
-    : students.filter(s => s.channelSource === filter || s.channel?.toLowerCase() === filter);
-    
-  const detailChannelCounts = studentsForDropdowns.reduce((acc: Record<string, number>, s) => {
-    const dc = s.detailChannel;
-    if (dc) acc[dc] = (acc[dc] || 0) + 1;
-    return acc;
-  }, {});
-  const uniqueDetailChannels = Object.keys(detailChannelCounts).sort();
-
-  // Enter di search box
+  // Enter di search box → langsung terapkan (tanpa tunggu debounce).
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
     setActiveSearch(searchInput.trim());
@@ -1116,9 +1131,6 @@ export default function AdminStudentsPage() {
     resetSubFilters();
     setPage(1);
   };
-
-  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
-  const slice = filteredStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleNext = () => {
     if (page < totalPages) setPage(p => p + 1);
@@ -1161,6 +1173,14 @@ export default function AdminStudentsPage() {
             <p className={styles.subtitle}>Pantau pendaftaran dan progress belajar siswa.</p>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              title="Ambil data terbaru"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#475569", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: refreshing ? "wait" : "pointer", fontWeight: 500 }}
+            >
+              <Loader2 size={15} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Menyegarkan..." : "Refresh"}
+            </button>
             {!(profile?.role || "").toLowerCase().includes("public") && (
               <>
                 <a 
@@ -1188,9 +1208,7 @@ export default function AdminStudentsPage() {
         {/* Ringkasan Channel Pendaftar */}
         <div style={{ display: "flex", gap: "16px", marginBottom: "24px", flexWrap: "wrap" }}>
           {["Umum", "Kemitraan", "Beasiswa", "Workshop"].map(ch => {
-            const count = students.filter(s => 
-              (s.channelSource === ch.toLowerCase() || s.channel?.toLowerCase() === ch.toLowerCase())
-            ).length;
+            const count = channelSummary[ch.toLowerCase()] || 0;
             return (
               <div key={ch} style={{ background: "#fff", padding: "16px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", flex: "1 1 200px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                 <div style={{ fontSize: "14px", color: "#64748b", marginBottom: "6px", fontWeight: 500 }}>{ch}</div>
@@ -1383,7 +1401,7 @@ export default function AdminStudentsPage() {
               ))}
               {loading ? (
                 <tr><td colSpan={15} className={styles.emptyState}>Memuat data siswa...</td></tr>
-              ) : filteredStudents.length === 0 ? (
+              ) : slice.length === 0 ? (
                 <tr><td colSpan={15} className={styles.emptyState}>
                   {activeSearch ? `Tidak ada siswa yang cocok dengan "${activeSearch}".` : "Tidak ada data siswa ditemukan."}
                 </td></tr>
@@ -1395,7 +1413,7 @@ export default function AdminStudentsPage() {
         {/* Pagination */}
         <div className={styles.pagination}>
           <span className={styles.paginationInfo}>
-            Halaman {page} dari {totalPages} &bull; Menampilkan {filteredStudents.length} siswa
+            Halaman {page} dari {totalPages} &bull; {filteredTotal} siswa cocok &bull; menampilkan {slice.length}
             {activeSearch && <> (hasil pencarian: <strong>{activeSearch}</strong>)</>}
           </span>
           <div className={styles.paginationBtns}>

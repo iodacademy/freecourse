@@ -85,6 +85,11 @@ export default function PreviewModal({ form, onClose }: PreviewModalProps) {
             >
               <div className={styles.radioCircle}><div className={styles.radioDot} /></div>
               <span className={styles.radioLabel}>{opt}</span>
+              {field.usePoints && field.optionPoints?.[opt] != null && (
+                <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#059669" }}>
+                  {field.optionPoints[opt]} poin
+                </span>
+              )}
             </div>
           ))}
           {field.allowOther && (

@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { getScDb } from "@/lib/firebase-admin-sc";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { FieldValue } from "firebase-admin/firestore";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -254,10 +255,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       }
     }
 
-    return json({ 
-      success: true, 
-      message: isReclaim 
-        ? "Sertifikat berhasil di-generate ulang" 
+    invalidateDashboardCache();
+
+    return json({
+      success: true,
+      message: isReclaim
+        ? "Sertifikat berhasil di-generate ulang"
         : "Sertifikat berhasil diklaim",
       certId,
       driveUrl,

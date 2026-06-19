@@ -46,3 +46,6 @@ next-env.d.ts
 
 # firebase service account
 *service-account*.json
+
+# google apps script (dikelola terpisah, tidak di-track)
+gas-leads-sync.js

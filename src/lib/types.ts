@@ -283,6 +283,13 @@ export interface DynamicFormField {
   regionSource?: "auto" | "manual";
   customRegions?: { province: string; cities: string[] }[];
   allowOther?: boolean; // aktifkan opsi "Lainnya" untuk radio & checkbox
+  // Aktifkan pembobotan poin per-opsi (untuk radio/select).
+  usePoints?: boolean;
+  // Map poin per-opsi: teks opsi -> poin. Hanya dipakai jika usePoints=true.
+  optionPoints?: Record<string, number>;
+  // Tandai field ini sebagai sumber Nilai Pre-test. Skor (dari optionPoints
+  // berdasarkan jawaban) akan disimpan ke profileData.pretest_score.
+  isPretest?: boolean;
 }
 
 export interface SkipRule {

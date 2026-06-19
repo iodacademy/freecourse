@@ -23,6 +23,7 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { FieldValue } from "firebase-admin/firestore";
 import { regenerateCertificate } from "@/lib/regenerate-cert";
 
@@ -136,6 +137,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         }
       }
     }
+
+    invalidateDashboardCache();
 
     return json({
       success: true,

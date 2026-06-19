@@ -152,14 +152,29 @@
   gap: var(--space-6);
 }
 
+.row4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+}
+
 .rowData {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-6);
 }
 
+@media (max-width: 1280px) {
+  .row4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .row3, .rowData {
+    grid-template-columns: 1fr;
+  }
+  .row4 {
     grid-template-columns: 1fr;
   }
 }

@@ -7,7 +7,7 @@ import Survey from "../Survey/Survey";
 import { CheckCircle2, Loader2, ChevronLeft, Award } from "lucide-react";
 import type { AssessmentQuestion, SurveyQuestion } from "@/lib/types";
 
-type Step = "verify" | "materi1" | "materi2" | "sertifikat";
+type Step = "verify" | "pretest" | "materi1" | "materi2" | "sertifikat";
 
 const formatCourseDescription = (desc: string) => {
   if (!desc) return <p style={{ fontSize: "0.8rem", color: "#555", marginBottom: 10, lineHeight: 1.4 }}>Kelas tambahan eksklusif.</p>;
@@ -54,6 +54,10 @@ export default function MetaJourney() {
   const [bonusCourses, setBonusCourses] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("vl");
   const [isClient, setIsClient] = useState(false);
+
+  // Pre-test
+  const [pretestAnswer, setPretestAnswer] = useState<string>("");
+  const [pretestError, setPretestError] = useState("");
 
   // Konfirmasi nama untuk sertifikat (popup)
   const [showNameModal, setShowNameModal] = useState(false);
@@ -170,11 +174,39 @@ export default function MetaJourney() {
 
   const currentStepIndex = Math.max(0, steps.findIndex(s => s.id === currentStep));
 
-  // ── Setelah verifikasi sukses: simpan userData, lanjut ke materi 1 ──
+  // ── Setelah verifikasi sukses: simpan userData, lanjut ke pre-test ──
   const handleVerified = (data: any) => {
     setUserData(data);
-    setCurrentStep("materi1");
+    setCurrentStep("pretest");
     window.scrollTo(0, 0);
+  };
+
+  // ── Submit Pre-test → simpan ke users.profileData, lanjut ke materi 1 ──
+  const handlePretestSubmit = async () => {
+    if (!pretestAnswer) {
+      setPretestError("Silakan pilih salah satu jawaban.");
+      return;
+    }
+    setIsLoading(true);
+    setPretestError("");
+    try {
+      const res = await fetch("/api/public/standalone/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "pretest",
+          email: userData.alamat_email,
+          payload: { pretest_pernah_belajar_financial_literacy: pretestAnswer },
+        }),
+      });
+      if (!res.ok) throw new Error("Gagal menyimpan pre-test");
+      setCurrentStep("materi1");
+      window.scrollTo(0, 0);
+    } catch (error) {
+      setPretestError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuizPass = async (achievedScore: number, answers: Record<string, string>) => {
@@ -360,6 +392,44 @@ export default function MetaJourney() {
         <div style={{ width: "100%", overflowX: "hidden" }}>
           {currentStep === "verify" && (
             <MetaVerifyGate onVerified={handleVerified} />
+          )}
+
+          {currentStep === "pretest" && (
+            <div className="pf-card" style={{ marginBottom: 24 }}>
+              <div className="pf-card__head">
+                <h2>Sebelum Mulai Belajar</h2>
+                <p>Jawab pertanyaan singkat berikut ini.</p>
+              </div>
+              <div className="pf-card__body">
+                <div className="pf-field-group">
+                  <label className="pf-label">
+                    Apakah kamu pernah mempelajari Financial Literacy sebelumnya? <span className="yr-req">*</span>
+                  </label>
+                  <div className="pf-segmented" role="radiogroup">
+                    {["Pernah", "Belum Pernah"].map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className={`pf-segmented__opt ${pretestAnswer === opt ? 'pf-segmented__opt--active' : ''}`}
+                        onClick={() => { setPretestAnswer(opt); setPretestError(""); }}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  {pretestError && <div className="pf-error">{pretestError}</div>}
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePretestSubmit}
+                  disabled={isLoading}
+                  className="btn btn-primary w-full"
+                  style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                >
+                  {isLoading ? (<><Loader2 className="animate-spin" size={18} /> Menyimpan...</>) : (<>Selanjutnya</>)}
+                </button>
+              </div>
+            </div>
           )}
 
           {currentStep === "materi1" && (

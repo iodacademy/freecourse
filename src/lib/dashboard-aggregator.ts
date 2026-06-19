@@ -56,7 +56,8 @@ export type DashboardStudent = {
   minat: string;
   // Bagian 2 — Completion
   status: "Belum Start" | "In Progress" | "Selesai" | "Tersertifikasi";
-  statusKuis: "LULUS" | "TIDAK LULUS" | "-"; // status kelulusan kuis
+  nilaiPretest: string; // Nilai Pre-test (dari users.profileData.pretest_score)
+  statusKuis: "LULUS" | "TIDAK LULUS" | "-"; // status kelulusan post-test
   nilaiQuiz: string;
   nilaiSurvei1: string;
   feedbackMateri: string;
@@ -81,7 +82,8 @@ export type DashboardStats = {
   disabilitas: number;
   disabilitasCompleted: number;
   disabilitasTarget: number;
-  rerata: number; // 0-100
+  rerata: number; // 0-100 (Nilai Post-test)
+  rerataPretest: number; // Rerata Nilai Pre-test
   kepuasan: number; // 0-5
   keyakinan: number; // 0-5
   respondenSurvei1: number;
@@ -280,12 +282,93 @@ function parseRating(val: unknown): number | null {
   return null;
 }
 
+// ─── Tipe dataset mentah (hasil fetch+build, sebelum filter) ────────────────
+
+// Baris siswa lengkap termasuk field internal "_" untuk agregasi.
+type FullStudent = DashboardStudent & {
+  _gender: string;
+  _disabilitas: string;
+  _kota: string;
+  _ageBucket: string | null;
+  _channel: string; // raw enrollments.channelSource
+  _quizScore: number | null;
+  _pretestScore: number | null;
+  _survey1Rating: number | null;
+  _survey2Rating: number | null;
+  _minatArray: string[];
+  _createdAt: Date | null;
+  _linkSertifikat: string | null;
+};
+
+type RawDataset = {
+  allStudents: FullStudent[];
+  totalSteps: number;
+  targets: any;
+  quizStepId: string | null;
+  quizStepTitle: string | null;
+  survey1: { id: string | null; text: string | null };
+  feedback: { id: string | null; text: string | null };
+  survey2: { id: string | null; text: string | null };
+};
+
+// ─── Cache mentah (in-memory, stale-while-revalidate) ───────────────────────
+// Server berjalan long-running (node start.js) → cache aman & shared antar request.
+
+const RAW_TTL_MS = 45_000;
+let _rawCache: { data: RawDataset; ts: number } | null = null;
+let _rawInflight: Promise<RawDataset> | null = null;
+
+/** Hapus cache — panggil setelah mutasi data admin agar perubahan langsung tampak. */
+export function invalidateDashboardCache(): void {
+  _rawCache = null;
+}
+
+function rebuildRawDataset(): Promise<RawDataset> {
+  if (_rawInflight) return _rawInflight;
+  _rawInflight = buildRawDataset()
+    .then((data) => {
+      _rawCache = { data, ts: Date.now() };
+      return data;
+    })
+    .finally(() => {
+      _rawInflight = null;
+    });
+  return _rawInflight;
+}
+
+/**
+ * Ambil dataset mentah dengan pola stale-while-revalidate:
+ * - bypass=true → rebuild & tunggu (tombol Refresh).
+ * - ada cache & masih segar → kembalikan cache.
+ * - ada cache & basi → kembalikan cache (stale) lalu rebuild di background.
+ * - belum ada cache (cold) → tunggu rebuild.
+ */
+async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
+  if (bypass) return rebuildRawDataset();
+  if (_rawCache) {
+    const age = Date.now() - _rawCache.ts;
+    if (age > RAW_TTL_MS && !_rawInflight) {
+      // refresh background — jangan await, error tidak menghapus cache lama
+      rebuildRawDataset().catch((e) => console.error("[Dashboard] background rebuild gagal:", e));
+    }
+    return _rawCache.data;
+  }
+  return rebuildRawDataset();
+}
+
 // ─── Main aggregator ────────────────────────────────────────────────────────
 
 export async function aggregateDashboard(
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean } = {}
+  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean; bypassCache?: boolean } = {}
 ): Promise<DashboardResult> {
+  const raw = await getRawDatasetCached(options.bypassCache);
+  return applyFiltersAndAggregate(raw, filter, options);
+}
+
+// ─── Build dataset mentah (mahal: fetch semua collection + bangun students) ──
+
+async function buildRawDataset(): Promise<RawDataset> {
   const db = getAdminDb();
 
   // Fetch paralel — semua collection sekali jalan
@@ -436,21 +519,6 @@ export async function aggregateDashboard(
   };
 
   // Build student rows
-  type FullStudent = DashboardStudent & {
-    // raw values untuk agregasi
-    _gender: string;
-    _disabilitas: string;
-    _kota: string;
-    _ageBucket: string | null;
-    _channel: string; // raw enrollments.channelSource
-    _quizScore: number | null;
-    _survey1Rating: number | null;
-    _survey2Rating: number | null;
-    _minatArray: string[];
-    _createdAt: Date | null;
-    _linkSertifikat: string | null;
-  };
-
   const allStudents: FullStudent[] = [];
 
   for (const [email, u] of userByEmail) {
@@ -579,6 +647,18 @@ export async function aggregateDashboard(
     const rawFeedback = findAnswer(feedback.id);
     const rawSurvey2 = findAnswer(survey2.id);
 
+    // Nilai Pre-test — disimpan di users.profileData.pretest_score
+    let pretestScore: number | null = null;
+    {
+      const rawPretest = profileData?.pretest_score;
+      if (typeof rawPretest === "number" && !isNaN(rawPretest)) {
+        pretestScore = rawPretest;
+      } else if (typeof rawPretest === "string" && rawPretest.trim() !== "") {
+        const n = parseFloat(rawPretest);
+        if (!isNaN(n)) pretestScore = n;
+      }
+    }
+
     const ageBucket = ageToBucket(umur);
 
     allStudents.push({
@@ -597,6 +677,7 @@ export async function aggregateDashboard(
       jenisDisabilitas,
       minat,
       status,
+      nilaiPretest: pretestScore != null ? String(pretestScore) : "-",
       statusKuis,
       nilaiQuiz: quizScore != null ? String(quizScore) : "-",
       nilaiSurvei1: rawSurvey1 != null ? String(rawSurvey1) : "-",
@@ -617,6 +698,7 @@ export async function aggregateDashboard(
       _ageBucket: ageBucket,
       _channel: rawChannel,
       _quizScore: quizScore,
+      _pretestScore: pretestScore,
       _survey1Rating: parseRating(rawSurvey1),
       _survey2Rating: parseRating(rawSurvey2),
       _minatArray: minatArray,
@@ -624,6 +706,27 @@ export async function aggregateDashboard(
       _linkSertifikat: enr?.certificateDriveUrl || null,
     });
   }
+
+  return {
+    allStudents,
+    totalSteps,
+    targets,
+    quizStepId,
+    quizStepTitle,
+    survey1,
+    feedback,
+    survey2,
+  };
+}
+
+// ─── Filter + agregasi + paginate (murah, per request) ──────────────────────
+
+function applyFiltersAndAggregate(
+  raw: RawDataset,
+  filter: DashboardFilter = {},
+  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean } = {}
+): DashboardResult {
+  const { allStudents, totalSteps, targets, quizStepId, quizStepTitle, survey1, feedback, survey2 } = raw;
 
   // ─── Apply filter ─────────────────────────────────────────────────────────
   let filtered = allStudents;
@@ -689,6 +792,11 @@ export async function aggregateDashboard(
   const quizScores = certifiedFiltered.map((s) => s._quizScore).filter((x): x is number => x != null);
   const rerata = quizScores.length
     ? Number((quizScores.reduce((a, b) => a + b, 0) / quizScores.length).toFixed(3))
+    : 0;
+
+  const pretestScores = certifiedFiltered.map((s) => s._pretestScore).filter((x): x is number => x != null);
+  const rerataPretest = pretestScores.length
+    ? Number((pretestScores.reduce((a, b) => a + b, 0) / pretestScores.length).toFixed(3))
     : 0;
 
   const s1Ratings = certifiedFiltered.map((s) => s._survey1Rating).filter((x): x is number => x != null);
@@ -774,6 +882,7 @@ export async function aggregateDashboard(
     disabilitasCompleted,
     disabilitasTarget: Number(targets.disabilitas) || 0,
     rerata: Math.round(rerata * 10) / 10,
+    rerataPretest: Math.round(rerataPretest * 10) / 10,
     kepuasan: Math.round(kepuasan * 10) / 10,
     keyakinan: Math.round(keyakinan * 10) / 10,
     respondenSurvei1,
@@ -813,7 +922,7 @@ export async function aggregateDashboard(
 
   const students: DashboardStudent[] = options.includeStudents
     ? sourceArray.map((s) => {
-        const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore,
+        const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore, _pretestScore,
                 _survey1Rating, _survey2Rating, _minatArray, _createdAt, _linkSertifikat, ...pub } = s;
         return pub;
       })
@@ -876,8 +985,9 @@ export const SHEET_HEADERS = [
   "Minat",
   // Bagian 2
   "Status",
-  "Status Kuis",
-  "Nilai Quiz",
+  "Nilai Pre-test",
+  "Status Post-test",
+  "Nilai Post-test",
   "Nilai Survei 1",
   "Feedback Materi",
   "Nilai Survei 2",
@@ -901,6 +1011,7 @@ export function studentToRow(s: DashboardStudent): (string | number)[] {
     s.jenisDisabilitas,
     s.minat,
     s.status,
+    s.nilaiPretest,
     s.statusKuis,
     s.nilaiQuiz,
     s.nilaiSurvei1,
@@ -908,4 +1019,148 @@ export function studentToRow(s: DashboardStudent): (string | number)[] {
     s.nilaiSurvei2,
     s.linkSertifikat || "-",
   ];
+}
+
+// ─── Query siswa untuk halaman /admin/students (server-side filter+paginate) ─
+
+export type StudentsQuery = {
+  page?: number;
+  pageSize?: number;
+  channel?: string;        // "all" | umum | kemitraan | beasiswa | workshop
+  detailChannel?: string;  // "all" | <nama detail channel>
+  statusKuis?: string;     // "all" | LULUS | TIDAK LULUS | Belum
+  status?: string;         // "all" | Tersertifikasi | Selesai | "Sedang Belajar" | "Belum Mulai"
+  search?: string;
+  sortUsia?: string;       // default | Termuda | Tertua
+  bypassCache?: boolean;
+};
+
+export type StudentsPage = {
+  students: DashboardStudent[];
+  total: number;          // total semua siswa (tanpa filter apa pun)
+  filteredTotal: number;  // total setelah filter (sebelum paginate)
+  totalPages: number;
+  page: number;
+  pageSize: number;
+  channelSummary: Record<string, number>; // count per channel (umum/kemitraan/beasiswa/workshop), tanpa filter
+  detailChannelOptions: Array<{ value: string; count: number }>; // sesuai filter channel induk
+  generatedAt: string;
+};
+
+// Petakan label progress UI → enum status aggregator.
+function matchStatusFilter(studentStatus: string, uiFilter: string): boolean {
+  if (uiFilter === "all") return true;
+  switch (uiFilter) {
+    case "Tersertifikasi": return studentStatus === "Tersertifikasi";
+    case "Selesai": return studentStatus === "Selesai";
+    case "Sedang Belajar": return studentStatus === "In Progress";
+    case "Belum Mulai": return studentStatus === "Belum Start";
+    // fallback: cocokkan langsung (mis. nilai enum dikirim apa adanya)
+    default: return studentStatus === uiFilter;
+  }
+}
+
+function stripInternal(s: FullStudent): DashboardStudent {
+  const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore, _pretestScore,
+          _survey1Rating, _survey2Rating, _minatArray, _createdAt, _linkSertifikat, ...pub } = s;
+  return pub;
+}
+
+export async function queryStudents(q: StudentsQuery = {}): Promise<StudentsPage> {
+  const raw = await getRawDatasetCached(q.bypassCache);
+  const all = raw.allStudents;
+
+  const page = Math.max(1, q.page || 1);
+  const pageSize = Math.max(1, Math.min(200, q.pageSize || 20));
+  const channel = q.channel || "all";
+  const detailChannel = q.detailChannel || "all";
+  const statusKuis = q.statusKuis || "all";
+  const status = q.status || "all";
+  const sortUsia = q.sortUsia || "default";
+  const search = (q.search || "").trim().toLowerCase();
+
+  // Channel summary — selalu dari SEMUA siswa (tidak terpengaruh filter)
+  const channelSummary: Record<string, number> = { umum: 0, kemitraan: 0, beasiswa: 0, workshop: 0 };
+  for (const s of all) {
+    const ch = (s.channelSource || s._channel || "").toLowerCase();
+    if (ch in channelSummary) channelSummary[ch]++;
+  }
+
+  // Filter channel induk dulu (dipakai juga untuk opsi detail channel)
+  const byMainChannel = channel === "all"
+    ? all
+    : all.filter((s) => (s.channelSource || "").toLowerCase() === channel || (s.channel || "").toLowerCase() === channel);
+
+  // Opsi detail channel + count, dari data yang sudah difilter channel induk
+  const detailCounts = new Map<string, number>();
+  for (const s of byMainChannel) {
+    const dc = s.detailChannel;
+    if (dc && dc !== "-") detailCounts.set(dc, (detailCounts.get(dc) || 0) + 1);
+  }
+  const detailChannelOptions = Array.from(detailCounts.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([value, count]) => ({ value, count }));
+
+  // Filter sisanya
+  let filtered = byMainChannel.filter((s) => {
+    if (detailChannel !== "all" && s.detailChannel !== detailChannel) return false;
+    if (statusKuis !== "all") {
+      if (statusKuis === "Belum") {
+        if (s.statusKuis && s.statusKuis !== "-") return false;
+      } else if (s.statusKuis !== statusKuis) {
+        return false;
+      }
+    }
+    if (!matchStatusFilter(s.status, status)) return false;
+    if (search) {
+      const hay = `${s.namaLengkap || ""} ${s.email || ""} ${s.partnerCode || ""} ${s.detailChannel || ""}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort — default terbaru→terlama (createdAt desc); Termuda/Tertua berdasarkan umur
+  if (sortUsia === "Termuda") {
+    filtered = [...filtered].sort((a, b) => (Number(a.umur) || 0) - (Number(b.umur) || 0));
+  } else if (sortUsia === "Tertua") {
+    filtered = [...filtered].sort((a, b) => (Number(b.umur) || 0) - (Number(a.umur) || 0));
+  } else {
+    filtered = [...filtered].sort((a, b) => {
+      const ta = a._createdAt ? a._createdAt.getTime() : 0;
+      const tb = b._createdAt ? b._createdAt.getTime() : 0;
+      return tb - ta; // terbaru dulu
+    });
+  }
+
+  const filteredTotal = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const slice = filtered.slice((safePage - 1) * pageSize, safePage * pageSize).map(stripInternal);
+
+  return {
+    students: slice,
+    total: all.length,
+    filteredTotal,
+    totalPages,
+    page: safePage,
+    pageSize,
+    channelSummary,
+    detailChannelOptions,
+    generatedAt: toWIBString(new Date()),
+  };
+}
+
+// Kelompokkan siswa pending (belum tersertifikasi) per tanggal daftar — untuk fitur Luluskan Massal.
+export async function groupPendingByDate(bypassCache = false): Promise<Array<{ date: string; students: DashboardStudent[] }>> {
+  const raw = await getRawDatasetCached(bypassCache);
+  const pending = raw.allStudents.filter((s) => s.status !== "Tersertifikasi");
+  const byDate = new Map<string, DashboardStudent[]>();
+  for (const s of pending) {
+    const date = (s.tanggalDaftar || "-").slice(0, 10); // YYYY-MM-DD
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(stripInternal(s));
+  }
+  return Array.from(byDate.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, students]) => ({ date, students }));
 }
