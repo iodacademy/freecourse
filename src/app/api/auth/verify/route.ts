@@ -82,6 +82,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Tandai lead (jika peserta ini berasal dari Instant Form) sudah
+      // verifikasi — dipakai tombol "Auto Complete — Instant Form" untuk
+      // melewati peserta yang sudah jadi siswa. Lead doc id = email lowercase.
+      if (email) {
+        try {
+          await db.collection("leads").doc(email.toLowerCase()).update({
+            verified: true,
+            verifiedAt: FieldValue.serverTimestamp(),
+          });
+        } catch {
+          // Bukan dari Instant Form (tidak ada dokumen lead) → abaikan.
+        }
+      }
+
       return json({
         status: "new",
         profileCompleted: false,

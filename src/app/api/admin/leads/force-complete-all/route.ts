@@ -34,40 +34,29 @@ export async function POST(req: NextRequest) {
     const action = body?.action || "list";
     const db = getAdminDb();
 
-    // ── action: list — kumpulkan email lead yang BENAR-BENAR belum selesai ──
+    // ── action: list — kumpulkan email lead yang BELUM VERIFIKASI ──
     if (action === "list") {
-      // Penting: yang dianggap "pending" adalah lead yang BELUM punya sertifikat,
-      // bukan sekadar belum pernah di-auto-complete. Banyak lead sudah jadi siswa
-      // dan menyelesaikan pelatihan secara normal (tanpa field autoCompleted di
-      // dokumen `leads`), jadi mereka harus disaring berdasarkan enrollments.
+      // Fokus tombol ini: lead Instant Form yang BELUM jadi siswa (belum punya
+      // dokumen users/enrollments). Penanda: field `verified` di dokumen leads,
+      // di-set saat peserta mengisi identitas (verifikasi awal).
       //
-      // Strategi efisien: ambil sekali daftar email yang SUDAH certified, lalu
-      // saring daftar lead terhadap set itu (hindari 1 get() per lead).
-      const [leadsSnap, certSnap] = await Promise.all([
-        db.collection("leads").get(),
-        db.collection("enrollments").where("certificateClaimed", "==", true).get(),
-      ]);
-
-      const certifiedEmails = new Set<string>();
-      certSnap.docs.forEach((d) => {
-        const data = d.data();
-        const em = String(data.email || data.userId || d.id || "").toLowerCase();
-        if (em) certifiedEmails.add(em);
-      });
+      // Lead yang SUDAH verifikasi tapi belum selesai/belum sertif diurus oleh
+      // tombol "Luluskan Massal", bukan di sini.
+      //
+      // Ringan & stabil: daftar pending hanya bergantung jumlah lead yang belum
+      // verifikasi (menyusut tiap diproses), bukan total seluruh leads/users.
+      const leadsSnap = await db
+        .collection("leads")
+        .where("verified", "==", false)
+        .get();
 
       const pending = leadsSnap.docs
         .filter((d) => d.data().autoCompleted !== true)
         .map((d) => String(d.data().email || d.id || "").toLowerCase())
-        .filter((em) => em && !certifiedEmails.has(em));
+        .filter(Boolean);
 
       const unique = Array.from(new Set(pending));
-      return json({
-        success: true,
-        pending: unique,
-        total: unique.length,
-        totalLeads: leadsSnap.size,
-        alreadyCertified: certifiedEmails.size,
-      });
+      return json({ success: true, pending: unique, total: unique.length });
     }
 
     // ── action: process — proses satu lead berdasarkan email ──

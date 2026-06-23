@@ -70,6 +70,19 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Tandai lead INI sudah verifikasi (mengisi identitas). Dipakai tombol
+      // "Auto Complete — Instant Form" untuk MELEWATI peserta yang sudah jadi
+      // siswa, agar tidak memproses ulang ratusan lead lama. Pakai update agar
+      // tidak membuat dokumen leads baru bila lead-nya tidak ada.
+      try {
+        await db.collection('leads').doc(userId).update({
+          verified: true,
+          verifiedAt: FieldValue.serverTimestamp(),
+        });
+      } catch {
+        // Lead tidak ada (mis. peserta non-instant-form) → abaikan.
+      }
+
       return NextResponse.json({ success: true, message: 'Identity saved' });
     }
 
