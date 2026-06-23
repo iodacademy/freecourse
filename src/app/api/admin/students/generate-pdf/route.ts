@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
     const mainCertSlideTemplateId = settings.mainCertSlideTemplateId || "";
 
     if (!gasWebAppUrl) {
-      return json({ error: "URL GAS tidak disetel." }, 500);
+      return json({ error: "URL GAS belum disetel di Pengaturan." }, 500);
+    }
+    if (!mainCertSlideTemplateId) {
+      return json({ error: "Template sertifikat (mainCertSlideTemplateId) belum disetel di Pengaturan." }, 500);
+    }
+    if (!enrollData.certificateName) {
+      return json({ error: "Nama sertifikat peserta kosong." }, 400);
     }
 
     const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -78,23 +84,35 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(gasPayload),
     });
 
-    if (gasRes.ok) {
-      const gasData = await gasRes.json();
-      const driveUrl = gasData.downloadUrl || gasData.pdfUrl || null;
-      const driveFileId = gasData.fileId || null;
+    // Baca body GAS sekali sebagai teks supaya bisa dipakai untuk pesan error.
+    const gasText = await gasRes.text();
 
-      if (driveUrl) {
-        await enrollDoc.ref.update({
-          certificateDriveUrl: driveUrl,
-          certificateDriveFileId: driveFileId || "",
-        });
-        return json({ success: true, driveUrl });
-      } else {
-        return json({ error: "GAS merespon OK tapi tidak ada URL." }, 500);
-      }
-    } else {
-      return json({ error: `Gagal generate PDF via GAS. Status: ${gasRes.status}` }, 500);
+    if (!gasRes.ok) {
+      const snippet = gasText.slice(0, 200).replace(/\s+/g, " ").trim();
+      return json({ error: `GAS menolak (HTTP ${gasRes.status}): ${snippet || "tanpa pesan"}` }, 500);
     }
+
+    let gasData: any = null;
+    try { gasData = gasText ? JSON.parse(gasText) : null; } catch {
+      const snippet = gasText.slice(0, 200).replace(/\s+/g, " ").trim();
+      // GAS sering balas halaman HTML login bila URL deploy salah/akses dibatasi.
+      return json({ error: `GAS membalas non-JSON (kemungkinan URL deploy salah / butuh akses). Cuplikan: ${snippet}` }, 500);
+    }
+
+    const driveUrl = gasData?.downloadUrl || gasData?.pdfUrl || null;
+    const driveFileId = gasData?.fileId || null;
+
+    if (driveUrl) {
+      await enrollDoc.ref.update({
+        certificateDriveUrl: driveUrl,
+        certificateDriveFileId: driveFileId || "",
+      });
+      return json({ success: true, driveUrl });
+    }
+
+    // OK tapi tanpa URL → biasanya GAS mengembalikan {error: "..."}.
+    const gasErr = gasData?.error || gasData?.message || JSON.stringify(gasData).slice(0, 200);
+    return json({ error: `GAS OK tapi tidak ada URL sertifikat. Pesan GAS: ${gasErr}` }, 500);
 
   } catch (e) {
     return handleError(e);
