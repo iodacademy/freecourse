@@ -34,18 +34,40 @@ export async function POST(req: NextRequest) {
     const action = body?.action || "list";
     const db = getAdminDb();
 
-    // ── action: list — kumpulkan email lead yang belum diselesaikan ──
+    // ── action: list — kumpulkan email lead yang BENAR-BENAR belum selesai ──
     if (action === "list") {
-      // Tidak pakai where("autoCompleted","!=",true) karena lead lama belum
-      // tentu punya field tsb (Firestore akan melewatinya). Saring di server.
-      const snap = await db.collection("leads").get();
-      const pending = snap.docs
+      // Penting: yang dianggap "pending" adalah lead yang BELUM punya sertifikat,
+      // bukan sekadar belum pernah di-auto-complete. Banyak lead sudah jadi siswa
+      // dan menyelesaikan pelatihan secara normal (tanpa field autoCompleted di
+      // dokumen `leads`), jadi mereka harus disaring berdasarkan enrollments.
+      //
+      // Strategi efisien: ambil sekali daftar email yang SUDAH certified, lalu
+      // saring daftar lead terhadap set itu (hindari 1 get() per lead).
+      const [leadsSnap, certSnap] = await Promise.all([
+        db.collection("leads").get(),
+        db.collection("enrollments").where("certificateClaimed", "==", true).get(),
+      ]);
+
+      const certifiedEmails = new Set<string>();
+      certSnap.docs.forEach((d) => {
+        const data = d.data();
+        const em = String(data.email || data.userId || d.id || "").toLowerCase();
+        if (em) certifiedEmails.add(em);
+      });
+
+      const pending = leadsSnap.docs
         .filter((d) => d.data().autoCompleted !== true)
         .map((d) => String(d.data().email || d.id || "").toLowerCase())
-        .filter(Boolean);
-      // Hilangkan duplikat
+        .filter((em) => em && !certifiedEmails.has(em));
+
       const unique = Array.from(new Set(pending));
-      return json({ success: true, pending: unique, total: unique.length });
+      return json({
+        success: true,
+        pending: unique,
+        total: unique.length,
+        totalLeads: leadsSnap.size,
+        alreadyCertified: certifiedEmails.size,
+      });
     }
 
     // ── action: process — proses satu lead berdasarkan email ──
