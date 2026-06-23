@@ -9,70 +9,65 @@ export const maxDuration = 60;
 /**
  * POST /api/admin/leads/force-complete-all  (Super Admin only)
  *
- * Versi MANUAL & DIPERCEPAT dari /api/cron/auto-complete:
- * memproses lead yang belum selesai TANPA menunggu batas 5 hari.
+ * Versi MANUAL & DIPERCEPAT dari /api/cron/auto-complete: memproses lead dari
+ * Facebook Instant Form yang belum selesai TANPA menunggu batas 5 hari.
  *
- * Karena jumlah lead bisa banyak, satu panggilan memproses paling banyak
- * MAX_PER_RUN peserta lalu mengembalikan `remaining`. Frontend memanggil
- * ulang sampai `remaining` = 0 (progress bar).
+ * Karena tiap lead butuh generate sertifikat (lambat) dan bisa banyak, endpoint
+ * ini dibuat agar TIDAK pernah timeout: satu panggilan = satu langkah kecil.
+ *
+ *   body { action: "list" }      → kembalikan daftar email lead yang masih pending
+ *                                  ({ pending: string[], total }). Tidak memproses.
+ *   body { action: "process",    → proses SATU lead, kembalikan hasilnya.
+ *          email }                 ({ result: { email, status, reason } })
+ *
+ * Frontend memanggil "list" sekali, lalu "process" satu per satu sambil
+ * menampilkan progress (X dari N). Ini membuat tiap request sangat cepat.
  *
  * Auth: header Authorization: Bearer <kode super admin>.
  */
-
-const MAX_PER_RUN = 15;
 
 export async function POST(req: NextRequest) {
   try {
     await requireSuperAdmin(req);
 
+    const body = await req.json().catch(() => ({}));
+    const action = body?.action || "list";
     const db = getAdminDb();
 
-    // Ambil kandidat lead (urut terlama dulu). Saring autoCompleted di server
-    // karena lead lama belum tentu punya field tsb.
-    const snap = await db
-      .collection("leads")
-      .orderBy("createdAt", "asc")
-      .limit(500)
-      .get();
-
-    const pending = snap.docs.filter((d) => d.data().autoCompleted !== true);
-    const totalPending = pending.length;
-
-    const results: Array<{ email: string; status: string; reason?: string }> = [];
-    let processed = 0;
-
-    for (const doc of pending) {
-      if (processed >= MAX_PER_RUN) break;
-
-      const lead = doc.data();
-      const email = String(lead.email || doc.id || "").toLowerCase();
-      if (!email) continue;
-
-      // Tanpa cek umur 5 hari — itu inti fitur ini.
-      const r = await autoCompleteLead(email, lead);
-      results.push(r);
-      if (r.status === "completed") processed++;
+    // ── action: list — kumpulkan email lead yang belum diselesaikan ──
+    if (action === "list") {
+      // Tidak pakai where("autoCompleted","!=",true) karena lead lama belum
+      // tentu punya field tsb (Firestore akan melewatinya). Saring di server.
+      const snap = await db.collection("leads").get();
+      const pending = snap.docs
+        .filter((d) => d.data().autoCompleted !== true)
+        .map((d) => String(d.data().email || d.id || "").toLowerCase())
+        .filter(Boolean);
+      // Hilangkan duplikat
+      const unique = Array.from(new Set(pending));
+      return json({ success: true, pending: unique, total: unique.length });
     }
 
-    const completed = results.filter((r) => r.status === "completed").length;
-    const skipped = results.filter((r) => r.status === "skipped").length;
-    const errors = results.filter((r) => r.status === "error");
-    // Sisa = total pending dikurangi yang baru selesai (skip tidak mengurangi
-    // jatah karena memang sudah certified — tapi tetap hilang dari pending pada
-    // panggilan berikutnya setelah lead ditandai autoCompleted).
-    const remaining = Math.max(0, totalPending - results.length);
+    // ── action: process — proses satu lead berdasarkan email ──
+    if (action === "process") {
+      const email = String(body?.email || "").toLowerCase();
+      if (!email) return json({ error: "email wajib diisi" }, 400);
 
-    return json({
-      success: true,
-      totalPending,
-      checked: results.length,
-      completed,
-      skipped,
-      errors: errors.length,
-      errorDetail: errors.slice(0, 10),
-      remaining,
-      done: remaining === 0,
-    });
+      const leadDoc = await db.collection("leads").doc(email).get();
+      if (!leadDoc.exists) {
+        return json({ result: { email, status: "skipped", reason: "lead_not_found" } });
+      }
+      const lead = leadDoc.data()!;
+      if (lead.autoCompleted === true) {
+        return json({ result: { email, status: "skipped", reason: "already_done" } });
+      }
+
+      // Tanpa cek umur 5 hari — itu inti fitur ini.
+      const result = await autoCompleteLead(email, lead);
+      return json({ result });
+    }
+
+    return json({ error: "action tidak dikenal" }, 400);
   } catch (e) {
     return handleError(e);
   }

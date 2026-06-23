@@ -901,12 +901,17 @@ export default function AdminStudentsPage() {
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
 
+  // ── Super Admin: pemilih mode Auto Complete (massal vs instant form) ──
+  const [chooserOpen, setChooserOpen] = useState(false);
+
   // ── Super Admin: percepat penyelesaian SEMUA lead (abaikan batas 5 hari) ──
   const [forceAllOpen, setForceAllOpen] = useState(false);
   const [forceAllRunning, setForceAllRunning] = useState(false);
   const [forceAllDone, setForceAllDone] = useState(false);
   const [forceAllError, setForceAllError] = useState("");
-  const [forceAllStats, setForceAllStats] = useState({ completed: 0, skipped: 0, errors: 0, remaining: 0 });
+  // total = jumlah lead pending; current = sudah diproses; completed/skipped/errors = ringkasan
+  const [forceAllStats, setForceAllStats] = useState({ total: 0, current: 0, completed: 0, skipped: 0, errors: 0 });
+  const [forceAllLog, setForceAllLog] = useState<string[]>([]);
   
   // State for date grouping
   const [dateGroups, setDateGroups] = useState<{ date: string, students: any[] }[]>([]);
@@ -1025,30 +1030,71 @@ export default function AdminStudentsPage() {
     try { return await (user as any).getIdToken(); } catch { return ""; }
   }, [user]);
 
-  // Super Admin: proses semua lead yang belum selesai TANPA menunggu 5 hari.
-  // Panggil endpoint berulang sampai `done` karena diproses per-batch di server.
+  // Helper: POST ke endpoint force-complete + parse JSON dengan aman.
+  // Kalau server balas HTML (mis. error 500/timeout), lempar pesan yang jelas
+  // alih-alih "Unexpected token '<'".
+  const callForceComplete = async (token: string, payload: Record<string, unknown>) => {
+    const res = await fetch("/api/admin/leads/force-complete-all", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch {
+      throw new Error(`Server membalas non-JSON (HTTP ${res.status}). Coba lagi.`);
+    }
+    if (!res.ok) throw new Error(data?.error || `Gagal (HTTP ${res.status}).`);
+    return data;
+  };
+
+  // Super Admin: proses semua lead Instant Form TANPA menunggu 5 hari.
+  // Strategi: ambil daftar lead pending dulu (action:list), lalu proses SATU
+  // per SATU (action:process) supaya tiap request cepat & tidak timeout, dan
+  // progress bisa ditampilkan akurat (X dari N).
   const runForceCompleteAll = async () => {
     setForceAllRunning(true);
     setForceAllDone(false);
     setForceAllError("");
-    let completed = 0, skipped = 0, errors = 0, remaining = 0;
+    setForceAllLog([]);
+    setForceAllStats({ total: 0, current: 0, completed: 0, skipped: 0, errors: 0 });
+
+    let completed = 0, skipped = 0, errors = 0;
     try {
       const token = await getToken();
-      // Batas keamanan loop (15 per batch × 200 = 3000 lead).
-      for (let i = 0; i < 200; i++) {
-        const res = await fetch("/api/admin/leads/force-complete-all", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Gagal memproses lead.");
-        completed += data.completed || 0;
-        skipped += data.skipped || 0;
-        errors += data.errors || 0;
-        remaining = data.remaining ?? 0;
-        setForceAllStats({ completed, skipped, errors, remaining });
-        if (data.done) break;
+
+      // 1) Ambil daftar pending.
+      const list = await callForceComplete(token, { action: "list" });
+      const pending: string[] = list.pending || [];
+      setForceAllStats((s) => ({ ...s, total: pending.length }));
+
+      if (pending.length === 0) {
+        setForceAllDone(true);
+        return;
       }
+
+      // 2) Proses satu per satu.
+      for (let i = 0; i < pending.length; i++) {
+        const email = pending[i];
+        try {
+          const out = await callForceComplete(token, { action: "process", email });
+          const st = out?.result?.status;
+          if (st === "completed") completed++;
+          else if (st === "skipped") skipped++;
+          else errors++;
+          setForceAllLog((prev) => [
+            `${st === "completed" ? "✓" : st === "skipped" ? "–" : "✗"} ${email}${out?.result?.reason ? ` (${out.result.reason})` : ""}`,
+            ...prev,
+          ].slice(0, 50));
+        } catch (e: any) {
+          errors++;
+          setForceAllLog((prev) => [`✗ ${email} (${e.message})`, ...prev].slice(0, 50));
+        }
+        setForceAllStats({ total: pending.length, current: i + 1, completed, skipped, errors });
+        // Jeda kecil agar tidak membanjiri GAS/server.
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
       setForceAllDone(true);
       fetchPage({ refresh: true });
     } catch (e: any) {
@@ -1231,22 +1277,13 @@ export default function AdminStudentsPage() {
                   <UserX size={15} /> Auto Deteksi Nama Aneh
                 </a>
                 <button
-                  onClick={openBulkModal}
+                  onClick={() => setChooserOpen(true)}
                   className="btn btn-secondary"
                   style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500 }}
                 >
-                  <CheckCircle2 size={15} /> Luluskan Semua (Massal)
+                  <CheckCircle2 size={15} /> Auto Complete
                 </button>
               </>
-            )}
-            {profile?.isSuperAdmin && (
-              <button
-                onClick={() => { setForceAllDone(false); setForceAllError(""); setForceAllStats({ completed: 0, skipped: 0, errors: 0, remaining: 0 }); setForceAllOpen(true); }}
-                title="Proses semua lead yang belum selesai tanpa menunggu 5 hari"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#1e293b", color: "#fff", border: "1px solid #1e293b", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500 }}
-              >
-                <Clock size={15} /> Percepat Auto-Complete
-              </button>
             )}
             <button className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <Download size={15} /> Export ke Excel
@@ -1684,34 +1721,98 @@ export default function AdminStudentsPage() {
         </div>
       )}
 
-      {/* Super Admin: Percepat Auto-Complete (abaikan batas 5 hari) */}
+      {/* Auto Complete: pemilih mode (massal vs instant form) */}
+      {chooserOpen && (
+        <div className={styles.modalOverlay} onClick={() => setChooserOpen(false)}>
+          <div className={styles.confirmModal} style={{ width: 520, maxWidth: "92%" }} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.confirmIcon} style={{ background: "#fef2f2" }}>
+              <CheckCircle2 size={36} color="#dc2626" />
+            </div>
+            <h2 className={styles.confirmTitle}>Auto Complete</h2>
+            <p className={styles.confirmDesc} style={{ textAlign: "center", marginBottom: 16 }}>
+              Pilih cara meluluskan peserta secara otomatis:
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Mode 1: Massal per tanggal */}
+              <button
+                onClick={() => { setChooserOpen(false); openBulkModal(); }}
+                style={{ textAlign: "left", display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff", cursor: "pointer" }}
+              >
+                <CheckCircle2 size={22} color="#dc2626" style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  <span style={{ display: "block", fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>Massal (per Tanggal Pendaftaran)</span>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>
+                    Luluskan siswa yang sudah terdaftar (punya akun) berdasarkan tanggal daftar, lalu cetak PDF sertifikat.
+                  </span>
+                </span>
+              </button>
+
+              {/* Mode 2: Instant Form (Super Admin) */}
+              {profile?.isSuperAdmin && (
+                <button
+                  onClick={() => { setChooserOpen(false); setForceAllDone(false); setForceAllError(""); setForceAllLog([]); setForceAllStats({ total: 0, current: 0, completed: 0, skipped: 0, errors: 0 }); setForceAllOpen(true); }}
+                  style={{ textAlign: "left", display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", border: "1px solid #1e293b", borderRadius: 12, background: "#1e293b", color: "#fff", cursor: "pointer" }}
+                >
+                  <Clock size={22} color="#fff" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    <span style={{ display: "block", fontWeight: 700, marginBottom: 2 }}>Dari Facebook Instant Form (tanpa tunggu 5 hari)</span>
+                    <span style={{ fontSize: 13, color: "#cbd5e1" }}>
+                      Proses lead Instant Form yang belum jadi siswa: buat akun, isi kuis &amp; survei, klaim sertifikat. Kategori beasiswa diacak. <strong style={{ color: "#fca5a5" }}>Super Admin.</strong>
+                    </span>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <div className={styles.confirmActions} style={{ marginTop: 16 }}>
+              <button className={styles.cancelBtn} onClick={() => setChooserOpen(false)}>Batal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin: Auto Complete Instant Form (abaikan batas 5 hari) */}
       {forceAllOpen && (
         <div className={styles.modalOverlay} onClick={() => !forceAllRunning && setForceAllOpen(false)}>
           <div className={styles.confirmModal} style={{ width: 480, maxWidth: "90%" }} onClick={(e) => e.stopPropagation()}>
             <div className={styles.confirmIcon} style={{ background: "#eef2ff" }}>
               <Clock size={36} color="#1e293b" />
             </div>
-            <h2 className={styles.confirmTitle}>Percepat Auto-Complete</h2>
+            <h2 className={styles.confirmTitle}>Auto Complete — Instant Form</h2>
 
             {forceAllDone ? (
               <div style={{ textAlign: "center", padding: "8px 0" }}>
                 <div style={{ color: "#16a34a", fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>Selesai!</div>
                 <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>
-                  Diselesaikan: <strong>{forceAllStats.completed}</strong> &middot; Dilewati: {forceAllStats.skipped} &middot; Gagal: {forceAllStats.errors}
+                  {forceAllStats.total === 0
+                    ? "Tidak ada lead Instant Form yang perlu diproses."
+                    : <>Diselesaikan: <strong>{forceAllStats.completed}</strong> &middot; Dilewati: {forceAllStats.skipped} &middot; Gagal: {forceAllStats.errors}</>}
                 </p>
                 <button className="btn btn-primary" onClick={() => setForceAllOpen(false)}>Tutup</button>
               </div>
             ) : forceAllRunning ? (
-              <div style={{ textAlign: "center", padding: "8px 0" }}>
-                <div style={{ color: "#2563eb", fontSize: 16, fontWeight: "bold", marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <Loader2 size={18} className="animate-spin" /> Sedang Memproses...
+              <div style={{ padding: "4px 0" }}>
+                <div style={{ textAlign: "center", color: "#2563eb", fontSize: 15, fontWeight: "bold", marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 8, width: "100%", justifyContent: "center" }}>
+                  <Loader2 size={18} className="animate-spin" /> Memproses {forceAllStats.current} dari {forceAllStats.total}
                 </div>
-                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+                {/* Progress bar */}
+                <div style={{ width: "100%", background: "#e2e8f0", borderRadius: 99, height: 10, margin: "8px 0", overflow: "hidden" }}>
+                  <div style={{ background: "#2563eb", height: "100%", width: `${forceAllStats.total ? (forceAllStats.current / forceAllStats.total) * 100 : 0}%`, transition: "width 0.3s" }} />
+                </div>
+                <div style={{ fontSize: 12, color: "#475569", textAlign: "center", marginBottom: 8 }}>
+                  ✓ {forceAllStats.completed} &nbsp; – {forceAllStats.skipped} &nbsp; ✗ {forceAllStats.errors}
+                </div>
+                <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 8 }}>
                   Jangan tutup halaman ini sampai selesai.
                 </p>
-                <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
-                  Selesai: {forceAllStats.completed} &middot; Sisa (perkiraan): {forceAllStats.remaining}
-                </div>
+                {forceAllLog.length > 0 && (
+                  <div style={{ maxHeight: 140, overflowY: "auto", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "monospace", color: "#334155" }}>
+                    {forceAllLog.map((line, i) => (
+                      <div key={i} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{line}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <>
