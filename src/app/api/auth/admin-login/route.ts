@@ -26,12 +26,17 @@ export async function POST(req: NextRequest) {
       return json({ error: "Kode akses salah" }, 401);
     }
 
-    const adminData = adminDocs.docs[0].data();
+    const adminDoc = adminDocs.docs[0];
+    const adminData = adminDoc.data();
+
+    // Super Admin diidentifikasi lewat doc id "superadmin" di collection `admin`.
+    const isSuperAdmin = adminDoc.id === "superadmin";
 
     // Default return payload
     const user = {
       uid: "admin",
       role: adminData.role || "admin",
+      isSuperAdmin,
       email: "admin@ioda.id",
       displayName: "Admin IODA",
       profileCompleted: true

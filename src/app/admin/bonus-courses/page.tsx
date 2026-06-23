@@ -15,6 +15,7 @@ interface BonusTopic {
   groupLink?: string;
   lastSessionDate?: string;
   Kode_Basis?: string;
+  status?: string;
 }
 
 type ModalMode = "add" | "edit";
@@ -44,12 +45,15 @@ export default function AdminBonusCoursesPage() {
 
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Toggle status state
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function fetchTopics() {
     if (!user) return;
     try {
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/bonus-courses", {
+      // ?all=1 → ikut tampilkan kelas nonaktif agar bisa diaktifkan kembali.
+      const res = await fetch("/api/bonus-courses?all=1", {
         headers: { Authorization: `Bearer ${idToken}` },
         cache: "no-store",
       });
@@ -58,6 +62,33 @@ export default function AdminBonusCoursesPage() {
       console.error("[AdminBonus] fetch error", e);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleToggleStatus(topic: BonusTopic) {
+    if (!user || togglingId) return;
+    const next = (topic.status || "active") === "active" ? "inactive" : "active";
+    setTogglingId(topic.id);
+    // Optimistic update
+    setTopics((prev) =>
+      prev.map((t) => (t.id === topic.id ? { ...t, status: next } : t))
+    );
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/bonus-courses/${topic.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) throw new Error();
+    } catch (e) {
+      console.error("[AdminBonus] toggle error", e);
+      // Rollback bila gagal
+      setTopics((prev) =>
+        prev.map((t) => (t.id === topic.id ? { ...t, status: topic.status || "active" } : t))
+      );
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -192,20 +223,23 @@ export default function AdminBonusCoursesPage() {
                 <th>Judul</th>
                 <th>Kode Basis</th>
                 <th>Kode Kelas</th>
+                <th style={{ width: 120 }}>Status</th>
                 <th style={{ width: 96 }}></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className={styles.centerCell}>
+                  <td colSpan={6} className={styles.centerCell}>
                     <Loader2 size={20} style={{ animation: "spin 1s linear infinite", color: "var(--color-primary)", verticalAlign: "middle" }} />
                     {" "}Memuat data...
                   </td>
                 </tr>
               ) : topics.length === 0 ? null : (
-                topics.map((topic) => (
-                  <tr key={topic.id}>
+                topics.map((topic) => {
+                  const isActive = (topic.status || "active") === "active";
+                  return (
+                  <tr key={topic.id} style={isActive ? undefined : { opacity: 0.55 }}>
                     <td>
                       {topic.category === "wpb" ? "WPB" : topic.category === "bootcamp" ? "Bootcamp" : "Video Learning"}
                     </td>
@@ -217,6 +251,24 @@ export default function AdminBonusCoursesPage() {
                     </td>
                     <td>
                       <code className={styles.code}>{topic.classCode}</code>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={`${styles.statusToggle} ${isActive ? styles.statusOn : styles.statusOff}`}
+                        onClick={() => handleToggleStatus(topic)}
+                        disabled={togglingId === topic.id}
+                        title={isActive ? "Klik untuk nonaktifkan (sembunyikan dari siswa)" : "Klik untuk aktifkan"}
+                      >
+                        {togglingId === topic.id ? (
+                          <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+                        ) : (
+                          <>
+                            <span className={styles.statusDot} />
+                            {isActive ? "Aktif" : "Nonaktif"}
+                          </>
+                        )}
+                      </button>
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -240,13 +292,14 @@ export default function AdminBonusCoursesPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
 
               {/* Baris placeholder Tambah Kelas */}
               {!loading && (
                 <tr className={styles.addRow} onClick={openAdd}>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <span className={styles.addRowInner}>
                       <Plus size={15} />
                       Tambah Kelas

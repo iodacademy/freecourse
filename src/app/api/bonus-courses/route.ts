@@ -10,10 +10,15 @@ import { FieldValue } from "firebase-admin/firestore";
 export async function GET(req: NextRequest) {
   try {
     await requireAuth(req);
+    // ?all=1 → tampilkan semua status (untuk panel admin, agar kelas nonaktif
+    // tetap terlihat & bisa diaktifkan lagi). Tanpa flag → hanya yang aktif
+    // (dipakai sisi siswa di /learn/bonus).
+    const showAll = req.nextUrl.searchParams.get("all") === "1";
+    const col = getAdminDb().collection("bonusCourseTopics");
     // Hindari composite index — filter status saja, sort di JS
-    const snap = await getAdminDb().collection("bonusCourseTopics")
-      .where("status", "==", "active")
-      .get();
+    const snap = showAll
+      ? await col.get()
+      : await col.where("status", "==", "active").get();
     const docs = snap.docs
       .map((d) => {
         const data = d.data();
@@ -21,6 +26,7 @@ export async function GET(req: NextRequest) {
           id: d.id,
           ...data,
           category: data.category || "vl",
+          status: data.status || "active",
         };
       })
       .sort((a: any, b: any) => {

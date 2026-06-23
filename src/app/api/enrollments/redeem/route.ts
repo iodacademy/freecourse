@@ -11,6 +11,7 @@ import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendEmailViaGAS } from "@/lib/gas-email";
 import { bonusRedeemEmail } from "@/lib/email-templates/bonus-redeem-email";
+import { detailChannelFromCategory } from "@/lib/beasiswa-channel";
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,14 +61,27 @@ export async function POST(req: NextRequest) {
     const category = topicData.category || "vl";
     const waGroupLink = topicData.groupLink || "";
 
-    // Simpan ke enrollment
-    await enrollRef.update({
+    // detailChannel mengikuti kategori yang dipilih — HANYA untuk peserta dari
+    // jalur beasiswa (Facebook Instant Form). Peserta kemitraan tidak diubah.
+    const enrollUpdate: Record<string, unknown> = {
       bonusCourseTopicId: topicId,
       bonusCourseRedeemCode: redeemCode,
       beasiswaType: category,
       waGroupLink: waGroupLink,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (enrollData.channelSource === "beasiswa") {
+      const detailChannel = detailChannelFromCategory(category);
+      enrollUpdate.detailChannel = detailChannel;
+      // Samakan juga di dokumen users agar konsisten di dashboard.
+      await db.collection("users").doc(decoded.uid).set(
+        { detailChannel, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
+    // Simpan ke enrollment
+    await enrollRef.update(enrollUpdate);
 
     // ── Daftarkan ke student-center-ioda berdasarkan kategori ──
     try {

@@ -78,6 +78,36 @@ export async function requireAdmin(req: Request): Promise<DecodedIdToken> {
   return { uid: "admin", role: adminDocs.docs[0].data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
 }
 
+/**
+ * Seperti requireAdmin, tapi WAJIB Super Admin (doc id "superadmin" di
+ * collection `admin`). Dipakai untuk aksi sensitif (mis. percepat penyelesaian
+ * semua lead tanpa menunggu batas 5 hari).
+ */
+export async function requireSuperAdmin(req: Request): Promise<DecodedIdToken> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const token = authHeader.slice(7);
+  const { getAdminDb } = await import("./firebase-admin");
+  const db = getAdminDb();
+
+  const adminDocs = await db.collection("admin").where("code", "==", token).get();
+
+  if (adminDocs.empty || adminDocs.docs[0].id !== "superadmin") {
+    throw new Response(
+      JSON.stringify({ error: "Forbidden: Super Admin only" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  return { uid: "admin", role: "superadmin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
+}
+
 /** Helper: return JSON response */
 export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {

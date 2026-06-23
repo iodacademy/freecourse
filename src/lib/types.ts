@@ -20,6 +20,7 @@ export interface UserProfile {
   displayName: string;
   photoURL: string | null;
   role: "student" | "admin" | "admin_public" | "mitra";
+  isSuperAdmin?: boolean; // hanya true untuk akun admin doc id "superadmin"
   profileCompleted: boolean;
   profileData: ProfileFormData;
   channelSource: "umum" | "beasiswa" | "kemitraan" | "workshop" | null;

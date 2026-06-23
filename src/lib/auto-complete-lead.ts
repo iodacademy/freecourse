@@ -15,6 +15,7 @@
  */
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { detailChannelFromCategory, pickRandomCategory } from "@/lib/beasiswa-channel";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -76,6 +77,11 @@ export async function autoCompleteLead(
     const displayName = String(lead.nama || profileData.nama_lengkap || "Peserta");
     const emailUsername = userId.split("@")[0] || "user";
 
+    // Peserta yang diselesaikan otomatis: kategori beasiswa di-RANDOM (deterministik
+    // per email) dari vl/wpb/bootcamp, lalu detailChannel mengikuti kategori itu.
+    const beasiswaCategory = pickRandomCategory(userId);
+    const detailChannel = detailChannelFromCategory(beasiswaCategory);
+
     // ── 1. users ──
     const userRef = db.collection("users").doc(userId);
     const userSnap = await userRef.get();
@@ -87,7 +93,8 @@ export async function autoCompleteLead(
       role: "student",
       profileCompleted: true,
       channelSource: "beasiswa",
-      detailChannel: "All Beasiswa - Facebook Instant Forms",
+      detailChannel,
+      beasiswaType: beasiswaCategory,
       eventId: null,
       utmData: lead.utmData || null,
       profileData,
@@ -154,7 +161,8 @@ export async function autoCompleteLead(
       displayName,
       courseId: "course-main",
       channelSource: "beasiswa",
-      detailChannel: "All Beasiswa - Facebook Instant Forms",
+      detailChannel,
+      beasiswaType: beasiswaCategory,
       eventId: null,
       currentStep: 3,
       stepProgress,
