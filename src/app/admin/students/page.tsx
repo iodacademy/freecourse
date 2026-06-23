@@ -912,9 +912,6 @@ export default function AdminStudentsPage() {
   // total = jumlah lead pending; current = sudah diproses; completed/skipped/errors = ringkasan
   const [forceAllStats, setForceAllStats] = useState({ total: 0, current: 0, completed: 0, skipped: 0, errors: 0 });
   const [forceAllLog, setForceAllLog] = useState<string[]>([]);
-  // Backfill verified (sekali jalan untuk data lama)
-  const [backfillRunning, setBackfillRunning] = useState(false);
-  const [backfillMsg, setBackfillMsg] = useState("");
   
   // State for date grouping
   const [dateGroups, setDateGroups] = useState<{ date: string, students: any[] }[]>([]);
@@ -1051,21 +1048,6 @@ export default function AdminStudentsPage() {
     return data;
   };
 
-  // Versi umum (tanpa body) untuk endpoint POST lain mis. backfill.
-  const callForceComplete2 = async (url: string, token: string) => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
-    const text = await res.text();
-    let data: any = null;
-    try { data = text ? JSON.parse(text) : null; } catch {
-      throw new Error(`Server membalas non-JSON (HTTP ${res.status}). Coba lagi.`);
-    }
-    if (!res.ok) throw new Error(data?.error || `Gagal (HTTP ${res.status}).`);
-    return data;
-  };
-
   // Super Admin: proses semua lead Instant Form TANPA menunggu 5 hari.
   // Strategi: ambil daftar lead pending dulu (action:list), lalu proses SATU
   // per SATU (action:process) supaya tiap request cepat & tidak timeout, dan
@@ -1119,23 +1101,6 @@ export default function AdminStudentsPage() {
       setForceAllError(e.message || "Terjadi kesalahan.");
     } finally {
       setForceAllRunning(false);
-    }
-  };
-
-  // Sekali jalan: tandai lead lama yang sudah jadi siswa sebagai verified,
-  // agar tidak terdeteksi lagi oleh tombol Instant Form.
-  const runBackfillVerified = async () => {
-    setForceAllError("");
-    setBackfillRunning(true);
-    setBackfillMsg("");
-    try {
-      const token = await getToken();
-      const data = await callForceComplete2("/api/admin/leads/backfill-verified", token);
-      setBackfillMsg(`Selesai. ${data.updated} lead lama ditandai sudah verifikasi (dari ${data.totalLeads} total).`);
-    } catch (e: any) {
-      setForceAllError(e.message || "Gagal backfill.");
-    } finally {
-      setBackfillRunning(false);
     }
   };
 
@@ -1861,23 +1826,6 @@ export default function AdminStudentsPage() {
                     Peserta yang sudah verifikasi tapi belum selesai → pakai menu <strong>Massal</strong>.
                   </span>
                 </p>
-
-                {/* Backfill data lama — sekali jalan */}
-                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, color: "#92400e", marginBottom: 8 }}>
-                    <strong>Sekali jalan:</strong> tandai lead lama yang sudah jadi siswa sebagai
-                    "sudah verifikasi", supaya tidak terdeteksi lagi di sini.
-                  </div>
-                  <button
-                    onClick={runBackfillVerified}
-                    disabled={backfillRunning}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", padding: "6px 12px", borderRadius: 6, cursor: backfillRunning ? "wait" : "pointer" }}
-                  >
-                    {backfillRunning ? <Loader2 size={13} className="animate-spin" /> : null}
-                    {backfillRunning ? "Memproses..." : "Tandai Data Lama (Backfill)"}
-                  </button>
-                  {backfillMsg && <div style={{ fontSize: 12, color: "#166534", marginTop: 8 }}>{backfillMsg}</div>}
-                </div>
 
                 {forceAllError && <div className={styles.deleteError}>{forceAllError}</div>}
                 <div className={styles.confirmActions}>
