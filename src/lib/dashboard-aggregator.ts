@@ -32,7 +32,7 @@ export type DashboardFilter = {
   disabilitas?: "Ya" | "Tidak" | null;
   region?: string | null;
   topik?: string | null;
-  usia?: "18-23" | "24-29" | ">29" | null;
+  usia?: "18-23" | "24-29" | "30+" | null;
   dateFrom?: string | null; // ISO date
   dateTo?: string | null;
   source?: string | null; // event id / partner code / channel key
@@ -163,7 +163,7 @@ function ageToBucket(ageStr: string): string | null {
   if (isNaN(n)) return null;
   if (n <= 23) return "18-23"; // <18 ikut bucket pertama
   if (n <= 29) return "24-29";
-  return ">29";
+  return "30+"; // 30 tahun ke atas
 }
 
 // ─── Helper: normalisasi email ──────────────────────────────────────────────
@@ -830,14 +830,14 @@ function applyFiltersAndAggregate(
     .slice(0, 5);
 
   // Usia 3 bucket
-  const usiaCount: Record<string, number> = { "18-23": 0, "24-29": 0, ">29": 0 };
+  const usiaCount: Record<string, number> = { "18-23": 0, "24-29": 0, "30+": 0 };
   for (const s of certifiedFiltered) {
     if (s._ageBucket) usiaCount[s._ageBucket]++;
   }
   const usia: Array<[string, number]> = [
     ["18-23", usiaCount["18-23"]],
     ["24-29", usiaCount["24-29"]],
-    [">29", usiaCount[">29"]],
+    ["30+", usiaCount["30+"]],
   ];
 
   // Channel breakdown — pakai ALL students (sebelum filter) supaya bisa lihat distribusi global
@@ -903,8 +903,8 @@ function applyFiltersAndAggregate(
   if (options.cleanExport) {
     const jabodetabek = ["jakarta", "bogor", "depok", "tangerang", "bekasi"];
     sourceArray = sourceArray.filter((s) => {
-      // Exclude age > 29
-      if (s._ageBucket === ">29") return false;
+      // Exclude age 30+
+      if (s._ageBucket === "30+") return false;
       
       // Keep only Jabodetabek
       const kota = (s._kota || "").toLowerCase();
