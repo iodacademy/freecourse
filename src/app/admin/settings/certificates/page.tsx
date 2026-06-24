@@ -17,6 +17,9 @@ export default function CertificatesSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
+  // Diagnosis koneksi GAS
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   useEffect(() => {
     if (user) fetchSettings();
@@ -78,6 +81,38 @@ export default function CertificatesSettingsPage() {
     }
   }
 
+  // Tes koneksi ke GAS (dryRun: tidak benar-benar membuat sertifikat).
+  // Simpan dulu sebelum tes agar GAS URL terbaru terbaca server.
+  async function testGas(dryRun: boolean) {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const token = await getToken();
+      // Simpan settings terlebih dahulu supaya server pakai URL terbaru.
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(settings),
+      });
+      const res = await fetch("/api/admin/diagnostics/gas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dryRun }),
+      });
+      const text = await res.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch {
+        data = { verdict: `Server membalas non-JSON (HTTP ${res.status})`, responseSnippet: text.slice(0, 300) };
+      }
+      if (res.status === 403) data = { verdict: "Hanya Super Admin yang bisa menjalankan tes ini." };
+      setTestResult(data);
+    } catch (e: any) {
+      setTestResult({ verdict: "Gagal memanggil endpoint diagnosis", responseSnippet: e?.message });
+    } finally {
+      setTesting(false);
+    }
+  }
+
   if (loading) return <div style={{ padding: "24px", color: "#9ca3af", fontSize: 14 }}>Memuat...</div>;
 
   const divider = <div style={{ height: 1, background: '#f3f4f6', margin: '20px 0' }} />;
@@ -105,6 +140,51 @@ export default function CertificatesSettingsPage() {
             onChange={(e) => setSettings({ ...settings, gasWebAppUrl: e.target.value })}
             placeholder="https://script.google.com/macros/s/.../exec"
           />
+          <span className={styles.fieldHint}>
+            Wajib diakhiri <strong>/exec</strong> dan deploy GAS harus "Anyone" agar bisa diakses server.
+          </span>
+
+          {/* Tombol diagnosis */}
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => testGas(true)}
+              disabled={testing}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#1e293b", background: "#f1f5f9", border: "1px solid #cbd5e1", padding: "8px 14px", borderRadius: 8, cursor: testing ? "wait" : "pointer" }}
+            >
+              {testing ? "Menguji..." : "Tes Koneksi GAS (aman)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => testGas(false)}
+              disabled={testing}
+              title="Membuat 1 sertifikat uji sungguhan untuk memastikan generate PDF berhasil"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#fff", background: "#1e293b", border: "1px solid #1e293b", padding: "8px 14px", borderRadius: 8, cursor: testing ? "wait" : "pointer" }}
+            >
+              Tes Generate PDF Sungguhan
+            </button>
+          </div>
+
+          {testResult && (
+            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 8, fontSize: 13, background: testResult.success ? "#f0fdf4" : "#fef2f2", border: `1px solid ${testResult.success ? "#bbf7d0" : "#fecaca"}` }}>
+              <div style={{ fontWeight: 700, color: testResult.success ? "#15803d" : "#b91c1c", marginBottom: 6 }}>
+                {testResult.success ? "✓ GAS sehat" : "✗ Ada masalah"} — {testResult.verdict || "tidak ada verdict"}
+              </div>
+              {typeof testResult.httpStatus !== "undefined" && (
+                <div style={{ color: "#475569", marginBottom: 4 }}>HTTP {testResult.httpStatus}{testResult.durationMs ? ` · ${testResult.durationMs}ms` : ""}</div>
+              )}
+              {testResult.parsedJson?.downloadUrl && (
+                <div style={{ marginBottom: 4 }}>
+                  PDF uji: <a href={testResult.parsedJson.downloadUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>buka</a>
+                </div>
+              )}
+              {testResult.responseSnippet && (
+                <div style={{ marginTop: 6, fontFamily: "monospace", fontSize: 11, color: "#64748b", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 120, overflowY: "auto" }}>
+                  {testResult.responseSnippet}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {divider}
