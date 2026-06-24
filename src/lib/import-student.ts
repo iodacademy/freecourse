@@ -14,6 +14,7 @@
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { detailChannelFromCategory, pickRandomCategory } from "@/lib/beasiswa-channel";
+import { normalizePhone, normalizeDob, normalizeGender } from "@/lib/import-normalize";
 
 // Jawaban benar kuis (sama dengan auto-complete-lead).
 const QUIZ_CORRECT: Record<string, string> = {
@@ -80,13 +81,18 @@ export async function importStudent(
     // Pre-test diacak Pernah/Belum (dibaca dashboard dari profileData.pretest_score).
     const pretest = pickPretest(email);
 
+    // Rapikan data mentah agar konsisten & terbaca dashboard.
+    const noWaClean = normalizePhone(row.noWa || "");      // tanpa 62/0 di depan
+    const dobClean = normalizeDob(row.tanggalLahir || ""); // YYYY-MM-DD (asumsi DD/MM)
+    const genderClean = normalizeGender(row.jenisKelamin || "");
+
     // profileData mengikuti nama field standalone (lihat leads/ingest).
     const profileData: Record<string, any> = {
       nama_lengkap: displayName,
       alamat_email: email,
-      jenis_kelamin: row.jenisKelamin || "",
-      tanggal_lahir: row.tanggalLahir || "",
-      nomor_whatsapp: row.noWa || "",
+      jenis_kelamin: genderClean,
+      tanggal_lahir: dobClean,
+      nomor_whatsapp: noWaClean,
       asal_daerah: row.kota || "",
       disabilitas: row.disabilitas || "",
       kategori_disabilitas_yang_anda_miliki: row.jenisDisabilitas || "",

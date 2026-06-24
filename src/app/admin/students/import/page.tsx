@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ChevronLeft, Upload, Loader2, CheckCircle2, AlertCircle, Play } from "lucide-react";
 import * as XLSX from "xlsx";
 import type { ImportRow } from "@/lib/import-student";
+import { normalizePhone, normalizeDob, normalizeGender } from "@/lib/import-normalize";
 
 const BATCH = 25;
 
@@ -44,6 +45,11 @@ function mapRow(raw: Record<string, any>): ImportRow {
     }
     out[field] = val == null ? "" : String(val).trim();
   }
+  // Rapikan agar pratinjau = data yang benar-benar disimpan (server juga
+  // merapikan ulang, jadi tetap aman walau file dikirim mentah).
+  out.noWa = normalizePhone(out.noWa || "");
+  out.tanggalLahir = normalizeDob(out.tanggalLahir || "");
+  out.jenisKelamin = normalizeGender(out.jenisKelamin || "");
   return out as ImportRow;
 }
 
@@ -161,7 +167,8 @@ export default function ImportStudentsPage() {
               {fileName || "Klik untuk pilih file Excel / CSV"}
             </span>
             <span style={{ fontSize: 12, color: "#94a3b8" }}>
-              Kolom yang dikenali: Email (wajib), Nama Lengkap, Nomor WA, Jenis Kelamin, Tanggal Lahir, Kota, Disabilitas, Jenis Disabilitas, Minat
+              Kolom yang dikenali: Email (wajib), Nama Lengkap, Nomor WA, Jenis Kelamin, Tanggal Lahir, Kota, Disabilitas, Jenis Disabilitas, Minat.
+              <br />Nomor WA & tanggal lahir dirapikan otomatis. Tanggal ambigu dianggap <strong>DD/MM/YYYY</strong>. Cek pratinjau sebelum jalan.
             </span>
             <input
               type="file"
