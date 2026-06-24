@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { json, handleError, requireSuperAdmin } from "@/lib/api-helpers";
 import { importStudent, type ImportRow } from "@/lib/import-student";
-import { randomMillisBetween, parseDateInput } from "@/lib/random-date";
+import { randomTimestampDaytime, parseDateInput } from "@/lib/random-date";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
 
     const results = [];
     for (const row of rows) {
-      const createdAtMs = randomMillisBetween(startMs, endMs);
+      // Tanggal daftar acak, tapi jam dibatasi 10:00–20:00 WIB (tidak malam).
+      const createdAtMs = randomTimestampDaytime(startMs, endMs);
       const r = await importStudent(row, createdAtMs);
       results.push(r);
     }
