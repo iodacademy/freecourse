@@ -114,25 +114,50 @@ export default function ImportStudentsPage() {
     try { return await (user as any).getIdToken(); } catch { return ""; }
   }, [user]);
 
-  // Unduh daftar (dilewati/gagal) sebagai file Excel dengan tabel rapi.
+  // Unduh daftar (dilewati/gagal) sebagai Excel — KOLOM SAMA PERSIS dengan file
+  // import + kolom Keterangan. Baris lengkap diambil dengan mencocokkan email
+  // ke data asli yang sudah di-parse (rows).
   function downloadRowsXlsx(
     items: Array<{ email: string; reason: string }>,
     sheetName: string,
     fileLabel: string
   ) {
     if (!items.length) return;
-    // Ubah kode alasan jadi keterangan ramah.
     const reasonLabel: Record<string, string> = {
       already_certified: "Sudah punya sertifikat",
       email_kosong: "Email kosong",
       lead_not_found: "Lead tidak ditemukan",
     };
-    const aoa: (string | number)[][] = [
-      ["No", "Email", "Keterangan"],
-      ...items.map((it, i) => [i + 1, it.email, reasonLabel[it.reason] || it.reason || "-"]),
+    // Peta email → baris asli (lengkap) dari file yang diupload.
+    const byEmail = new Map<string, ImportRow>();
+    rows.forEach((r) => byEmail.set((r.email || "").toLowerCase(), r));
+
+    // Header sama persis urutan kolom import + Keterangan di akhir.
+    const headers = [
+      "Email", "Nama Lengkap", "Nomor WA", "Jenis Kelamin", "Tanggal Lahir",
+      "Kota", "Disabilitas", "Jenis Disabilitas", "Minat", "Keterangan",
     ];
+    const aoa: (string | number)[][] = [headers];
+    for (const it of items) {
+      const r = byEmail.get((it.email || "").toLowerCase());
+      aoa.push([
+        it.email || r?.email || "",
+        r?.nama || "",
+        r?.noWa || "",
+        r?.jenisKelamin || "",
+        r?.tanggalLahir || "",
+        r?.kota || "",
+        r?.disabilitas || "",
+        r?.jenisDisabilitas || "",
+        r?.minat || "",
+        reasonLabel[it.reason] || it.reason || "-",
+      ]);
+    }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wch: 5 }, { wch: 38 }, { wch: 28 }];
+    ws["!cols"] = [
+      { wch: 32 }, { wch: 22 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+      { wch: 16 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 24 },
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     const stamp = (startDate || "data").replace(/[^0-9-]/g, "");
