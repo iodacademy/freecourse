@@ -71,6 +71,16 @@ export async function importStudent(
   const createdAtTs = Timestamp.fromMillis(createdAtMs);
 
   try {
+    // ── Cek paling awal: kalau peserta SUDAH certified, jangan sentuh apa pun ──
+    // (baik dokumen users maupun enrollments) supaya data lama benar-benar aman
+    // saat import ulang.
+    const enrollRef = db.collection("enrollments").doc(enrollmentId);
+    const enrollSnap = await enrollRef.get();
+    const enrollData = enrollSnap.exists ? enrollSnap.data()! : null;
+    if (enrollData?.certificateClaimed) {
+      return { email, status: "skipped", reason: "already_certified" };
+    }
+
     const displayName = String(row.nama || "Peserta").trim();
     const emailUsername = email.split("@")[0] || "user";
 
@@ -124,16 +134,7 @@ export async function importStudent(
     }
     await userRef.set(userPayload, { merge: true });
 
-    // ── 2. enrollment ──
-    const enrollRef = db.collection("enrollments").doc(enrollmentId);
-    const enrollSnap = await enrollRef.get();
-    const enrollData = enrollSnap.exists ? enrollSnap.data()! : null;
-
-    // Sudah punya sertifikat → jangan timpa.
-    if (enrollData?.certificateClaimed) {
-      return { email, status: "skipped", reason: "already_certified" };
-    }
-
+    // ── 2. enrollment (peserta dipastikan BELUM certified di pengecekan awal) ──
     const settingsDoc = await db.collection("settings").doc("app").get();
     const settings = settingsDoc.data() || {};
     const quizStepId = settings.quizStepId || "new-1779462139521";
