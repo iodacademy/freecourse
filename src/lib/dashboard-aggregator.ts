@@ -311,6 +311,223 @@ type RawDataset = {
   survey2: { id: string | null; text: string | null };
 };
 
+// ─── Lookups + pembangun 1 baris siswa (dipakai bersama buildRawDataset & upsertStudentIndex) ──
+
+export type StudentLookups = {
+  eventsById: Map<string, IodaEvent>;
+  partnerByCode: Map<string, PartnerCode>;
+  topicsById: Map<string, BonusCourseTopic>;
+  quizStepId: string | null;
+  survey1: { id: string | null; text: string | null };
+  feedback: { id: string | null; text: string | null };
+  survey2: { id: string | null; text: string | null };
+  totalSteps: number;
+};
+
+// Helper: convert Firestore timestamp ke Date
+function tsToDate(t: any): Date | null {
+  if (!t) return null;
+  if (t instanceof Date) return t;
+  if (typeof t.toDate === "function") return t.toDate();
+  return new Date(t);
+}
+
+/**
+ * Bangun 1 baris siswa lengkap dari (user, enrollment, lookups).
+ * Fungsi murni — tidak menyentuh Firestore. Sumber kebenaran tunggal untuk
+ * format baris siswa, dipakai oleh buildRawDataset() (loop) & upsertStudentIndex() (single).
+ */
+export function computeStudentRow(
+  u: UserProfile & { uid: string },
+  enr: (Enrollment & { id: string }) | null,
+  lk: StudentLookups
+): FullStudent {
+  const { eventsById, partnerByCode, topicsById, quizStepId, survey1, feedback, survey2, totalSteps } = lk;
+  const email = u.email;
+  const profileData: any = u.profileData || {};
+
+  // Tanggal Daftar — pakai createdAt user
+  const createdAt = tsToDate((u as any).createdAt);
+  const tanggalDaftar = toWIBString(createdAt);
+
+  const persetujuan = getConsentValue(profileData);
+
+  // Channel + detail
+  const rawChannel = (enr?.channelSource || u.channelSource || "umum").toLowerCase();
+  const channelLabel: Record<string, string> = {
+    umum: "Umum",
+    beasiswa: "Beasiswa",
+    kemitraan: "Mitra",
+    workshop: "Workshop",
+  };
+  const channel = channelLabel[rawChannel] || rawChannel;
+  let detailChannel = "-";
+  // Prioritaskan detailChannel yang tersimpan langsung di data (mis. peserta
+  // standalone/Meta yang ditandai "All Beasiswa - Facebook Instant Forms").
+  const storedDetail = ((enr as any)?.detailChannel || (u as any).detailChannel || "").toString().trim();
+  if (storedDetail) {
+    detailChannel = storedDetail;
+  } else if (rawChannel === "beasiswa" || rawChannel === "workshop") {
+    const evId = enr?.eventId || u.eventId;
+    if (evId) {
+      detailChannel = eventsById.get(evId)?.name || "-";
+    }
+  } else if (rawChannel === "kemitraan") {
+    const code = u.partnerCode || "";
+    if (code) detailChannel = partnerByCode.get(code)?.partnerName || "-";
+  }
+
+  const namaLengkap =
+    getProfileString(profileData, "nama_lengkap") ||
+    getProfileString(profileData, "namaLengkap") ||
+    u.displayName || "";
+
+  const nomorWA = (() => {
+    const raw =
+      getProfileString(profileData, "nomor_whatsapp") ||
+      getProfileString(profileData, "nomorWA");
+    if (!raw) return "";
+    return raw.startsWith("+") ? raw : `+62${raw.replace(/^0+/, "")}`;
+  })();
+
+  const jenisKelamin =
+    getProfileString(profileData, "jenis_kelamin") ||
+    getProfileString(profileData, "jenisKelamin");
+
+  let tanggalLahirIso = "";
+  if (profileData) {
+    for (const k of Object.keys(profileData)) {
+      const kl = k.toLowerCase();
+      if (kl.includes("tanggal") && kl.includes("lahir")) {
+        tanggalLahirIso = getProfileString(profileData, k);
+        if (tanggalLahirIso) break;
+      }
+    }
+  }
+
+  const tanggalLahir = isoToDDMMYYYY(tanggalLahirIso);
+  const umur = calcAge(tanggalLahirIso);
+
+  const kota = getCityFromProfile(profileData);
+
+  const disabilitas =
+    getProfileString(profileData, "disabilitas") ||
+    getProfileString(profileData, "isDisabilitas") || "";
+  const jenisDisabilitas =
+    (disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas")
+      ? getProfileString(profileData, "jenis_disabilitas") ||
+        getProfileString(profileData, "jenisDisabilitas") ||
+        getProfileString(profileData, "kategori_disabilitas_yang_anda_miliki") ||
+        getProfileString(profileData, "kategori_disabilitas") ||
+        getProfileString(profileData, "kategoriDisabilitas") || "-"
+      : "-";
+
+  let minatArray: string[] = [];
+  const rawMinatData = profileData?.["jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati"];
+  if (Array.isArray(rawMinatData)) {
+    minatArray = rawMinatData.filter((x) => typeof x === "string" && x.trim());
+  } else if (typeof rawMinatData === "string" && rawMinatData.trim() !== "") {
+    minatArray = [rawMinatData.trim()];
+  } else if (enr?.bonusCourseTopicId) {
+    const tName = topicsById.get(enr.bonusCourseTopicId)?.name;
+    if (tName) minatArray = [tName];
+  }
+  const minat = minatArray.length > 0 ? minatArray.join("; ") : "Belum Pilih";
+
+  const status = deriveStatus(enr, totalSteps);
+
+  // Nilai Quiz + statusKuis
+  let quizScore: number | null = null;
+  let statusKuis: DashboardStudent["statusKuis"] = "-";
+  if (quizStepId && enr?.stepProgress) {
+    const sp: StepProgress | undefined = enr.stepProgress[quizStepId];
+    if (sp?.assessmentResult) {
+      // Ambil firstPassScore jika ada, fallback ke score
+      quizScore = sp.assessmentResult.firstPassScore ?? sp.assessmentResult.score ?? null;
+      if (sp.assessmentResult.passed === true || sp.assessmentResult.firstPassScore != null || (quizScore != null && quizScore >= 60)) {
+        statusKuis = "LULUS";
+      } else if (sp.assessmentResult.attempts > 0) {
+        statusKuis = "TIDAK LULUS";
+      }
+    }
+  }
+
+  // Survey ratings
+  function findAnswer(qId: string | null): string | number | null {
+    if (!qId || !enr?.stepProgress) return null;
+    for (const sp of Object.values(enr.stepProgress as Record<string, StepProgress>)) {
+      const sr = sp?.surveyResult as any;
+      if (!sr) continue;
+      const ans = sr[qId] ?? sr.answers?.[qId];
+      if (ans != null && ans !== "") return ans as any;
+    }
+    return null;
+  }
+
+  const rawSurvey1 = findAnswer(survey1.id);
+  const rawFeedback = findAnswer(feedback.id);
+  const rawSurvey2 = findAnswer(survey2.id);
+
+  // Nilai Pre-test — disimpan di users.profileData.pretest_score
+  let pretestScore: number | null = null;
+  {
+    const rawPretest = profileData?.pretest_score;
+    if (typeof rawPretest === "number" && !isNaN(rawPretest)) {
+      pretestScore = rawPretest;
+    } else if (typeof rawPretest === "string" && rawPretest.trim() !== "") {
+      const n = parseFloat(rawPretest);
+      if (!isNaN(n)) pretestScore = n;
+    }
+  }
+
+  const ageBucket = ageToBucket(umur);
+
+  return {
+    tanggalDaftar,
+    persetujuan,
+    channel,
+    detailChannel,
+    email,
+    nomorWA,
+    namaLengkap,
+    jenisKelamin,
+    tanggalLahir,
+    umur,
+    kota,
+    disabilitas,
+    jenisDisabilitas,
+    minat,
+    status,
+    nilaiPretest: pretestScore != null ? String(pretestScore) : "-",
+    statusKuis,
+    nilaiQuiz: quizScore != null ? String(quizScore) : "-",
+    nilaiSurvei1: rawSurvey1 != null ? String(rawSurvey1) : "-",
+    feedbackMateri: rawFeedback != null ? String(rawFeedback) : "-",
+    nilaiSurvei2: rawSurvey2 != null ? String(rawSurvey2) : "-",
+    linkSertifikat: enr?.certificateDriveUrl || null,
+
+    uid: u.uid || "",
+    photoURL: u.photoURL || null,
+    profileCompleted: !!u.profileCompleted,
+    partnerCode: u.partnerCode || null,
+    eventId: u.eventId || null,
+    channelSource: u.channelSource || "",
+
+    _gender: jenisKelamin,
+    _disabilitas: disabilitas,
+    _kota: kota,
+    _ageBucket: ageBucket,
+    _channel: rawChannel,
+    _quizScore: quizScore,
+    _pretestScore: pretestScore,
+    _survey1Rating: parseRating(rawSurvey1),
+    _survey2Rating: parseRating(rawSurvey2),
+    _minatArray: minatArray,
+    _createdAt: createdAt,
+    _linkSertifikat: enr?.certificateDriveUrl || null,
+  };
+}
+
 // ─── Cache mentah (in-memory, stale-while-revalidate) ───────────────────────
 // Server berjalan long-running (node start.js) → cache aman & shared antar request.
 
@@ -510,201 +727,23 @@ async function buildRawDataset(): Promise<RawDataset> {
     }
   }
 
-  // Helper: convert Firestore timestamp ke Date
-  const tsToDate = (t: any): Date | null => {
-    if (!t) return null;
-    if (t instanceof Date) return t;
-    if (typeof t.toDate === "function") return t.toDate();
-    return new Date(t);
+  // Lookups dibungkus untuk dipakai computeStudentRow (sumber kebenaran tunggal baris siswa)
+  const lookups: StudentLookups = {
+    eventsById,
+    partnerByCode,
+    topicsById,
+    quizStepId,
+    survey1,
+    feedback,
+    survey2,
+    totalSteps,
   };
 
   // Build student rows
   const allStudents: FullStudent[] = [];
-
   for (const [email, u] of userByEmail) {
     const enr = enrollmentByUser.get(u.uid) || enrollmentByUser.get(email) || null;
-    const profileData: any = u.profileData || {};
-
-    // Tanggal Daftar — pakai createdAt user
-    const createdAt = tsToDate(u.createdAt);
-    const tanggalDaftar = toWIBString(createdAt);
-
-    const persetujuan = getConsentValue(profileData);
-
-    // Channel + detail
-    const rawChannel = (enr?.channelSource || u.channelSource || "umum").toLowerCase();
-    const channelLabel: Record<string, string> = {
-      umum: "Umum",
-      beasiswa: "Beasiswa",
-      kemitraan: "Mitra",
-      workshop: "Workshop",
-    };
-    const channel = channelLabel[rawChannel] || rawChannel;
-    let detailChannel = "-";
-    // Prioritaskan detailChannel yang tersimpan langsung di data (mis. peserta
-    // standalone/Meta yang ditandai "All Beasiswa - Facebook Instant Forms").
-    const storedDetail = ((enr as any)?.detailChannel || (u as any).detailChannel || "").toString().trim();
-    if (storedDetail) {
-      detailChannel = storedDetail;
-    } else if (rawChannel === "beasiswa" || rawChannel === "workshop") {
-      const evId = enr?.eventId || u.eventId;
-      if (evId) {
-        detailChannel = eventsById.get(evId)?.name || "-";
-      }
-    } else if (rawChannel === "kemitraan") {
-      const code = u.partnerCode || "";
-      if (code) detailChannel = partnerByCode.get(code)?.partnerName || "-";
-    }
-
-    const namaLengkap =
-      getProfileString(profileData, "nama_lengkap") ||
-      getProfileString(profileData, "namaLengkap") ||
-      u.displayName || "";
-
-    const nomorWA = (() => {
-      const raw =
-        getProfileString(profileData, "nomor_whatsapp") ||
-        getProfileString(profileData, "nomorWA");
-      if (!raw) return "";
-      return raw.startsWith("+") ? raw : `+62${raw.replace(/^0+/, "")}`;
-    })();
-
-    const jenisKelamin =
-      getProfileString(profileData, "jenis_kelamin") ||
-      getProfileString(profileData, "jenisKelamin");
-      
-    let tanggalLahirIso = "";
-    if (profileData) {
-      for (const k of Object.keys(profileData)) {
-        const kl = k.toLowerCase();
-        if (kl.includes("tanggal") && kl.includes("lahir")) {
-          tanggalLahirIso = getProfileString(profileData, k);
-          if (tanggalLahirIso) break;
-        }
-      }
-    }
-    
-    const tanggalLahir = isoToDDMMYYYY(tanggalLahirIso);
-    const umur = calcAge(tanggalLahirIso);
-
-    const kota = getCityFromProfile(profileData);
-
-    const disabilitas =
-      getProfileString(profileData, "disabilitas") ||
-      getProfileString(profileData, "isDisabilitas") || "";
-    const jenisDisabilitas =
-      (disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas")
-        ? getProfileString(profileData, "jenis_disabilitas") ||
-          getProfileString(profileData, "jenisDisabilitas") ||
-          getProfileString(profileData, "kategori_disabilitas_yang_anda_miliki") ||
-          getProfileString(profileData, "kategori_disabilitas") ||
-          getProfileString(profileData, "kategoriDisabilitas") || "-"
-        : "-";
-
-    let minatArray: string[] = [];
-    const rawMinatData = profileData?.["jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati"];
-    if (Array.isArray(rawMinatData)) {
-      minatArray = rawMinatData.filter((x) => typeof x === "string" && x.trim());
-    } else if (typeof rawMinatData === "string" && rawMinatData.trim() !== "") {
-      minatArray = [rawMinatData.trim()];
-    } else if (enr?.bonusCourseTopicId) {
-      const tName = topicsById.get(enr.bonusCourseTopicId)?.name;
-      if (tName) minatArray = [tName];
-    }
-    const minat = minatArray.length > 0 ? minatArray.join("; ") : "Belum Pilih";
-
-    const status = deriveStatus(enr, totalSteps);
-
-    // Nilai Quiz + statusKuis
-    let quizScore: number | null = null;
-    let statusKuis: DashboardStudent["statusKuis"] = "-";
-    if (quizStepId && enr?.stepProgress) {
-      const sp: StepProgress | undefined = enr.stepProgress[quizStepId];
-      if (sp?.assessmentResult) {
-        // Ambil firstPassScore jika ada, fallback ke score
-        quizScore = sp.assessmentResult.firstPassScore ?? sp.assessmentResult.score ?? null;
-        if (sp.assessmentResult.passed === true || sp.assessmentResult.firstPassScore != null || (quizScore != null && quizScore >= 60)) {
-          statusKuis = "LULUS";
-        } else if (sp.assessmentResult.attempts > 0) {
-          statusKuis = "TIDAK LULUS";
-        }
-      }
-    }
-
-    // Survey ratings
-    function findAnswer(qId: string | null): string | number | null {
-      if (!qId || !enr?.stepProgress) return null;
-      for (const sp of Object.values(enr.stepProgress as Record<string, StepProgress>)) {
-        const sr = sp?.surveyResult as any;
-        if (!sr) continue;
-        const ans = sr[qId] ?? sr.answers?.[qId];
-        if (ans != null && ans !== "") return ans as any;
-      }
-      return null;
-    }
-
-    const rawSurvey1 = findAnswer(survey1.id);
-    const rawFeedback = findAnswer(feedback.id);
-    const rawSurvey2 = findAnswer(survey2.id);
-
-    // Nilai Pre-test — disimpan di users.profileData.pretest_score
-    let pretestScore: number | null = null;
-    {
-      const rawPretest = profileData?.pretest_score;
-      if (typeof rawPretest === "number" && !isNaN(rawPretest)) {
-        pretestScore = rawPretest;
-      } else if (typeof rawPretest === "string" && rawPretest.trim() !== "") {
-        const n = parseFloat(rawPretest);
-        if (!isNaN(n)) pretestScore = n;
-      }
-    }
-
-    const ageBucket = ageToBucket(umur);
-
-    allStudents.push({
-      tanggalDaftar,
-      persetujuan,
-      channel,
-      detailChannel,
-      email: u.email,
-      nomorWA,
-      namaLengkap,
-      jenisKelamin,
-      tanggalLahir,
-      umur,
-      kota,
-      disabilitas,
-      jenisDisabilitas,
-      minat,
-      status,
-      nilaiPretest: pretestScore != null ? String(pretestScore) : "-",
-      statusKuis,
-      nilaiQuiz: quizScore != null ? String(quizScore) : "-",
-      nilaiSurvei1: rawSurvey1 != null ? String(rawSurvey1) : "-",
-      feedbackMateri: rawFeedback != null ? String(rawFeedback) : "-",
-      nilaiSurvei2: rawSurvey2 != null ? String(rawSurvey2) : "-",
-      linkSertifikat: enr?.certificateDriveUrl || null,
-      
-      uid: u.uid || "",
-      photoURL: u.photoURL || null,
-      profileCompleted: !!u.profileCompleted,
-      partnerCode: u.partnerCode || null,
-      eventId: u.eventId || null,
-      channelSource: u.channelSource || "",
-
-      _gender: jenisKelamin,
-      _disabilitas: disabilitas,
-      _kota: kota,
-      _ageBucket: ageBucket,
-      _channel: rawChannel,
-      _quizScore: quizScore,
-      _pretestScore: pretestScore,
-      _survey1Rating: parseRating(rawSurvey1),
-      _survey2Rating: parseRating(rawSurvey2),
-      _minatArray: minatArray,
-      _createdAt: createdAt,
-      _linkSertifikat: enr?.certificateDriveUrl || null,
-    });
+    allStudents.push(computeStudentRow(u as any, enr as any, lookups));
   }
 
   return {
@@ -1163,4 +1202,391 @@ export async function groupPendingByDate(bypassCache = false): Promise<Array<{ d
   return Array.from(byDate.entries())
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([date, students]) => ({ date, students }));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// studentsIndex — collection datar terindeks untuk pagination sejati (limit/cursor)
+// di halaman admin Siswa. 1 dokumen per siswa kanonik (doc id = uid).
+// ════════════════════════════════════════════════════════════════════════════
+
+export const STUDENTS_INDEX = "studentsIndex";
+const STUDENTS_META_DOC = "studentsMeta/detailChannels";
+
+/** Normalisasi statusKuis "-" → "BELUM" supaya bisa difilter equality di Firestore. */
+function normStatusKuis(s: string): "LULUS" | "TIDAK LULUS" | "BELUM" {
+  return s === "LULUS" || s === "TIDAK LULUS" ? s : "BELUM";
+}
+
+/** Dokumen datar studentsIndex yang dibaca langsung untuk render tabel + query. */
+export type StudentIndexDoc = DashboardStudent & {
+  isStudent: true;
+  namaLengkap_lower: string;
+  umurNum: number;            // umur sebagai number untuk sort range
+  statusKuisNorm: "LULUS" | "TIDAK LULUS" | "BELUM";
+  channelKey: string;         // raw channel (umum/beasiswa/kemitraan/workshop)
+  createdAtMs: number;        // epoch ms untuk sort default desc (stabil)
+};
+
+/** Bangun dokumen index datar dari FullStudent (hasil computeStudentRow). */
+function buildIndexDoc(row: FullStudent): StudentIndexDoc {
+  const pub = stripInternal(row);
+  const umurNum = Number(row.umur) || 0;
+  return {
+    ...pub,
+    isStudent: true,
+    namaLengkap_lower: (row.namaLengkap || "").toLowerCase(),
+    umurNum,
+    statusKuisNorm: normStatusKuis(row.statusKuis),
+    // channelKey HARUS sama dengan channel yang ditampilkan (label) — yaitu
+    // _channel (prioritas enrollment.channelSource), bukan user.channelSource.
+    // Kalau pakai user.channelSource, filter channel akan beda dari label.
+    channelKey: (row._channel || row.channelSource || "umum").toLowerCase(),
+    createdAtMs: row._createdAt ? row._createdAt.getTime() : 0,
+  };
+}
+
+// ─── Lookups loader (cache in-memory; events/partners/topics/steps jarang berubah) ──
+
+const LOOKUPS_TTL_MS = 10 * 60 * 1000; // 10 menit
+let _lookupsCache: { data: StudentLookups; ts: number } | null = null;
+
+export function invalidateLookupsCache(): void {
+  _lookupsCache = null;
+}
+
+async function loadLookups(bypass = false): Promise<StudentLookups> {
+  if (!bypass && _lookupsCache && Date.now() - _lookupsCache.ts < LOOKUPS_TTL_MS) {
+    return _lookupsCache.data;
+  }
+  const db = getAdminDb();
+  const [coursesSnap, eventsSnap, partnerCodesSnap, bonusTopicsSnap, settingsDoc] =
+    await Promise.all([
+      db.collection("courses").get(),
+      db.collection("events").get(),
+      db.collection("partnerCodes").get(),
+      db.collection("bonusCourseTopics").get(),
+      db.collection("settings").doc("app").get(),
+    ]);
+
+  const settings = (settingsDoc.exists ? settingsDoc.data() : {}) || {};
+  const dashboardMapping = (settings.dashboardMapping as any) || {};
+  const mainCourseId = settings.mainCourseId || "course-main";
+
+  const eventsById = new Map<string, IodaEvent>();
+  eventsSnap.docs.forEach((d) => eventsById.set(d.id, { id: d.id, ...(d.data() as any) }));
+  const partnerByCode = new Map<string, PartnerCode>();
+  partnerCodesSnap.docs.forEach((d) => {
+    const data = d.data() as any;
+    if (data.code) partnerByCode.set(data.code, { id: d.id, ...data });
+  });
+  const topicsById = new Map<string, BonusCourseTopic>();
+  bonusTopicsSnap.docs.forEach((d) => topicsById.set(d.id, { id: d.id, ...(d.data() as any) }));
+
+  const mainCourseDoc = coursesSnap.docs.find((d) => d.id === mainCourseId)
+    || coursesSnap.docs.find((d) => (d.data() as any).isMainCourse === true);
+
+  let mainSteps: CourseStep[] = [];
+  if (mainCourseDoc) {
+    const stepsSnap = await db.collection("courseSteps").where("courseId", "==", mainCourseDoc.id).get();
+    mainSteps = stepsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+    mainSteps.sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+  const totalSteps = mainSteps.length;
+
+  const surveys: StepWithSurvey[] = mainSteps
+    .filter((s) => s.survey?.questions?.length)
+    .map((s) => ({ stepId: s.id, stepTitle: s.title, questions: s.survey!.questions }));
+
+  let quizStepId: string | null = dashboardMapping.quizStepId || null;
+  if (!quizStepId) {
+    const auto = detectQuizStep(mainSteps);
+    if (auto) quizStepId = auto.stepId;
+  }
+  const resolveQ = (
+    explicitId: string | undefined,
+    detector: () => { id: string; text: string; stepTitle: string } | null
+  ): { id: string | null; text: string | null } => {
+    if (explicitId) {
+      for (const sw of surveys) {
+        const q = sw.questions.find((x) => x.id === explicitId);
+        if (q) return { id: q.id, text: q.text };
+      }
+      return { id: explicitId, text: null };
+    }
+    const found = detector();
+    return found ? { id: found.id, text: found.text } : { id: null, text: null };
+  };
+  const survey1 = resolveQ(dashboardMapping.survey1QuestionId, () => detectSurvey1(surveys));
+  const feedback = resolveQ(dashboardMapping.feedbackQuestionId, () => detectFeedback(surveys));
+  const survey2 = resolveQ(dashboardMapping.survey2QuestionId, () => detectSurvey2(surveys));
+
+  const data: StudentLookups = {
+    eventsById, partnerByCode, topicsById, quizStepId, survey1, feedback, survey2, totalSteps,
+  };
+  _lookupsCache = { data, ts: Date.now() };
+  return data;
+}
+
+// ─── upsert / delete satu dokumen index ─────────────────────────────────────
+
+/**
+ * Hitung ulang & tulis dokumen studentsIndex untuk satu user (by uid).
+ * Dipanggil non-fatal di tiap write path (di sebelah invalidateDashboardCache).
+ * Jika user bukan siswa valid (admin / belum lengkapi profil / tidak ada) → hapus index.
+ */
+export async function upsertStudentIndex(uid: string): Promise<void> {
+  if (!uid) return;
+  const db = getAdminDb();
+  const userSnap = await db.collection("users").doc(uid).get();
+  if (!userSnap.exists) {
+    await db.collection(STUDENTS_INDEX).doc(uid).delete().catch(() => {});
+    return;
+  }
+  const u = { uid, ...(userSnap.data() as any) };
+  if (u.role === "admin" || !u.profileCompleted) {
+    await db.collection(STUDENTS_INDEX).doc(uid).delete().catch(() => {});
+    return;
+  }
+
+  const lookups = await loadLookups();
+
+  // Ambil enrollment mainCourse terbaru milik user ini (by userId, lalu by email).
+  const email = normalizeEmail(u.email);
+  let enr: (Enrollment & { id: string }) | null = null;
+  let enrTs = -1;
+  const consider = (d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const data = d.data() as any;
+    const ts = (data.updatedAt?.toMillis?.() as number) || (data.createdAt?.toMillis?.() as number) || 0;
+    if (ts > enrTs) { enr = { id: d.id, ...data }; enrTs = ts; }
+  };
+  const byUid = await db.collection("enrollments").where("userId", "==", uid).get();
+  byUid.docs.forEach(consider);
+  if (email && email !== uid) {
+    const byEmail = await db.collection("enrollments").where("email", "==", email).get();
+    byEmail.docs.forEach(consider);
+  }
+  // Pastikan hanya enrollment mainCourse yang dipakai (samakan dengan buildRawDataset).
+  // mainCourseId tak tersedia di lookups; pakai courseId "course-main" sebagai default
+  // ditambah enrollment apa pun jika tidak ada yang course-main (toleran).
+  if (enr && (enr as any).courseId && (enr as any).courseId !== "course-main") {
+    const main = byUid.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .filter((e) => e.courseId === "course-main")
+      .sort((a, b) => ((b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0)))[0];
+    if (main) enr = main as any;
+  }
+
+  const row = computeStudentRow(u as any, enr, lookups);
+  const doc = buildIndexDoc(row);
+  await db.collection(STUDENTS_INDEX).doc(uid).set(doc, { merge: false });
+}
+
+/** Resolve uid dari email lalu upsert (untuk write path yang hanya punya email). */
+export async function upsertStudentIndexByEmail(emailRaw: string): Promise<void> {
+  const email = normalizeEmail(emailRaw);
+  if (!email) return;
+  const db = getAdminDb();
+  // users biasanya doc id = uid; cari by field email (ambil terbaru).
+  const snap = await db.collection("users").where("email", "==", email).get();
+  if (snap.empty) {
+    // fallback: dokumen users mungkin pakai email sebagai doc id (jalur meta/standalone)
+    await upsertStudentIndex(email);
+    return;
+  }
+  let bestUid = snap.docs[0].id, bestTs = -1;
+  snap.docs.forEach((d) => {
+    const data = d.data() as any;
+    const ts = (data.updatedAt?.toMillis?.() as number) || (data.createdAt?.toMillis?.() as number) || 0;
+    if (ts > bestTs) { bestUid = d.id; bestTs = ts; }
+  });
+  await upsertStudentIndex(bestUid);
+}
+
+export async function deleteStudentIndex(uid: string): Promise<void> {
+  if (!uid) return;
+  await getAdminDb().collection(STUDENTS_INDEX).doc(uid).delete().catch(() => {});
+}
+
+// ─── Query pagination sejati dari studentsIndex ─────────────────────────────
+
+// Cache kecil untuk channelSummary (4 count) & detailChannelOptions (1 doc) — jarang berubah.
+const SUMMARY_TTL_MS = 60 * 1000;
+let _summaryCache: { channelSummary: Record<string, number>; ts: number } | null = null;
+
+const CHANNEL_KEYS = ["umum", "kemitraan", "beasiswa", "workshop"] as const;
+
+async function getChannelSummaryCached(): Promise<Record<string, number>> {
+  if (_summaryCache && Date.now() - _summaryCache.ts < SUMMARY_TTL_MS) {
+    return _summaryCache.channelSummary;
+  }
+  const db = getAdminDb();
+  const base = db.collection(STUDENTS_INDEX).where("isStudent", "==", true);
+  const counts = await Promise.all(
+    CHANNEL_KEYS.map((ch) => base.where("channelKey", "==", ch).count().get())
+  );
+  const channelSummary: Record<string, number> = { umum: 0, kemitraan: 0, beasiswa: 0, workshop: 0 };
+  CHANNEL_KEYS.forEach((ch, i) => { channelSummary[ch] = counts[i].data().count; });
+  _summaryCache = { channelSummary, ts: Date.now() };
+  return channelSummary;
+}
+
+async function getDetailChannelOptions(channel: string): Promise<Array<{ value: string; count: number }>> {
+  const db = getAdminDb();
+  const snap = await db.collection(STUDENTS_META_DOC.split("/")[0]).doc(STUDENTS_META_DOC.split("/")[1]).get();
+  const map = (snap.exists ? (snap.data() as any) : {}) || {};
+  // map: { [channelKey]: { [detailChannel]: count } }
+  const result = new Map<string, number>();
+  const addFrom = (obj: any) => {
+    if (!obj) return;
+    for (const [dc, c] of Object.entries(obj)) {
+      if (dc && dc !== "-") result.set(dc, (result.get(dc) || 0) + (Number(c) || 0));
+    }
+  };
+  if (channel === "all") {
+    for (const ch of CHANNEL_KEYS) addFrom(map[ch]);
+  } else {
+    addFrom(map[channel]);
+  }
+  return Array.from(result.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([value, count]) => ({ value, count }));
+}
+
+/**
+ * Versi pagination sejati dari queryStudents — membaca studentsIndex via query
+ * Firestore ber-limit (≈pageSize read) + count() untuk total, BUKAN baca semua.
+ * Kompatibel bentuk StudentsPage. Search = prefix nama (namaLengkap_lower).
+ */
+export async function queryStudentsPaged(q: StudentsQuery = {}): Promise<StudentsPage> {
+  const db = getAdminDb();
+  const page = Math.max(1, q.page || 1);
+  const pageSize = Math.max(1, Math.min(200, q.pageSize || 20));
+  const channel = (q.channel || "all").toLowerCase();
+  const detailChannel = q.detailChannel || "all";
+  const statusKuis = q.statusKuis || "all";
+  const status = q.status || "all";
+  const sortUsia = q.sortUsia || "default";
+  const search = (q.search || "").trim().toLowerCase();
+
+  // Bangun query dasar dengan filter equality
+  let base: FirebaseFirestore.Query = db.collection(STUDENTS_INDEX).where("isStudent", "==", true);
+  if (channel !== "all") base = base.where("channelKey", "==", channel);
+  if (detailChannel !== "all") base = base.where("detailChannel", "==", detailChannel);
+  if (statusKuis !== "all") base = base.where("statusKuisNorm", "==", normStatusKuis(statusKuis));
+  if (status !== "all") {
+    const map: Record<string, string> = {
+      "Tersertifikasi": "Tersertifikasi", "Selesai": "Selesai",
+      "Sedang Belajar": "In Progress", "Belum Mulai": "Belum Start",
+    };
+    base = base.where("status", "==", map[status] || status);
+  }
+
+  // Sort + search. Search prefix memakai range field namaLengkap_lower (mutually exclusive
+  // dengan sort umur — UI menonaktifkan sort saat search aktif).
+  let ordered: FirebaseFirestore.Query;
+  if (search) {
+    ordered = base
+      .where("namaLengkap_lower", ">=", search)
+      .where("namaLengkap_lower", "<", search + "")
+      .orderBy("namaLengkap_lower");
+  } else if (sortUsia === "Termuda") {
+    ordered = base.orderBy("umurNum", "asc");
+  } else if (sortUsia === "Tertua") {
+    ordered = base.orderBy("umurNum", "desc");
+  } else {
+    ordered = base.orderBy("createdAtMs", "desc");
+  }
+
+  // filteredTotal via count() (murah), channelSummary + detailChannelOptions paralel.
+  const [countSnap, channelSummary, detailChannelOptions] = await Promise.all([
+    ordered.count().get(),
+    getChannelSummaryCached(),
+    getDetailChannelOptions(channel),
+  ]);
+  const filteredTotal = countSnap.data().count;
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  // Ambil 1 halaman via offset (page-number UI). Offset boros sedikit tapi tetap
+  // jauh lebih murah dari baca-semua; bisa dioptimasi ke cursor nanti.
+  const pageSnap = await ordered.offset((safePage - 1) * pageSize).limit(pageSize).get();
+  const students = pageSnap.docs.map((d) => {
+    const data = d.data() as StudentIndexDoc;
+    const { isStudent, namaLengkap_lower, umurNum, statusKuisNorm, channelKey, createdAtMs, ...pub } =
+      data as any;
+    return pub as DashboardStudent;
+  });
+
+  const total = Object.values(channelSummary).reduce((a, b) => a + b, 0);
+
+  return {
+    students,
+    total,
+    filteredTotal,
+    totalPages,
+    page: safePage,
+    pageSize,
+    channelSummary,
+    detailChannelOptions,
+    generatedAt: toWIBString(new Date()),
+  };
+}
+
+/**
+ * Bangun ulang SELURUH studentsIndex + studentsMeta/detailChannels dari sumber
+ * kebenaran (buildRawDataset). Idempoten. Dipakai oleh backfill (sekali jalan)
+ * dan cron penjaga (berkala) untuk menambal drift.
+ */
+export async function rebuildStudentsIndex(): Promise<{
+  written: number; deleted: number; total: number;
+}> {
+  const db = getAdminDb();
+  const raw = await buildRawDataset();
+  const rows = raw.allStudents;
+
+  // Kumpulkan uid kanonik & dokumen index + agregat detailChannel per channel.
+  const wantedUids = new Set<string>();
+  const detailMap: Record<string, Record<string, number>> = {
+    umum: {}, beasiswa: {}, kemitraan: {}, workshop: {},
+  };
+
+  let batch = db.batch();
+  let ops = 0;
+  let written = 0;
+  for (const row of rows) {
+    if (!row.uid) continue;
+    wantedUids.add(row.uid);
+    const doc = buildIndexDoc(row);
+    batch.set(db.collection(STUDENTS_INDEX).doc(row.uid), doc, { merge: false });
+    ops++; written++;
+    // agregat detailChannel
+    const ch = doc.channelKey;
+    if (ch in detailMap && doc.detailChannel && doc.detailChannel !== "-") {
+      detailMap[ch][doc.detailChannel] = (detailMap[ch][doc.detailChannel] || 0) + 1;
+    }
+    if (ops >= 450) { await batch.commit(); batch = db.batch(); ops = 0; }
+  }
+  if (ops > 0) await batch.commit();
+
+  // Tulis dokumen agregat detailChannel (timpa penuh → tak ada sisa drift).
+  const [metaCol, metaDoc] = STUDENTS_META_DOC.split("/");
+  await db.collection(metaCol).doc(metaDoc).set(detailMap, { merge: false });
+
+  // Hapus dokumen index yatim (uid yang tak lagi siswa valid).
+  const existing = await db.collection(STUDENTS_INDEX).get();
+  let delBatch = db.batch();
+  let delOps = 0;
+  let deleted = 0;
+  for (const d of existing.docs) {
+    if (!wantedUids.has(d.id)) {
+      delBatch.delete(d.ref);
+      delOps++; deleted++;
+      if (delOps >= 450) { await delBatch.commit(); delBatch = db.batch(); delOps = 0; }
+    }
+  }
+  if (delOps > 0) await delBatch.commit();
+
+  // Reset cache ringkasan agar langsung mencerminkan hasil rebuild.
+  _summaryCache = null;
+
+  return { written, deleted, total: rows.length };
 }

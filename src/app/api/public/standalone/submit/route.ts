@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { invalidateDashboardCache } from '@/lib/dashboard-aggregator';
+import { syncStudentIndex } from '@/lib/sync-student-index';
 import { FieldValue } from 'firebase-admin/firestore';
 
 /**
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
         // Lead tidak ada (mis. peserta non-instant-form) → abaikan.
       }
 
+      syncStudentIndex(userId);
       return NextResponse.json({ success: true, message: 'Identity saved' });
     }
 
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest) {
         },
       }, { merge: true });
 
+      syncStudentIndex(userId);
       return NextResponse.json({ success: true, message: 'Pre-test saved', score });
     }
 
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
         }
       }, { merge: true });
 
+      syncStudentIndex(userId);
       return NextResponse.json({ success: true, message: 'Quiz updated' });
     }
 
@@ -150,6 +154,7 @@ export async function POST(request: NextRequest) {
         }
       }, { merge: true });
 
+      syncStudentIndex(userId);
       return NextResponse.json({ success: true, message: 'Survey updated' });
     }
 
@@ -246,6 +251,7 @@ export async function POST(request: NextRequest) {
       }, { merge: true });
 
       invalidateDashboardCache();
+      syncStudentIndex(userId);
 
       return NextResponse.json({ success: true, message: 'Certificate claimed', certId, driveUrl });
     }

@@ -8,6 +8,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { getScDb } from "@/lib/firebase-admin-sc";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -256,6 +257,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     invalidateDashboardCache();
+    syncStudentIndex(enrollData.userId);
 
     return json({
       success: true,

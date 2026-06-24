@@ -3,6 +3,7 @@ import { json, handleError, requireSuperAdmin } from "@/lib/api-helpers";
 import { importStudent, type ImportRow } from "@/lib/import-student";
 import { randomTimestampDaytime, parseDateInput } from "@/lib/random-date";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
     const errors = results.filter((r) => r.status === "error");
 
     if (completed > 0) invalidateDashboardCache();
+    // Sync index untuk peserta yang baru dibuat (userId = email).
+    results.filter((r) => r.status === "completed").forEach((r) => syncStudentIndex(r.email));
 
     return json({
       success: true,

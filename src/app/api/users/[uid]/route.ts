@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { requireAuth, requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex, removeStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function GET(
@@ -68,6 +69,7 @@ export async function PATCH(
     await ref.set(updateData, { merge: true });
     const updated = await ref.get();
     invalidateDashboardCache();
+    syncStudentIndex(uid);
     return json(updated.data());
   } catch (e) {
     console.error("[PATCH /api/users/[uid]] Error:", e);
@@ -133,6 +135,7 @@ export async function DELETE(
     }
 
     invalidateDashboardCache();
+    removeStudentIndex(uid);
     return json({ success: true, message: `User ${uid} berhasil dihapus sepenuhnya.` });
   } catch (e) {
     return handleError(e);

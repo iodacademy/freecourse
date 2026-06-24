@@ -10,6 +10,8 @@
 import { NextRequest } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
@@ -54,6 +56,10 @@ export async function POST(req: NextRequest) {
 
     await ref.set(updateData, { merge: true });
     const updated = await ref.get();
+
+    invalidateDashboardCache();
+    syncStudentIndex(uid);
+
     return json(updated.data());
   } catch (e) {
     console.error("[POST /api/profile/update] Error:", e);

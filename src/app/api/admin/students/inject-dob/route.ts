@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     let injectedCount = 0;
     const batch = db.batch();
     let batchCount = 0;
+    const updatedUids: string[] = [];
 
     function getRandomDob18to29() {
       const now = new Date();
@@ -71,13 +73,14 @@ export async function POST(req: NextRequest) {
         if (!hasDob) {
           const randomDob = getRandomDob18to29();
           profileData[dobKey] = randomDob;
-          
+
           batch.update(doc.ref, {
             profileData: profileData
           });
-          
+
           injectedCount++;
           batchCount++;
+          updatedUids.push(doc.id);
         }
       });
     }
@@ -87,6 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
     invalidateDashboardCache();
+    updatedUids.forEach((id) => syncStudentIndex(id));
 
     return json({
       success: true,

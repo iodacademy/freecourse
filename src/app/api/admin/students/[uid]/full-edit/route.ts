@@ -24,6 +24,7 @@ import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 import { regenerateCertificate } from "@/lib/regenerate-cert";
 
@@ -139,6 +140,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     invalidateDashboardCache();
+    syncStudentIndex(uid);
 
     return json({
       success: true,

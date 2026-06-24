@@ -16,6 +16,7 @@
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { detailChannelFromCategory, pickRandomCategory } from "@/lib/beasiswa-channel";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -258,6 +259,7 @@ export async function autoCompleteLead(
       { merge: true }
     );
 
+    syncStudentIndex(userId);
     return { email: userId, status: "completed", certUrl: driveUrl };
   } catch (e: any) {
     console.error("[auto-complete] error:", email, e);

@@ -5,6 +5,8 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -133,7 +135,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     await ref.update(updates);
-    
+
+    invalidateDashboardCache();
+    syncStudentIndex(doc.data()?.userId);
+
     const updated = await ref.get();
     return json(updated.data());
   } catch (e) {

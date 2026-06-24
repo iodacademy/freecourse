@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -112,6 +114,9 @@ export async function POST(req: NextRequest) {
       { verified: true, verifiedAt: FieldValue.serverTimestamp() },
       { merge: true }
     );
+
+    invalidateDashboardCache();
+    syncStudentIndex(userId);
 
     // 4. Kembalikan userData untuk komponen journey
     //    Komponen memakai field alamat_email & nama_lengkap.

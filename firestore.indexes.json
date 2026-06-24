@@ -1,0 +1,123 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "umurNum", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "namaLengkap_lower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "channelKey", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "channelKey", "order": "ASCENDING" },
+        { "fieldPath": "umurNum", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "channelKey", "order": "ASCENDING" },
+        { "fieldPath": "namaLengkap_lower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "statusKuisNorm", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "detailChannel", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "channelKey", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "channelKey", "order": "ASCENDING" },
+        { "fieldPath": "statusKuisNorm", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "channelKey", "order": "ASCENDING" },
+        { "fieldPath": "detailChannel", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentsIndex",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isStudent", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "statusKuisNorm", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

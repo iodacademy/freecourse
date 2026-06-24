@@ -7,6 +7,8 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
+import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function DELETE(req: NextRequest) {
@@ -55,6 +57,9 @@ export async function DELETE(req: NextRequest) {
       status: "enrolled",
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+    invalidateDashboardCache();
+    syncStudentIndex(enrollData.userId);
 
     return json({
       success: true,

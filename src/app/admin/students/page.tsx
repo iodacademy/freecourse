@@ -1102,7 +1102,8 @@ export default function AdminStudentsPage() {
         statusKuis: filterKuisStatus,
         status: filterProgress,
         search: activeSearch,
-        sortUsia,
+        // Saat mencari nama, urutan usia tidak dipakai (batasan Firestore: 1 field range).
+        sortUsia: activeSearch ? "default" : sortUsia,
       });
       if (opts?.refresh) params.set("refresh", "1");
 
@@ -1142,12 +1143,6 @@ export default function AdminStudentsPage() {
     const ctrl = new AbortController();
     fetchPage({ signal: ctrl.signal });
     return () => ctrl.abort();
-  }, [fetchPage]);
-
-  // Auto background refresh tiap 60 dtk (tanpa bypass — manfaatkan SWR server).
-  useEffect(() => {
-    const id = setInterval(() => fetchPage({ silent: true }), 60_000);
-    return () => clearInterval(id);
   }, [fetchPage]);
 
   // Debounce search → set activeSearch + reset halaman setelah user berhenti mengetik.
@@ -1306,7 +1301,7 @@ export default function AdminStudentsPage() {
             <input
               className={styles.searchInput}
               type="text"
-              placeholder="Cari nama, email, kode mitra... (Enter)"
+              placeholder="Cari awalan nama... (Enter)"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               onKeyDown={handleSearch}
@@ -1357,10 +1352,12 @@ export default function AdminStudentsPage() {
           
           <div style={{ width: "1px", height: "24px", background: "#cbd5e1", margin: "0 4px" }} />
 
-          <select 
-            value={sortUsia} 
+          <select
+            value={sortUsia}
             onChange={(e) => { setSortUsia(e.target.value); setPage(1); }}
-            style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13px", color: "#334155", background: "#f8fafc", cursor: "pointer", minWidth: "140px", fontWeight: 500 }}
+            disabled={!!activeSearch}
+            title={activeSearch ? "Urutan usia tidak tersedia saat sedang mencari nama" : undefined}
+            style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "13px", color: activeSearch ? "#94a3b8" : "#334155", background: "#f8fafc", cursor: activeSearch ? "not-allowed" : "pointer", minWidth: "140px", fontWeight: 500 }}
           >
             <option value="default">Urutkan Usia</option>
             <option value="Termuda">Termuda - Tertua</option>
