@@ -38,11 +38,12 @@ export async function POST(req: NextRequest) {
       .where("certificateClaimed", "==", true)
       .get();
 
-    const missingPdf: Array<{ email: string; certId: string; hasData: boolean }> = [];
+    const missingPdf: Array<{ email: string; certId: string; queued: boolean }> = [];
     const missingData: Array<{ email: string; reason: string }> = [];
 
-    // Kandidat yang akan ditandai pdfPending (missingPdf + data lengkap).
+    // Kandidat yang akan ditandai pdfPending (missingPdf + data lengkap + BELUM diantre).
     const toFix: FirebaseFirestore.DocumentReference[] = [];
+    let alreadyQueuedCount = 0; // sudah pdfPending=true (sedang diantre cron)
 
     snap.docs.forEach((d) => {
       const data = d.data();
@@ -59,11 +60,15 @@ export async function POST(req: NextRequest) {
         return;
       }
       if (!hasUrl) {
-        const alreadyQueued = data.pdfPending === true;
-        missingPdf.push({ email, certId: data.certificateId, hasData: true });
-        if (!alreadyQueued) toFix.push(d.ref);
+        const queued = data.pdfPending === true;
+        missingPdf.push({ email, certId: data.certificateId, queued });
+        if (queued) alreadyQueuedCount++;
+        else toFix.push(d.ref);
       }
     });
+
+    // Yang BELUM diantre = total missingPdf dikurangi yang sudah diantre.
+    const notQueuedCount = missingPdf.length - alreadyQueuedCount;
 
     let fixed = 0;
     if (fix && toFix.length > 0) {
@@ -78,13 +83,19 @@ export async function POST(req: NextRequest) {
       if (ops > 0) await batch.commit();
     }
 
+    // Setelah fix dijalankan, yang tadinya belum-antre kini sudah diantre.
+    const queuedTotalAfter = fix ? alreadyQueuedCount + fixed : alreadyQueuedCount;
+    const notQueuedAfter = fix ? Math.max(0, notQueuedCount - fixed) : notQueuedCount;
+
     return json({
       success: true,
       totalCertified: snap.size,
       missingPdfCount: missingPdf.length,
       missingDataCount: missingData.length,
-      // Yang sudah punya pdfPending (sedang diantre cron) vs yang baru ditandai.
-      queuedNow: fix ? fixed : 0,
+      // Rincian status antrean PDF:
+      alreadyQueuedCount: queuedTotalAfter, // total yang sedang diantre cron
+      notQueuedCount: notQueuedAfter,       // masih perlu diantrekan
+      queuedNow: fix ? fixed : 0,           // baru saja diantrekan pada klik ini
       missingPdfSample: missingPdf.slice(0, 30),
       missingDataSample: missingData.slice(0, 30),
       note: fix

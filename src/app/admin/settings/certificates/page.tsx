@@ -232,7 +232,8 @@ export default function CertificatesSettingsPage() {
               >
                 {auditing ? "Memeriksa..." : "Periksa (laporan saja)"}
               </button>
-              {auditResult && auditResult.missingPdfCount > 0 && (
+              {/* Tombol antre hanya bila MASIH ada yang belum diantrekan */}
+              {auditResult && auditResult.notQueuedCount > 0 && (
                 <button
                   type="button"
                   onClick={() => runAudit(true)}
@@ -240,8 +241,14 @@ export default function CertificatesSettingsPage() {
                   title="Tandai pdfPending agar cron membuatkan PDF yang hilang"
                   style={{ fontSize: 13, fontWeight: 600, color: "#fff", background: "#b45309", border: "1px solid #b45309", padding: "8px 14px", borderRadius: 8, cursor: auditing ? "wait" : "pointer" }}
                 >
-                  Antrekan {auditResult.missingPdfCount} PDF yang hilang
+                  Antrekan {auditResult.notQueuedCount} PDF yang belum diantre
                 </button>
+              )}
+              {/* Kalau ada PDF hilang tapi SEMUA sudah diantrekan → status, bukan tombol */}
+              {auditResult && auditResult.missingPdfCount > 0 && auditResult.notQueuedCount === 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#15803d", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "8px 14px", borderRadius: 8 }}>
+                  ✓ Sudah diantrekan ({auditResult.alreadyQueuedCount})
+                </span>
               )}
             </div>
 
@@ -253,9 +260,15 @@ export default function CertificatesSettingsPage() {
                   <>
                     <div>Total tersertifikasi: <strong>{auditResult.totalCertified}</strong></div>
                     <div>PDF hilang/menggantung: <strong style={{ color: auditResult.missingPdfCount ? "#b45309" : "#15803d" }}>{auditResult.missingPdfCount}</strong></div>
-                    <div>Data cacat (tak bisa generate): <strong style={{ color: auditResult.missingDataCount ? "#b91c1c" : "#15803d" }}>{auditResult.missingDataCount}</strong></div>
+                    {auditResult.missingPdfCount > 0 && (
+                      <div style={{ paddingLeft: 12, color: "#475569", fontSize: 12, marginTop: 2 }}>
+                        • Sudah diantre (menunggu cron): <strong style={{ color: "#15803d" }}>{auditResult.alreadyQueuedCount}</strong><br />
+                        • Belum diantre: <strong style={{ color: auditResult.notQueuedCount ? "#b45309" : "#15803d" }}>{auditResult.notQueuedCount}</strong>
+                      </div>
+                    )}
+                    <div style={{ marginTop: 4 }}>Data cacat (tak bisa generate): <strong style={{ color: auditResult.missingDataCount ? "#b91c1c" : "#15803d" }}>{auditResult.missingDataCount}</strong></div>
                     {auditResult.queuedNow > 0 && (
-                      <div style={{ color: "#15803d", marginTop: 4 }}>✓ {auditResult.queuedNow} PDF diantrekan ke cron.</div>
+                      <div style={{ color: "#15803d", marginTop: 4 }}>✓ {auditResult.queuedNow} PDF baru diantrekan ke cron.</div>
                     )}
                     {auditResult.note && <div style={{ color: "#64748b", marginTop: 4, fontSize: 12 }}>{auditResult.note}</div>}
                     {auditResult.missingDataSample?.length > 0 && (
