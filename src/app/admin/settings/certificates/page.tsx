@@ -267,6 +267,34 @@ export default function CertificatesSettingsPage() {
                       </div>
                     )}
                     <div style={{ marginTop: 4 }}>Data cacat (tak bisa generate): <strong style={{ color: auditResult.missingDataCount ? "#b91c1c" : "#15803d" }}>{auditResult.missingDataCount}</strong></div>
+
+                    {/* Kenapa beda dengan Completion dashboard */}
+                    {auditResult.dashboardComparison && auditResult.dashboardComparison.excludedFromDashboard > 0 && (
+                      <div style={{ marginTop: 10, padding: "10px 12px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1e40af", marginBottom: 4 }}>
+                          Kenapa beda dengan "Completion" dashboard?
+                        </div>
+                        <div style={{ fontSize: 12, color: "#1e3a8a" }}>
+                          Audit menghitung semua sertifikat: <strong>{auditResult.dashboardComparison.totalCertified}</strong>.<br />
+                          Dashboard membuang <strong>{auditResult.dashboardComparison.excludedFromDashboard}</strong> → kira-kira menampilkan <strong>{auditResult.dashboardComparison.estimatedDashboardCompletion}</strong>.
+                          <div style={{ paddingLeft: 12, marginTop: 4 }}>
+                            • Profil belum lengkap: <strong>{auditResult.dashboardComparison.breakdown.profileIncomplete}</strong><br />
+                            • Dokumen user tidak ada: <strong>{auditResult.dashboardComparison.breakdown.userNotFound}</strong><br />
+                            • Role admin: <strong>{auditResult.dashboardComparison.breakdown.adminRole}</strong>
+                          </div>
+                          {auditResult.dashboardComparison.excludedSamples?.length > 0 && (
+                            <details style={{ marginTop: 6 }}>
+                              <summary style={{ cursor: "pointer" }}>Lihat contoh ({auditResult.dashboardComparison.excludedSamples.length})</summary>
+                              <ul style={{ paddingLeft: 18, marginTop: 4 }}>
+                                {auditResult.dashboardComparison.excludedSamples.map((m: any, i: number) => (
+                                  <li key={i}>{m.email} — {m.reason}</li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {auditResult.queuedNow > 0 && (
                       <div style={{ color: "#15803d", marginTop: 4 }}>✓ {auditResult.queuedNow} PDF baru diantrekan ke cron.</div>
                     )}

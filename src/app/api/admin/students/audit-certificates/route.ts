@@ -33,10 +33,34 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
 
     // Semua enrollment yang sudah klaim sertifikat.
-    const snap = await db
-      .collection("enrollments")
-      .where("certificateClaimed", "==", true)
-      .get();
+    // Ambil enrollments certified + SEMUA users (untuk cross-check kenapa beda
+    // dengan angka "Completion" di dashboard).
+    const [snap, usersSnap] = await Promise.all([
+      db.collection("enrollments").where("certificateClaimed", "==", true).get(),
+      db.collection("users").get(),
+    ]);
+
+    // Peta user by email (lowercase) → status yang dipakai dashboard.
+    const userByEmail = new Map<string, { profileCompleted: boolean; role: string }>();
+    usersSnap.docs.forEach((d) => {
+      const u = d.data();
+      const em = String(u.email || "").toLowerCase().trim();
+      if (!em) return;
+      userByEmail.set(em, {
+        profileCompleted: u.profileCompleted === true,
+        role: String(u.role || ""),
+      });
+    });
+
+    // Hitung kenapa enrollment certified TIDAK masuk hitungan dashboard.
+    // Dashboard membuang: user tidak ada / tanpa email / role admin /
+    // profileCompleted != true.
+    const dashboardExcluded = {
+      userNotFound: 0,      // enrollment certified tapi tak ada dokumen users
+      profileIncomplete: 0, // user ada tapi profileCompleted=false
+      adminRole: 0,         // user role admin
+    };
+    const excludedSamples: Array<{ email: string; reason: string }> = [];
 
     const missingPdf: Array<{ email: string; certId: string; queued: boolean }> = [];
     const missingData: Array<{ email: string; reason: string }> = [];
@@ -51,6 +75,20 @@ export async function POST(req: NextRequest) {
       const hasUrl = !!data.certificateDriveUrl;
       const hasId = !!data.certificateId;
       const hasName = !!data.certificateName;
+
+      // ── Cross-check terhadap aturan dashboard ──
+      const emKey = email.toLowerCase().trim();
+      const u = emKey ? userByEmail.get(emKey) : undefined;
+      let exReason = "";
+      if (!emKey || !u) exReason = "user_tidak_ada";
+      else if (u.role === "admin") exReason = "role_admin";
+      else if (!u.profileCompleted) exReason = "profil_belum_lengkap";
+      if (exReason) {
+        if (exReason === "user_tidak_ada") dashboardExcluded.userNotFound++;
+        else if (exReason === "role_admin") dashboardExcluded.adminRole++;
+        else dashboardExcluded.profileIncomplete++;
+        if (excludedSamples.length < 30) excludedSamples.push({ email, reason: exReason });
+      }
 
       if (!hasId || !hasName) {
         missingData.push({
@@ -87,6 +125,11 @@ export async function POST(req: NextRequest) {
     const queuedTotalAfter = fix ? alreadyQueuedCount + fixed : alreadyQueuedCount;
     const notQueuedAfter = fix ? Math.max(0, notQueuedCount - fixed) : notQueuedCount;
 
+    const totalExcluded =
+      dashboardExcluded.userNotFound +
+      dashboardExcluded.profileIncomplete +
+      dashboardExcluded.adminRole;
+
     return json({
       success: true,
       totalCertified: snap.size,
@@ -98,6 +141,15 @@ export async function POST(req: NextRequest) {
       queuedNow: fix ? fixed : 0,           // baru saja diantrekan pada klik ini
       missingPdfSample: missingPdf.slice(0, 30),
       missingDataSample: missingData.slice(0, 30),
+      // Kenapa angka audit (totalCertified) > "Completion" di dashboard:
+      // dashboard membuang enrollment yang user-nya tidak memenuhi syarat.
+      dashboardComparison: {
+        totalCertified: snap.size,
+        excludedFromDashboard: totalExcluded,
+        estimatedDashboardCompletion: snap.size - totalExcluded,
+        breakdown: dashboardExcluded,
+        excludedSamples,
+      },
       note: fix
         ? `Ditandai pdfPending untuk ${fixed} peserta. Cron akan membuatkan PDF-nya.`
         : "Mode laporan. Jalankan dengan fix=true untuk mengantre pembuatan PDF.",
