@@ -75,9 +75,11 @@ export async function POST(req: NextRequest) {
       return json({ success: false, stage: "config", error: "gasWebAppUrl belum disetel di Pengaturan." });
     }
 
-    // Payload uji. dryRun → action "ping" (GAS tidak membuat file).
+    // dryRun → kirim action yang TIDAK dikenal GAS dengan sengaja. Kalau GAS
+    // membalas JSON "Unknown action", berarti Web App hidup & sehat tanpa
+    // benar-benar membuat file. dryRun=false → generate sertifikat uji nyata.
     const payload = dryRun
-      ? { action: "ping" }
+      ? { action: "__diagnostic_ping__" }
       : {
           action: "generate_main_cert",
           templateId: s.mainCertSlideTemplateId,
@@ -112,15 +114,25 @@ export async function POST(req: NextRequest) {
     let parsed: any = null;
     try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch {}
 
+    // "Unknown action" saat dryRun = GAS hidup & sehat (cuma action uji sengaja
+    // tak dikenal). Itu hasil yang DIHARAPKAN, bukan kegagalan.
+    const isUnknownAction = !!parsed?.error && /unknown action/i.test(String(parsed.error));
+    const healthyPing = dryRun && status === 200 && isUnknownAction;
+
     let verdict = "unknown";
     if (fetchError) verdict = "fetch_error (URL salah / tidak bisa dijangkau)";
     else if (status === 401 || status === 403) verdict = "akses ditolak (deploy GAS bukan 'Anyone' / butuh login)";
     else if (looksHtml) verdict = "GAS balas HTML (kemungkinan URL deploy lama / butuh login / minta otorisasi)";
-    else if (parsed) verdict = parsed.error ? "GAS error (lihat field error)" : "GAS merespons JSON (sehat)";
+    else if (healthyPing) verdict = "GAS sehat & terhubung (Web App hidup, merespons JSON)";
+    else if (parsed) verdict = parsed.error ? `GAS error: ${parsed.error}` : "GAS merespons JSON (sehat)";
     else if (status >= 500) verdict = "GAS error 5xx (script melempar exception)";
 
+    const success = healthyPing
+      ? true
+      : (!fetchError && status === 200 && !!parsed && !parsed?.error);
+
     return json({
-      success: !fetchError && status === 200 && !!parsed && !parsed?.error,
+      success,
       dryRun,
       durationMs: ms,
       httpStatus: status,
