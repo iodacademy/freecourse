@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ChevronLeft, Upload, Loader2, CheckCircle2, AlertCircle, Play } from "lucide-react";
 import * as XLSX from "xlsx";
 import type { ImportRow } from "@/lib/import-student";
-import { normalizePhone, normalizeDob, normalizeGender } from "@/lib/import-normalize";
+import { normalizePhone, normalizeDob, normalizeGender, detectBrokenPhone } from "@/lib/import-normalize";
 
 const BATCH = 25;
 
@@ -29,13 +29,19 @@ const HEADER_ALIASES: Record<keyof ImportRow, string[]> = {
   minat: ["minat", "minat pelatihan"],
 };
 
-function mapRow(raw: Record<string, any>): ImportRow {
+// Baris hasil map + penanda internal untuk validasi (tidak dikirim ke server).
+type MappedRow = ImportRow & { _noWaBroken?: string; _noWaRaw?: string };
+
+function mapRow(raw: Record<string, any>): MappedRow {
   const out: any = {};
   const keys = Object.keys(raw);
+  let noWaRaw = "";
   for (const field of Object.keys(HEADER_ALIASES) as (keyof ImportRow)[]) {
     const aliases = HEADER_ALIASES[field].map(norm);
     const matchKey = keys.find((k) => aliases.includes(norm(k)));
     let val = matchKey ? raw[matchKey] : "";
+    // Simpan WA MENTAH (sebelum normalisasi) untuk deteksi rusak.
+    if (field === "noWa") noWaRaw = val == null ? "" : String(val).trim();
     // Tanggal Excel kadang berupa Date object → ubah ke YYYY-MM-DD.
     if (field === "tanggalLahir" && val instanceof Date && !isNaN(val.getTime())) {
       const y = val.getFullYear();
@@ -45,12 +51,15 @@ function mapRow(raw: Record<string, any>): ImportRow {
     }
     out[field] = val == null ? "" : String(val).trim();
   }
+  // Deteksi nomor rusak (notasi ilmiah) dari nilai MENTAH, sebelum dibersihkan.
+  out._noWaRaw = noWaRaw;
+  out._noWaBroken = detectBrokenPhone(noWaRaw);
   // Rapikan agar pratinjau = data yang benar-benar disimpan (server juga
   // merapikan ulang, jadi tetap aman walau file dikirim mentah).
   out.noWa = normalizePhone(out.noWa || "");
   out.tanggalLahir = normalizeDob(out.tanggalLahir || "");
   out.jenisKelamin = normalizeGender(out.jenisKelamin || "");
-  return out as ImportRow;
+  return out as MappedRow;
 }
 
 // Label ramah untuk tiap field (ditampilkan di peringatan header).
@@ -84,7 +93,7 @@ function detectHeaders(fileHeaders: string[]) {
 
 export default function ImportStudentsPage() {
   const { user, profile } = useAuth();
-  const [rows, setRows] = useState<ImportRow[]>([]);
+  const [rows, setRows] = useState<MappedRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [parseError, setParseError] = useState("");
   const [headerInfo, setHeaderInfo] = useState<{ detected: string[]; missing: string[]; unused: string[] } | null>(null);
@@ -130,7 +139,13 @@ export default function ImportStudentsPage() {
     }
   };
 
-  const canRun = rows.length > 0 && startDate && endDate && !running;
+  // Baris dengan nomor WA rusak (notasi ilmiah dst). Import DIBLOKIR bila ada.
+  const brokenRows = rows
+    .map((r, i) => ({ idx: i, email: r.email, raw: r._noWaRaw || "", reason: r._noWaBroken || "" }))
+    .filter((r) => r.reason);
+  const hasBroken = brokenRows.length > 0;
+
+  const canRun = rows.length > 0 && startDate && endDate && !running && !hasBroken;
 
   const runImport = async () => {
     if (!canRun) return;
@@ -246,9 +261,37 @@ export default function ImportStudentsPage() {
             </div>
           )}
 
-          {rows.length > 0 && (
+          {rows.length > 0 && !hasBroken && (
             <div style={{ marginTop: 12, fontSize: 14, color: "#16a34a", fontWeight: 600 }}>
               ✓ {rows.length} baris siap diimport.
+            </div>
+          )}
+
+          {/* Nomor WA rusak → blokir import, minta perbaiki */}
+          {hasBroken && (
+            <div style={{ marginTop: 12, padding: "12px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", color: "#b91c1c", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                <AlertCircle size={16} /> Import diblokir: {brokenRows.length} nomor WA rusak
+              </div>
+              <div style={{ fontSize: 13, color: "#7f1d1d", marginBottom: 8 }}>
+                Beberapa nomor tersimpan dalam <strong>notasi ilmiah</strong> (mis. <code>8,95396E+11</code>) —
+                Excel sudah menghilangkan sebagian digit, jadi datanya tidak valid. Perbaiki file lalu upload ulang.
+                <div style={{ marginTop: 6, padding: "8px 10px", background: "#fff", border: "1px solid #fecaca", borderRadius: 6, color: "#7f1d1d", fontSize: 12 }}>
+                  <strong>Cara perbaiki di Excel:</strong> pilih kolom Nomor WA → klik kanan → <em>Format Cells</em> →
+                  pilih <strong>Text</strong> → ketik ulang/tempel nomornya. Atau tambah tanda kutip <code>'</code> di depan nomor
+                  (mis. <code>'628123456789</code>) agar dibaca sebagai teks.
+                </div>
+              </div>
+              <details>
+                <summary style={{ cursor: "pointer", fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>
+                  Lihat baris bermasalah ({brokenRows.length})
+                </summary>
+                <ul style={{ paddingLeft: 18, fontSize: 12, color: "#7f1d1d", marginTop: 6 }}>
+                  {brokenRows.slice(0, 50).map((b) => (
+                    <li key={b.idx}>Baris {b.idx + 2}: {b.email || "(email kosong)"} — <code>{b.raw}</code></li>
+                  ))}
+                </ul>
+              </details>
             </div>
           )}
         </div>
@@ -310,10 +353,15 @@ export default function ImportStudentsPage() {
           <button
             onClick={runImport}
             disabled={!canRun}
+            title={hasBroken ? "Perbaiki nomor WA yang rusak dulu" : undefined}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, background: canRun ? "#1e293b" : "#cbd5e1", color: "#fff", border: "none", padding: "12px 22px", borderRadius: 10, fontWeight: 600, cursor: canRun ? "pointer" : "not-allowed" }}
           >
             {running ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-            {running ? `Mengimport... ${progress.current}/${progress.total}` : "Jalankan Import"}
+            {running
+              ? `Mengimport... ${progress.current}/${progress.total}`
+              : hasBroken
+                ? "Perbaiki nomor WA dulu"
+                : "Jalankan Import"}
           </button>
         ) : (
           <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: 20 }}>

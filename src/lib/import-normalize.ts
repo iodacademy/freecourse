@@ -20,6 +20,21 @@ export function normalizePhone(raw: string): string {
   return v;
 }
 
+/**
+ * Deteksi nomor WA yang RUSAK karena Excel — terutama notasi ilmiah
+ * (mis. "8,95396E+11" / "8.95396E+11"). Nilai seperti ini berarti Excel sudah
+ * membulatkan & menghilangkan digit, jadi tidak boleh diimport.
+ *
+ * @returns alasan rusak (string) atau "" bila tampak normal.
+ */
+export function detectBrokenPhone(raw: string): string {
+  const v = String(raw ?? "").trim();
+  if (!v) return ""; // kosong bukan "rusak" — sekadar tidak ada (boleh)
+  // Notasi ilmiah: ada huruf E/e diapit angka, mis. 8,95396E+11
+  if (/\d[eE][+-]?\d/.test(v)) return "notasi ilmiah (digit hilang akibat Excel)";
+  return "";
+}
+
 /** Ekspansi tahun 2 digit. <= tahun ini (2 digit) → 20xx, sisanya 19xx. */
 function expandYear(yy: string): string {
   if (yy.length === 4) return yy;
