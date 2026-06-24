@@ -11,7 +11,7 @@ import {
   Trash2, X, User, Mail, MapPin, CalendarDays, Venus, Mars,
   CircleUserRound, Building2, Hash, Tag, Link2, CheckCircle2, XCircle,
   BarChart2, Eye, Download, BookOpen, Trophy, Clock, CheckSquare, Activity,
-  BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Pencil, Save, UserX
+  BookMarked, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Pencil, Save, UserX, Upload
 } from "lucide-react";
 
 function getAge(ttlStr: string): string {
@@ -1300,6 +1300,14 @@ export default function AdminStudentsPage() {
                 >
                   <CheckCircle2 size={15} /> Auto Complete
                 </button>
+                {profile?.isSuperAdmin && (
+                  <a
+                    href="/admin/students/import"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#1e293b", color: "#fff", border: "1px solid #1e293b", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
+                  >
+                    <Upload size={15} /> Import Peserta
+                  </a>
+                )}
               </>
             )}
             <button className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
