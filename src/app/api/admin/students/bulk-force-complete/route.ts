@@ -101,7 +101,11 @@ export async function POST(req: NextRequest) {
         status: "certified",
         currentStep: 2,
         updatedAt: FieldValue.serverTimestamp(),
-        stepProgress: hardcodedStepProgress
+        stepProgress: hardcodedStepProgress,
+        // PDF dibuat di latar belakang oleh cron /api/cron/generate-pending-pdf.
+        certificateDriveUrl: "",
+        certificateDriveFileId: "",
+        pdfPending: true,
       };
 
       batch.update(doc.ref, updatePayload);

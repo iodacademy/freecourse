@@ -920,8 +920,6 @@ export default function AdminStudentsPage() {
   // State for PDF Queue
   const [queueStatus, setQueueStatus] = useState<"idle" | "processing" | "done">("idle");
   const [queueProgress, setQueueProgress] = useState({ current: 0, total: 0, success: 0, fail: 0 });
-  // Kumpulan alasan gagal generate PDF (untuk ditampilkan biar penyebabnya jelas)
-  const [bulkFailReasons, setBulkFailReasons] = useState<string[]>([]);
   const [bulkError, setBulkError] = useState("");
 
   const openBulkModal = async () => {
@@ -980,12 +978,13 @@ export default function AdminStudentsPage() {
     });
 
     setQueueProgress({ current: 0, total: targetUids.length, success: 0, fail: 0 });
-    setBulkFailReasons([]);
 
     try {
       const token = await getToken();
       
-      // 1. Tembak Database (Lulus Instan)
+      // Tembak Database (Lulus Instan). PDF TIDAK dibuat di sini — ditandai
+      // pdfPending lalu digenerate di latar belakang oleh cron, supaya tidak
+      // timeout (GAS ~10 dtk/PDF) & admin tidak perlu menunggu.
       const res = await fetch('/api/admin/students/bulk-force-complete', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -994,42 +993,7 @@ export default function AdminStudentsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memanipulasi database kelulusan.");
 
-      // 2. Tembak PDF secara bergiliran (Antrean Jeda 3 Detik)
-      let successes = 0;
-      let fails = 0;
-      const reasons: Record<string, number> = {}; // alasan gagal → berapa kali
-      const noteFail = (msg: string) => { reasons[msg] = (reasons[msg] || 0) + 1; };
-      for (let i = 0; i < targetUids.length; i++) {
-        setQueueProgress(prev => ({ ...prev, current: i + 1 }));
-        try {
-          const pdfRes = await fetch('/api/admin/students/generate-pdf', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: targetUids[i] })
-          });
-          if (pdfRes.ok) {
-            successes++;
-          } else {
-            fails++;
-            // Baca alasan gagal spesifik dari server (kalau bukan JSON, pakai status).
-            const txt = await pdfRes.text();
-            let reason = `HTTP ${pdfRes.status}`;
-            try { const j = JSON.parse(txt); if (j?.error) reason = j.error; } catch {}
-            noteFail(reason);
-          }
-        } catch (e: any) {
-          fails++;
-          noteFail(e?.message || "Gagal koneksi ke server");
-        }
-        // Jeda mendinginkan server Google (1 detik)
-        if (i < targetUids.length - 1) {
-          await new Promise(r => setTimeout(r, 1000));
-        }
-      }
-      // Ringkas alasan gagal: "alasan (xN)"
-      setBulkFailReasons(Object.entries(reasons).map(([msg, n]) => `${msg}${n > 1 ? ` (×${n})` : ""}`));
-
-      setQueueProgress(prev => ({ ...prev, success: successes, fail: fails }));
+      setQueueProgress(prev => ({ ...prev, current: targetUids.length, success: targetUids.length, fail: 0 }));
       setQueueStatus("done");
 
       // Refresh layar — ambil data terbaru (bypass cache server)
@@ -1642,22 +1606,9 @@ export default function AdminStudentsPage() {
               <div style={{ textAlign: "center", padding: "16px 0" }}>
                 <div style={{ color: "#16a34a", fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>Selesai Diproses!</div>
                 <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>
-                  Berhasil meluluskan {queueProgress.total} peserta.<br/>
-                  PDF Sukses: {queueProgress.success} | Gagal: {queueProgress.fail}
+                  Berhasil meluluskan <strong>{queueProgress.total}</strong> peserta.<br/>
+                  PDF sertifikat sedang/akan dibuat otomatis di latar belakang.
                 </p>
-                {bulkFailReasons.length > 0 && (
-                  <div style={{ textAlign: "left", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", marginBottom: 6 }}>
-                      Penyebab PDF gagal:
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#7f1d1d" }}>
-                      {bulkFailReasons.map((r, i) => <li key={i} style={{ marginBottom: 2 }}>{r}</li>)}
-                    </ul>
-                    <div style={{ fontSize: 12, color: "#92400e", marginTop: 8 }}>
-                      Catatan: kelulusan di database tetap tersimpan. Kamu bisa cetak ulang PDF nanti tanpa meluluskan ulang.
-                    </div>
-                  </div>
-                )}
                 <button className="btn btn-primary" onClick={() => setBulkConfirmOpen(false)}>
                   Tutup
                 </button>

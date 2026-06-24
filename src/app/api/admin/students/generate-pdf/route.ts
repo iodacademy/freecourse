@@ -2,6 +2,11 @@ import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 
+// Generate 1 PDF via GAS bisa makan ~10 detik. Beri ruang waktu yang cukup
+// agar tidak ke-kill platform (default per-request bisa hanya 10-15 dtk).
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req);
