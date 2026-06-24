@@ -20,6 +20,9 @@ export default function CertificatesSettingsPage() {
   // Diagnosis koneksi GAS
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  // Audit sertifikat (certified tapi PDF/datanya bermasalah)
+  const [auditing, setAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<any>(null);
 
   useEffect(() => {
     if (user) fetchSettings();
@@ -113,6 +116,32 @@ export default function CertificatesSettingsPage() {
     }
   }
 
+  // Audit: cari peserta certified tapi PDF hilang / data cacat.
+  // fix=true → tandai pdfPending agar cron membuatkan PDF-nya.
+  async function runAudit(fix: boolean) {
+    setAuditing(true);
+    if (!fix) setAuditResult(null);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/students/audit-certificates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ fix }),
+      });
+      const text = await res.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch {
+        data = { error: `Server membalas non-JSON (HTTP ${res.status})` };
+      }
+      if (res.status === 403) data = { error: "Hanya Super Admin yang bisa menjalankan audit ini." };
+      setAuditResult(data);
+    } catch (e: any) {
+      setAuditResult({ error: e?.message || "Gagal menjalankan audit." });
+    } finally {
+      setAuditing(false);
+    }
+  }
+
   if (loading) return <div style={{ padding: "24px", color: "#9ca3af", fontSize: 14 }}>Memuat...</div>;
 
   const divider = <div style={{ height: 1, background: '#f3f4f6', margin: '20px 0' }} />;
@@ -185,6 +214,65 @@ export default function CertificatesSettingsPage() {
               )}
             </div>
           )}
+
+          {/* Audit sertifikat: certified tapi PDF hilang / data cacat */}
+          <div style={{ marginTop: 16, padding: "12px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e", marginBottom: 4 }}>
+              Audit Sertifikat
+            </div>
+            <div style={{ fontSize: 12, color: "#92400e", marginBottom: 10 }}>
+              Cek peserta yang sudah tersertifikasi tapi PDF-nya hilang/menggantung, atau datanya cacat (nama/ID kosong).
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => runAudit(false)}
+                disabled={auditing}
+                style={{ fontSize: 13, fontWeight: 600, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", padding: "8px 14px", borderRadius: 8, cursor: auditing ? "wait" : "pointer" }}
+              >
+                {auditing ? "Memeriksa..." : "Periksa (laporan saja)"}
+              </button>
+              {auditResult && auditResult.missingPdfCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => runAudit(true)}
+                  disabled={auditing}
+                  title="Tandai pdfPending agar cron membuatkan PDF yang hilang"
+                  style={{ fontSize: 13, fontWeight: 600, color: "#fff", background: "#b45309", border: "1px solid #b45309", padding: "8px 14px", borderRadius: 8, cursor: auditing ? "wait" : "pointer" }}
+                >
+                  Antrekan {auditResult.missingPdfCount} PDF yang hilang
+                </button>
+              )}
+            </div>
+
+            {auditResult && (
+              <div style={{ marginTop: 10, fontSize: 13, color: "#1f2937" }}>
+                {auditResult.error ? (
+                  <span style={{ color: "#b91c1c" }}>{auditResult.error}</span>
+                ) : (
+                  <>
+                    <div>Total tersertifikasi: <strong>{auditResult.totalCertified}</strong></div>
+                    <div>PDF hilang/menggantung: <strong style={{ color: auditResult.missingPdfCount ? "#b45309" : "#15803d" }}>{auditResult.missingPdfCount}</strong></div>
+                    <div>Data cacat (tak bisa generate): <strong style={{ color: auditResult.missingDataCount ? "#b91c1c" : "#15803d" }}>{auditResult.missingDataCount}</strong></div>
+                    {auditResult.queuedNow > 0 && (
+                      <div style={{ color: "#15803d", marginTop: 4 }}>✓ {auditResult.queuedNow} PDF diantrekan ke cron.</div>
+                    )}
+                    {auditResult.note && <div style={{ color: "#64748b", marginTop: 4, fontSize: 12 }}>{auditResult.note}</div>}
+                    {auditResult.missingDataSample?.length > 0 && (
+                      <details style={{ marginTop: 6 }}>
+                        <summary style={{ cursor: "pointer", fontSize: 12, color: "#b91c1c" }}>Lihat data cacat ({auditResult.missingDataCount})</summary>
+                        <ul style={{ paddingLeft: 18, fontSize: 12, color: "#7f1d1d", marginTop: 4 }}>
+                          {auditResult.missingDataSample.map((m: any, i: number) => (
+                            <li key={i}>{m.email} — {m.reason}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {divider}
