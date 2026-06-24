@@ -120,6 +120,8 @@ function buildLeadDoc(row: Record<string, any>) {
   return {
     email,
     nama,
+    // huruf kecil untuk pencarian awalan (prefix) terindeks di gerbang verifikasi
+    nama_lower: nama.toLowerCase(),
     metaLeadId: pick(row, "id"),
     createdTime: pick(row, "created_time"),
     formId: pick(row, "form_id"),
