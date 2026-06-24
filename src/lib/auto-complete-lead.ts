@@ -70,12 +70,23 @@ export async function autoCompleteLead(
           : new Date(lead.createdAt);
     }
 
-    const profileData = {
+    const profileData: Record<string, any> = {
       ...(lead.profileData || {}),
       alamat_email: userId,
     };
     const displayName = String(lead.nama || profileData.nama_lengkap || "Peserta");
     const emailUsername = userId.split("@")[0] || "user";
+
+    // Pre-test: jika lead belum punya skor pre-test (umumnya lead Instant Form
+    // belum melewati halaman pre-test), isi acak Pernah/Belum agar konsisten
+    // dengan peserta lain & terbaca dashboard. Tidak menimpa bila sudah ada.
+    if (profileData.pretest_score == null || profileData.pretest_score === "") {
+      let h = 0;
+      for (let i = 0; i < userId.length; i++) h = (h * 33 + userId.charCodeAt(i)) >>> 0;
+      const pernah = h % 2 === 0;
+      profileData.pretest_pernah_belajar_financial_literacy = pernah ? "Pernah" : "Belum";
+      profileData.pretest_score = pernah ? 30 : 10;
+    }
 
     // Peserta yang diselesaikan otomatis: kategori beasiswa di-RANDOM (deterministik
     // per email) dari vl/wpb/bootcamp, lalu detailChannel mengikuti kategori itu.

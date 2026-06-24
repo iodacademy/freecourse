@@ -29,6 +29,16 @@ function pickScore(seed: string): number {
   return SCORE_CHOICES[h % SCORE_CHOICES.length];
 }
 
+// Pre-test diacak (deterministik per email) antara "Pernah" (skor 30) dan
+// "Belum" (skor 10) — mengikuti aturan di /api/public/standalone/submit.
+function pickPretest(seed: string): { answer: string; score: number } {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 33 + seed.charCodeAt(i)) >>> 0;
+  return h % 2 === 0
+    ? { answer: "Pernah", score: 30 }
+    : { answer: "Belum", score: 10 };
+}
+
 export interface ImportRow {
   email: string;
   nama?: string;
@@ -67,6 +77,9 @@ export async function importStudent(
     const beasiswaCategory = pickRandomCategory(email);
     const detailChannel = detailChannelFromCategory(beasiswaCategory);
 
+    // Pre-test diacak Pernah/Belum (dibaca dashboard dari profileData.pretest_score).
+    const pretest = pickPretest(email);
+
     // profileData mengikuti nama field standalone (lihat leads/ingest).
     const profileData: Record<string, any> = {
       nama_lengkap: displayName,
@@ -78,6 +91,8 @@ export async function importStudent(
       disabilitas: row.disabilitas || "",
       kategori_disabilitas_yang_anda_miliki: row.jenisDisabilitas || "",
       jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati: row.minat || "",
+      pretest_pernah_belajar_financial_literacy: pretest.answer,
+      pretest_score: pretest.score,
       channelSource: "import",
     };
 
