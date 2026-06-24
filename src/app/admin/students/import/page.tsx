@@ -53,11 +53,41 @@ function mapRow(raw: Record<string, any>): ImportRow {
   return out as ImportRow;
 }
 
+// Label ramah untuk tiap field (ditampilkan di peringatan header).
+const FIELD_LABEL: Record<keyof ImportRow, string> = {
+  email: "Email",
+  nama: "Nama Lengkap",
+  noWa: "Nomor WA",
+  jenisKelamin: "Jenis Kelamin",
+  tanggalLahir: "Tanggal Lahir",
+  kota: "Kota",
+  disabilitas: "Disabilitas",
+  jenisDisabilitas: "Jenis Disabilitas",
+  minat: "Minat",
+};
+
+// Cek header file: field mana yang TERDETEKSI vs TIDAK, untuk diberitahukan ke admin.
+function detectHeaders(fileHeaders: string[]) {
+  const detected: string[] = [];
+  const missing: string[] = [];
+  const matchedFileCols = new Set<string>();
+  for (const field of Object.keys(HEADER_ALIASES) as (keyof ImportRow)[]) {
+    const aliases = HEADER_ALIASES[field].map(norm);
+    const hit = fileHeaders.find((h) => aliases.includes(norm(h)));
+    if (hit) { detected.push(FIELD_LABEL[field]); matchedFileCols.add(hit); }
+    else missing.push(FIELD_LABEL[field]);
+  }
+  // Kolom di file yang tidak dipakai sistem sama sekali.
+  const unused = fileHeaders.filter((h) => h && !matchedFileCols.has(h));
+  return { detected, missing, unused };
+}
+
 export default function ImportStudentsPage() {
   const { user, profile } = useAuth();
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [parseError, setParseError] = useState("");
+  const [headerInfo, setHeaderInfo] = useState<{ detected: string[]; missing: string[]; unused: string[] } | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -74,6 +104,7 @@ export default function ImportStudentsPage() {
 
   const handleFile = async (file: File) => {
     setParseError("");
+    setHeaderInfo(null);
     setRows([]);
     setDone(false);
     setFileName(file.name);
@@ -82,9 +113,15 @@ export default function ImportStudentsPage() {
       const wb = XLSX.read(buf, { type: "array", cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+
+      // Ambil header asli dari file (baris pertama) untuk analisis kolom.
+      const headerRows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
+      const fileHeaders = (headerRows[0] || []).map((h: any) => String(h || "").trim()).filter(Boolean);
+      setHeaderInfo(detectHeaders(fileHeaders));
+
       const mapped = raw.map(mapRow).filter((r) => /^\S+@\S+\.\S+$/.test(r.email || ""));
       if (mapped.length === 0) {
-        setParseError("Tidak ada baris dengan email valid. Pastikan ada kolom 'Email'.");
+        setParseError("Tidak ada baris dengan email valid. Pastikan ada kolom 'Email' dengan header yang benar.");
         return;
       }
       setRows(mapped);
@@ -182,6 +219,33 @@ export default function ImportStudentsPage() {
               <AlertCircle size={15} /> {parseError}
             </div>
           )}
+
+          {/* Analisis header: kolom terdeteksi vs tidak ditemukan */}
+          {headerInfo && (
+            <div style={{ marginTop: 12, padding: "12px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}>
+              <div style={{ marginBottom: 6 }}>
+                <strong style={{ color: "#15803d" }}>Kolom terdeteksi:</strong>{" "}
+                <span style={{ color: "#334155" }}>{headerInfo.detected.length ? headerInfo.detected.join(", ") : "—"}</span>
+              </div>
+              {headerInfo.missing.length > 0 && (
+                <div style={{ marginBottom: headerInfo.unused.length ? 6 : 0, color: "#b45309" }}>
+                  <strong>Tidak ditemukan:</strong> {headerInfo.missing.join(", ")}
+                  {headerInfo.missing.includes("Email") && (
+                    <span style={{ color: "#b91c1c" }}> — kolom Email WAJIB ada.</span>
+                  )}
+                  <div style={{ fontSize: 12, color: "#92400e", marginTop: 2 }}>
+                    Kolom ini akan kosong untuk semua peserta. Perbaiki nama header di file bila tidak sengaja.
+                  </div>
+                </div>
+              )}
+              {headerInfo.unused.length > 0 && (
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                  Kolom file yang diabaikan: {headerInfo.unused.join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+
           {rows.length > 0 && (
             <div style={{ marginTop: 12, fontSize: 14, color: "#16a34a", fontWeight: 600 }}>
               ✓ {rows.length} baris siap diimport.
