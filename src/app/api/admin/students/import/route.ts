@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     const completed = results.filter((r) => r.status === "completed").length;
-    const skipped = results.filter((r) => r.status === "skipped").length;
+    const skippedList = results.filter((r) => r.status === "skipped");
     const errors = results.filter((r) => r.status === "error");
 
     if (completed > 0) invalidateDashboardCache();
@@ -64,9 +64,11 @@ export async function POST(req: NextRequest) {
     return json({
       success: true,
       completed,
-      skipped,
+      skipped: skippedList.length,
       errors: errors.length,
-      errorDetail: errors.slice(0, 20),
+      // Detail lengkap email yang dilewati/gagal (untuk diunduh admin).
+      skippedDetail: skippedList.map((r) => ({ email: r.email, reason: r.reason || "" })),
+      errorDetail: errors.map((r) => ({ email: r.email, reason: r.reason || "" })),
     });
   } catch (e) {
     return handleError(e);

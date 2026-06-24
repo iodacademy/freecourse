@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Link from "next/link";
-import { ChevronLeft, Upload, Loader2, CheckCircle2, AlertCircle, Play } from "lucide-react";
+import { ChevronLeft, Upload, Loader2, CheckCircle2, AlertCircle, Play, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import type { ImportRow } from "@/lib/import-student";
 import { normalizePhone, normalizeDob, normalizeGender, detectBrokenPhone } from "@/lib/import-normalize";
@@ -105,11 +105,39 @@ export default function ImportStudentsPage() {
   const [done, setDone] = useState(false);
   const [runError, setRunError] = useState("");
   const [errorSamples, setErrorSamples] = useState<string[]>([]);
+  // Detail lengkap email yang dilewati/gagal (untuk diunduh).
+  const [skippedDetail, setSkippedDetail] = useState<Array<{ email: string; reason: string }>>([]);
+  const [errorDetail, setErrorDetail] = useState<Array<{ email: string; reason: string }>>([]);
 
   const getToken = useCallback(async () => {
     if (!user) return "";
     try { return await (user as any).getIdToken(); } catch { return ""; }
   }, [user]);
+
+  // Unduh daftar (dilewati/gagal) sebagai file Excel dengan tabel rapi.
+  function downloadRowsXlsx(
+    items: Array<{ email: string; reason: string }>,
+    sheetName: string,
+    fileLabel: string
+  ) {
+    if (!items.length) return;
+    // Ubah kode alasan jadi keterangan ramah.
+    const reasonLabel: Record<string, string> = {
+      already_certified: "Sudah punya sertifikat",
+      email_kosong: "Email kosong",
+      lead_not_found: "Lead tidak ditemukan",
+    };
+    const aoa: (string | number)[][] = [
+      ["No", "Email", "Keterangan"],
+      ...items.map((it, i) => [i + 1, it.email, reasonLabel[it.reason] || it.reason || "-"]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 5 }, { wch: 38 }, { wch: 28 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const stamp = (startDate || "data").replace(/[^0-9-]/g, "");
+    XLSX.writeFile(wb, `${fileLabel}-${stamp || "import"}.xlsx`);
+  }
 
   const handleFile = async (file: File) => {
     setParseError("");
@@ -153,8 +181,12 @@ export default function ImportStudentsPage() {
     setDone(false);
     setRunError("");
     setErrorSamples([]);
+    setSkippedDetail([]);
+    setErrorDetail([]);
     let completed = 0, skipped = 0, errors = 0;
     const samples: string[] = [];
+    const skippedAll: Array<{ email: string; reason: string }> = [];
+    const errorAll: Array<{ email: string; reason: string }> = [];
     setProgress({ current: 0, total: rows.length, completed: 0, skipped: 0, errors: 0 });
 
     try {
@@ -175,12 +207,16 @@ export default function ImportStudentsPage() {
         completed += data.completed || 0;
         skipped += data.skipped || 0;
         errors += data.errors || 0;
+        (data.skippedDetail || []).forEach((s: any) => skippedAll.push({ email: s.email || "", reason: s.reason || "" }));
         (data.errorDetail || []).forEach((e: any) => {
+          errorAll.push({ email: e.email || "", reason: e.reason || "" });
           if (samples.length < 20) samples.push(`${e.email || "?"} (${e.reason || "error"})`);
         });
         setProgress({ current: Math.min(i + BATCH, rows.length), total: rows.length, completed, skipped, errors });
       }
       setErrorSamples(samples);
+      setSkippedDetail(skippedAll);
+      setErrorDetail(errorAll);
       setDone(true);
     } catch (e: any) {
       setRunError(e?.message || "Terjadi kesalahan.");
@@ -374,6 +410,29 @@ export default function ImportStudentsPage() {
             <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
               PDF sertifikat sedang/akan dibuat di latar belakang oleh sistem. Kamu boleh tinggalkan halaman ini.
             </p>
+
+            {/* Tombol unduh daftar yang dilewati / gagal (Excel) */}
+            {(skippedDetail.length > 0 || errorDetail.length > 0) && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                {skippedDetail.length > 0 && (
+                  <button
+                    onClick={() => downloadRowsXlsx(skippedDetail, "Dilewati", "peserta-dilewati")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}
+                  >
+                    <Download size={15} /> Unduh dilewati ({skippedDetail.length})
+                  </button>
+                )}
+                {errorDetail.length > 0 && (
+                  <button
+                    onClick={() => downloadRowsXlsx(errorDetail, "Gagal", "peserta-gagal")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#fff", background: "#b91c1c", border: "1px solid #b91c1c", padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}
+                  >
+                    <Download size={15} /> Unduh gagal ({errorDetail.length})
+                  </button>
+                )}
+              </div>
+            )}
+
             {errorSamples.length > 0 && (
               <ul style={{ marginTop: 10, paddingLeft: 18, fontSize: 12, color: "#b91c1c" }}>
                 {errorSamples.map((s, i) => <li key={i}>{s}</li>)}
