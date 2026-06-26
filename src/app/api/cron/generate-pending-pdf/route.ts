@@ -19,7 +19,10 @@ export const maxDuration = 60;
  * Auth: query ?key=ADMIN_ACCESS_CODE  ATAU header Authorization: Bearer <key>.
  */
 
-const MAX_PER_RUN = 8;
+// 5 per run: generate Slides→PDF ~8 detik/sertifikat, jadi 5×8≈40s aman di
+// bawah maxDuration 60s. Dengan 8 sebelumnya, run sering terpotong gateway
+// (HTTP 307/timeout) sebelum semua selesai → kerja terbuang.
+const MAX_PER_RUN = 5;
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
