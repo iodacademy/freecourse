@@ -93,6 +93,18 @@
   border-color: var(--color-primary-dark);
   color: white;
 }
+.actionBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.spin {
+  animation: dashSpin 0.8s linear infinite;
+}
+@keyframes dashSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Filter Chips */
 .chipsRow {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Download, Link2, Settings } from "lucide-react";
+import { Download, Link2, Settings, RefreshCw } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardView, { DashboardFilterState } from "@/components/dashboard/DashboardView";
@@ -28,6 +28,7 @@ function AdminDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Filter dari URL
   const filters: DashboardFilterState = {
@@ -42,13 +43,15 @@ function AdminDashboardContent() {
     source: searchParams.get("source"),
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (bypassCache = false) => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
       const token = await user.getIdToken();
-      const qs = buildQuery(filters);
+      const sp = new URLSearchParams(buildQuery(filters).replace(/^\?/, ""));
+      if (bypassCache) sp.set("refresh", "1"); // paksa rebuild cache di server
+      const qs = sp.toString() ? `?${sp.toString()}` : "";
       const res = await fetch(`/api/admin/dashboard/stats${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
@@ -70,6 +73,16 @@ function AdminDashboardContent() {
 
   function applyFilters(next: DashboardFilterState) {
     router.replace(`/admin${buildQuery(next)}`, { scroll: false });
+  }
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchData(true); // bypass cache server → hapus & rebuild
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   async function handleExport(mode: ExportMode) {
@@ -117,6 +130,16 @@ function AdminDashboardContent() {
 
   const rightActions = (
     <>
+      <button
+        className={styles.actionBtn}
+        onClick={handleRefresh}
+        type="button"
+        disabled={refreshing}
+        title="Muat ulang data terbaru (hapus cache)"
+      >
+        <RefreshCw size={14} className={refreshing ? styles.spin : undefined} />
+        {refreshing ? "Memuat…" : "Refresh Data"}
+      </button>
       <button className={styles.actionBtn} onClick={() => setExportOpen(true)} type="button">
         <Download size={14} />
         Export Excel
@@ -143,7 +166,7 @@ function AdminDashboardContent() {
       <div className={styles.dashboard}>
         <div className={styles.loadingBox}>
           <p style={{ color: "var(--color-error)" }}>{error}</p>
-          <button onClick={fetchData} className={styles.actionBtnPrimary + " " + styles.actionBtn} style={{ marginTop: 12 }}>Coba Lagi</button>
+          <button onClick={() => fetchData()} className={styles.actionBtnPrimary + " " + styles.actionBtn} style={{ marginTop: 12 }}>Coba Lagi</button>
         </div>
       </div>
     );
