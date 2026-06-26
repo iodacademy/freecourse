@@ -6,6 +6,7 @@ import { Download, Link2, Settings } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardView, { DashboardFilterState } from "@/components/dashboard/DashboardView";
+import ExportModal, { ExportMode } from "@/components/dashboard/ExportModal";
 import styles from "@/components/dashboard/dashboard.module.css";
 import Link from "next/link";
 
@@ -26,6 +27,7 @@ function AdminDashboardContent() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Filter dari URL
   const filters: DashboardFilterState = {
@@ -70,28 +72,26 @@ function AdminDashboardContent() {
     router.replace(`/admin${buildQuery(next)}`, { scroll: false });
   }
 
-  async function handleExport() {
-    if (!user) return;
-    try {
-      const token = await user.getIdToken();
-      const qs = buildQuery(filters);
-      const res = await fetch(`/api/admin/dashboard/export-excel${qs}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Export gagal");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      // ambil filename dari header
-      const disposition = res.headers.get("Content-Disposition") || "";
-      const m = disposition.match(/filename="?([^"]+)"?/);
-      a.download = m ? m[1] : "dashboard.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      alert("Gagal export: " + (e?.message || ""));
-    }
+  async function handleExport(mode: ExportMode) {
+    if (!user) throw new Error("Sesi tidak valid");
+    const token = await user.getIdToken();
+    const sp = new URLSearchParams(buildQuery(filters).replace(/^\?/, ""));
+    if (mode !== "clean") sp.set("mode", mode);
+    const qs = sp.toString() ? `?${sp.toString()}` : "";
+    const res = await fetch(`/api/admin/dashboard/export-excel${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Export gagal");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    // ambil filename dari header
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const m = disposition.match(/filename="?([^"]+)"?/);
+    a.download = m ? m[1] : "dashboard.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleCopyPublicLink() {
@@ -117,7 +117,7 @@ function AdminDashboardContent() {
 
   const rightActions = (
     <>
-      <button className={styles.actionBtn} onClick={handleExport} type="button">
+      <button className={styles.actionBtn} onClick={() => setExportOpen(true)} type="button">
         <Download size={14} />
         Export Excel
       </button>
@@ -152,13 +152,20 @@ function AdminDashboardContent() {
   if (!data) return null;
 
   return (
-    <DashboardView
-      data={data}
-      mode="admin"
-      filters={filters}
-      onFilterChange={applyFilters}
-      rightActions={rightActions}
-    />
+    <>
+      <DashboardView
+        data={data}
+        mode="admin"
+        filters={filters}
+        onFilterChange={applyFilters}
+        rightActions={rightActions}
+      />
+      <ExportModal
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
+      />
+    </>
   );
 }
 

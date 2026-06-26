@@ -577,7 +577,7 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
 
 export async function aggregateDashboard(
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean; bypassCache?: boolean } = {}
+  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean; rawExport?: boolean; mismatchExport?: boolean; bypassCache?: boolean } = {}
 ): Promise<DashboardResult> {
   const raw = await getRawDatasetCached(options.bypassCache);
   return applyFiltersAndAggregate(raw, filter, options);
@@ -763,7 +763,7 @@ async function buildRawDataset(): Promise<RawDataset> {
 function applyFiltersAndAggregate(
   raw: RawDataset,
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean } = {}
+  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean; rawExport?: boolean; mismatchExport?: boolean } = {}
 ): DashboardResult {
   const { allStudents, totalSteps, targets, quizStepId, quizStepTitle, survey1, feedback, survey2 } = raw;
 
@@ -936,20 +936,32 @@ function applyFiltersAndAggregate(
   };
 
   // Strip internal fields kalau includeStudents
-  // Export HANYA peserta yang sudah tersertifikasi JIKA flag exportOnlyCertified diset true
-  let sourceArray = options.exportOnlyCertified ? certifiedFiltered : filtered;
+  // Pilih sumber baris export:
+  //  - rawExport / mismatchExport → semua peserta yang sudah menyelesaikan kursus
+  //    (Selesai + Tersertifikasi). raw ambil semua; mismatch disaring komplemen Clean.
+  //  - exportOnlyCertified → hanya yang Tersertifikasi (dipakai export Clean).
+  //  - selain itu → seluruh hasil filter.
+  const jabodetabek = ["jakarta", "bogor", "depok", "tangerang", "bekasi"];
+  const isJabodetabekCity = (s: FullStudent) => {
+    const kota = (s._kota || "").toLowerCase();
+    return jabodetabek.some((k) => kota.includes(k));
+  };
+  // Peserta dianggap "sesuai" (Clean) jika usia ≤29 DAN domisili Jabodetabek.
+  const isCleanEligible = (s: FullStudent) => s._ageBucket !== "30+" && isJabodetabekCity(s);
 
-  if (options.cleanExport) {
-    const jabodetabek = ["jakarta", "bogor", "depok", "tangerang", "bekasi"];
-    sourceArray = sourceArray.filter((s) => {
-      // Exclude age 30+
-      if (s._ageBucket === "30+") return false;
-      
-      // Keep only Jabodetabek
-      const kota = (s._kota || "").toLowerCase();
-      const isJabodetabek = jabodetabek.some((k) => kota.includes(k));
-      return isJabodetabek;
-    });
+  let sourceArray =
+    options.rawExport || options.mismatchExport
+      ? filtered.filter((s) => s.status === "Selesai" || s.status === "Tersertifikasi")
+      : options.exportOnlyCertified
+      ? certifiedFiltered
+      : filtered;
+
+  if (options.mismatchExport) {
+    // Data Tidak Sesuai: non-Jabodetabek ATAU usia >29 (komplemen dari Clean).
+    sourceArray = sourceArray.filter((s) => !isCleanEligible(s));
+  } else if (options.cleanExport && !options.rawExport) {
+    // Data Clean: usia ≤29 & Jabodetabek.
+    sourceArray = sourceArray.filter(isCleanEligible);
   }
   
   // Sort sourceArray by _createdAt (oldest to newest)

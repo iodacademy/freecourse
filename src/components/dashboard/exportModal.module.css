@@ -1,0 +1,91 @@
+.lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e5e5e5);
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.card:hover:not(:disabled) {
+  border-color: var(--color-primary, #cc0000);
+  box-shadow: 0 2px 10px rgba(204, 0, 0, 0.08);
+}
+.card:disabled {
+  cursor: default;
+}
+.card[data-dim] {
+  opacity: 0.45;
+}
+.card[data-loading] {
+  border-color: var(--color-primary, #cc0000);
+}
+
+.cardIcon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: var(--color-primary, #cc0000);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cardTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #141414;
+}
+.cardDesc {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+.cardAction {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-primary, #cc0000);
+}
+
+.hint {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--color-primary, #cc0000);
+  text-align: center;
+}
+
+.spin {
+  animation: exportSpin 0.8s linear infinite;
+}
+@keyframes exportSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
