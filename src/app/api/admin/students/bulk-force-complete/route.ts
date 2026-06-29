@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { syncStudentIndex } from "@/lib/sync-student-index";
+import { normalizeCertName } from "@/lib/cert-name";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         // Abaikan jika error ambil user
       }
+      // Admin force-complete: tidak menolak, tapi normalisasi (font "fancy" → latin).
+      certName = normalizeCertName(certName) || "Peserta";
 
       // Hardcode Step Progress sesuai dengan instruksi
       const hardcodedStepProgress = {

@@ -15,6 +15,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { detailChannelFromCategory, pickRandomCategory } from "@/lib/beasiswa-channel";
 import { normalizePhone, normalizeDob, normalizeGender } from "@/lib/import-normalize";
+import { normalizeCertName } from "@/lib/cert-name";
 
 // Jawaban benar kuis (sama dengan auto-complete-lead).
 const QUIZ_CORRECT: Record<string, string> = {
@@ -81,7 +82,8 @@ export async function importStudent(
       return { email, status: "skipped", reason: "already_certified" };
     }
 
-    const displayName = String(row.nama || "Peserta").trim();
+    // Import oleh admin: tidak menolak, tapi normalisasi (font "fancy" → latin).
+    const displayName = normalizeCertName(String(row.nama || "")) || "Peserta";
     const emailUsername = email.split("@")[0] || "user";
 
     // Kategori beasiswa diacak (deterministik per email) → detailChannel ikut.

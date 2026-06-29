@@ -141,6 +141,8 @@ export interface Enrollment {
   certificateId: string | null;
   certificateDriveUrl: string | null;
   certificateEmailSent: boolean;
+  // true → PDF sedang diantre cron generate-pending-pdf (belum jadi).
+  pdfPending?: boolean;
   // Sertifikat Kehadiran Workshop (terpisah dari sertifikat utama)
   workshopCertificateClaimed: boolean;
   workshopCertificateClaimedAt: Date | null;

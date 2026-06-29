@@ -358,7 +358,15 @@ function StudentDetailModal({ student, onClose }: StudentDetailModalProps) {
             <InfoRow icon={CheckCircle2} label="Nilai Quiz" value={nilaiQuiz} />
             <InfoRow icon={CheckCircle2} label="Survei Awal" value={survei1} />
             <InfoRow icon={CheckCircle2} label="Survei Akhir" value={survei2} />
-            <InfoRow icon={Trophy} label="Sertifikat" value={(student as any).linkSertifikat ? <a href={(student as any).linkSertifikat} target="_blank" rel="noopener noreferrer" style={{color: '#2563eb', textDecoration: 'underline'}}>Lihat Sertifikat</a> : "—"} />
+            <InfoRow icon={Trophy} label="Sertifikat" value={
+              (student as any).linkSertifikat
+                ? <a href={(student as any).linkSertifikat} target="_blank" rel="noopener noreferrer" style={{color: '#2563eb', textDecoration: 'underline'}}>Lihat Sertifikat</a>
+                : (student as any).certStatus === 'processing'
+                  ? <span style={{ color: '#b45309', fontWeight: 600 }}>⏳ PDF sedang diproses</span>
+                  : (student as any).certStatus === 'stuck'
+                    ? <span style={{ color: '#dc2626', fontWeight: 600 }}>⚠ PDF tertahan (perlu di-antre ulang)</span>
+                    : "—"
+            } />
           </div>
         </div>
       </div>
@@ -1424,7 +1432,13 @@ export default function AdminStudentsPage() {
                   <td className={styles.textSm}>{s.nilaiSurvei1}</td>
                   <td className={styles.textSm}>{s.nilaiSurvei2}</td>
                   <td className={styles.textSm}>
-                    {s.linkSertifikat ? <a href={s.linkSertifikat} target="_blank" rel="noopener noreferrer" style={{color: '#2563eb', textDecoration: 'underline'}}>Lihat</a> : "-"}
+                    {s.linkSertifikat ? (
+                      <a href={s.linkSertifikat} target="_blank" rel="noopener noreferrer" style={{color: '#2563eb', textDecoration: 'underline'}}>Lihat</a>
+                    ) : s.certStatus === 'processing' ? (
+                      <span title="PDF sedang dibuat di latar belakang oleh sistem" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#b45309', fontSize: 11, fontWeight: 600 }}>⏳ Diproses</span>
+                    ) : s.certStatus === 'stuck' ? (
+                      <span title="Sudah tersertifikasi tapi PDF belum dibuat & tidak dalam antrean. Jalankan Audit Sertifikat (fix) untuk mengantre." style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#dc2626', fontSize: 11, fontWeight: 600 }}>⚠ Tertahan</span>
+                    ) : "-"}
                   </td>
                   <td className={styles.actionsCell} onClick={(e) => e.stopPropagation()} style={{ position: 'sticky', right: 0, background: 'inherit', zIndex: 10 }}>
                     <button

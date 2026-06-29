@@ -9,6 +9,7 @@ import { getScDb } from "@/lib/firebase-admin-sc";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { syncStudentIndex } from "@/lib/sync-student-index";
+import { normalizeCertName, validateCertName } from "@/lib/cert-name";
 import { FieldValue } from "firebase-admin/firestore";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -88,7 +89,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       db.collection("settings").doc("app").get()
     ]);
     
-    const userName = reqBody.customName || userDoc.data()?.profileData?.namaLengkap || userDoc.data()?.displayName || "Peserta";
+    // Tentukan nama mentah: input manual (customName) diutamakan, lalu profil.
+    const rawName = reqBody.customName || userDoc.data()?.profileData?.namaLengkap || userDoc.data()?.displayName || "Peserta";
+    // Selalu normalisasi (konversi font "fancy" Unicode → latin biar tak kosong di PDF).
+    const userName = normalizeCertName(rawName) || "Peserta";
+    // Bila user MENGETIK nama secara eksplisit, tolak yang tak layak (NIK/angka/kosong).
+    // Untuk jalur auto-sync/reclaim tanpa customName, jangan gagalkan — cukup normalisasi.
+    if (typeof reqBody.customName === "string" && reqBody.customName.trim()) {
+      try { validateCertName(userName); }
+      catch (e: any) { return json({ error: e?.message || "Nama tidak valid." }, 400); }
+    }
     const courseName = courseDoc.data()?.title || "Kursus";
     const issuerName = courseDoc.data()?.certificateConfig?.issuerName || "IODA Academy";
 
@@ -127,6 +137,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         certificateCourseName: courseName,
         certificateIssuer: issuerName,
         status: "certified",
+        // Tandai PDF sedang diproses. Dibersihkan saat URL tersimpan di bawah;
+        // jika GAS gagal, penanda ini bikin cron generate-pending-pdf menjemputnya.
+        pdfPending: true,
         updatedAt: FieldValue.serverTimestamp()
       });
     }
@@ -172,11 +185,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           driveUrl = gasData.downloadUrl || gasData.pdfUrl || null;
           driveFileId = gasData.fileId || null;
 
-          // Save drive URL back to enrollment
+          // Save drive URL back to enrollment & bersihkan penanda pending.
           if (driveUrl) {
             await enrollRef.update({
               certificateDriveUrl: driveUrl,
               certificateDriveFileId: driveFileId || "",
+              pdfPending: false,
             });
           }
         } else {

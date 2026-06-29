@@ -163,6 +163,11 @@ export default function CertificatePage() {
       setClaimError("Nama tidak boleh kosong.");
       return;
     }
+    const digitsOnly = certName.replace(/\D/g, "");
+    if (digitsOnly.length >= 8 || (certName.match(/[a-zA-ZÀ-ɏ]/g) || []).length < 2) {
+      setClaimError("Nama tidak valid. Isi nama lengkap sesuai KTP (huruf), bukan NIK/nomor.");
+      return;
+    }
     setClaiming(true);
     setClaimError("");
 
@@ -211,6 +216,12 @@ export default function CertificatePage() {
   // ── Edit Nama ──
   async function handleEditName() {
     if (!user || !enrollment || !editNameInput.trim()) return;
+    // Tolak nama berisi NIK/angka sebelum kirim ke server (cocok dgn validasi backend).
+    const digitsOnly = editNameInput.replace(/\D/g, "");
+    if (digitsOnly.length >= 8 || (editNameInput.match(/[a-zA-ZÀ-ɏ]/g) || []).length < 2) {
+      setEditNameError("Nama tidak valid. Isi nama lengkap sesuai KTP (huruf), bukan NIK/nomor.");
+      return;
+    }
     setEditNameSaving(true);
     setEditNameError("");
     try {
@@ -352,15 +363,36 @@ export default function CertificatePage() {
                 </p>
               </div>
 
+              {/* Kotak konfirmasi nama — nama INI yang akan tercetak di sertifikat */}
+              <div style={{ marginTop: 20, textAlign: "left" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                  Nama untuk Sertifikat
+                </label>
+                <input
+                  type="text"
+                  value={certName}
+                  onChange={(e) => { setCertName(e.target.value); if (claimError) setClaimError(""); }}
+                  placeholder="Nama lengkap sesuai KTP"
+                  disabled={claiming}
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 10,
+                    border: "1.5px solid #ddd", fontSize: 15, outline: "none", boxSizing: "border-box",
+                  }}
+                />
+                <p style={{ fontSize: 12, color: "#888", marginTop: 6, lineHeight: 1.5 }}>
+                  Pastikan nama sudah benar — nama ini akan tercetak di sertifikat dan sulit diubah massal nanti.
+                </p>
+              </div>
+
               {claimError && (
-                <div className="cert-error">
+                <div className="cert-error" style={{ marginTop: 12 }}>
                   <AlertCircle size={14} />{claimError}
                 </div>
               )}
 
               <button
                 className="cert-claim-btn"
-                disabled={claiming}
+                disabled={claiming || !certName.trim()}
                 onClick={handleClaim}
                 style={{ marginTop: 16 }}
               >

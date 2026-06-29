@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
+import { normalizeCertName } from "@/lib/cert-name";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 
 // Generate 1 PDF via GAS bisa makan ~10 detik. Beri ruang waktu yang cukup
 // agar tidak ke-kill platform (default per-request bisa hanya 10-15 dtk).
@@ -77,7 +79,8 @@ export async function POST(req: NextRequest) {
       action: "generate_main_cert",
       templateId: mainCertSlideTemplateId,
       certId: enrollData.certificateId,
-      userName: enrollData.certificateName,
+      // Normalisasi defensif: data lama mungkin masih font "fancy" Unicode.
+      userName: normalizeCertName(enrollData.certificateName) || enrollData.certificateName,
       courseName: enrollData.certificateCourseName || "Literasi Finansial Dasar",
       claimDate: claimDateStr,
       email: studentEmail,
@@ -111,7 +114,10 @@ export async function POST(req: NextRequest) {
       await enrollDoc.ref.update({
         certificateDriveUrl: driveUrl,
         certificateDriveFileId: driveFileId || "",
+        pdfPending: false,
       });
+      // Sinkronkan studentsIndex agar link langsung muncul di tabel admin.
+      syncStudentIndex(userId);
       return json({ success: true, driveUrl });
     }
 

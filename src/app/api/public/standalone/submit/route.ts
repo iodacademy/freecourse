@@ -3,17 +3,8 @@ import type { NextRequest } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { invalidateDashboardCache } from '@/lib/dashboard-aggregator';
 import { syncStudentIndex } from '@/lib/sync-student-index';
+import { normalizeCertName, validateCertName } from '@/lib/cert-name';
 import { FieldValue } from 'firebase-admin/firestore';
-
-/**
- * Rapikan nama untuk sertifikat — sesuai keputusan: pakai APA ADANYA.
- * Hanya rapikan spasi berlebih di awal/akhir & di tengah. Huruf besar/kecil
- * dan karakter dibiarkan persis seperti yang diketik peserta.
- */
-function rapikanNama(input: string): string {
-  if (!input) return "";
-  return String(input).replace(/\s+/g, " ").trim();
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -168,9 +159,19 @@ export async function POST(request: NextRequest) {
       // Jika peserta mengonfirmasi/memperbaiki nama saat klaim sertifikat,
       // pakai nama itu (dirapikan) untuk sertifikat DAN simpan ke semua data.
       const confirmedNameRaw = (payload && payload.confirmedName) || "";
-      const confirmedName = rapikanNama(confirmedNameRaw);
-      const userName = confirmedName || userDoc.data()?.displayName || "Peserta";
+      const confirmedName = normalizeCertName(confirmedNameRaw);
+      const userName = confirmedName || normalizeCertName(userDoc.data()?.displayName || "");
       const issuerName = 'IODA Academy';
+
+      // Jalur peserta → nama WAJIB valid (cegah nama kosong / NIK / font fancy
+      // yang tak ter-render). Tolak dengan pesan ramah-pengguna bila tak layak.
+      try { validateCertName(userName); }
+      catch (e: any) {
+        return NextResponse.json(
+          { error: e?.message || "Nama tidak valid. Isi nama lengkap sesuai KTP." },
+          { status: 400 }
+        );
+      }
 
       // Sinkronkan nama ke users (displayName + profileData.nama_lengkap)
       // dan enrollments (displayName) agar semua data ikut nama sertifikat.

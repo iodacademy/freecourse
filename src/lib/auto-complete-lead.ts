@@ -17,6 +17,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { detailChannelFromCategory, pickRandomCategory } from "@/lib/beasiswa-channel";
 import { syncStudentIndex } from "@/lib/sync-student-index";
+import { normalizeCertName } from "@/lib/cert-name";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -75,7 +76,9 @@ export async function autoCompleteLead(
       ...(lead.profileData || {}),
       alamat_email: userId,
     };
-    const displayName = String(lead.nama || profileData.nama_lengkap || "Peserta");
+    // Auto Complete oleh admin: TIDAK menolak nama (batch tak boleh gagal),
+    // tapi tetap dinormalisasi (font "fancy" Unicode → latin) agar tak kosong di PDF.
+    const displayName = normalizeCertName(String(lead.nama || profileData.nama_lengkap || "")) || "Peserta";
     const emailUsername = userId.split("@")[0] || "user";
 
     // Pre-test: jika lead belum punya skor pre-test (umumnya lead Instant Form

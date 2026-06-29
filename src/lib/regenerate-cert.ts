@@ -11,6 +11,7 @@
  * agar konsisten dengan sertifikat sebelumnya.
  */
 import { getAdminDb } from "@/lib/firebase-admin";
+import { normalizeCertName } from "@/lib/cert-name";
 import { FieldValue } from "firebase-admin/firestore";
 
 const MONTHS = [
@@ -39,6 +40,9 @@ export async function regenerateCertificate(
   newName: string
 ): Promise<{ regenerated: boolean; driveUrl?: string | null; reason?: string }> {
   const db = getAdminDb();
+
+  // Rapikan nama (konversi font "fancy" Unicode → latin) supaya tak kosong di PDF.
+  newName = normalizeCertName(newName) || newName;
 
   const enrollRef = db.collection("enrollments").doc(enrollmentId);
   const enrollSnap = await enrollRef.get();

@@ -63,6 +63,12 @@ export type DashboardStudent = {
   feedbackMateri: string;
   nilaiSurvei2: string;
   linkSertifikat: string | null;
+  // Status PDF sertifikat (terpisah dari `status` kelulusan):
+  //  - "none"       : belum klaim sertifikat
+  //  - "ready"      : PDF sudah jadi (linkSertifikat terisi)
+  //  - "processing" : sudah klaim, PDF sedang diantre cron (pdfPending=true)
+  //  - "stuck"      : sudah klaim, PDF belum ada & TIDAK diantre (perlu perhatian)
+  certStatus: "none" | "ready" | "processing" | "stuck";
   // Bagian 3 — Passthrough untuk compatibility Modal Siswa
   uid: string;
   photoURL: string | null;
@@ -482,6 +488,14 @@ export function computeStudentRow(
 
   const ageBucket = ageToBucket(umur);
 
+  // Status PDF sertifikat — dibedakan dari status kelulusan.
+  const hasCertUrl = !!(enr?.certificateDriveUrl && String(enr.certificateDriveUrl).trim());
+  let certStatus: DashboardStudent["certStatus"];
+  if (!enr?.certificateClaimed) certStatus = "none";
+  else if (hasCertUrl) certStatus = "ready";
+  else if ((enr as any)?.pdfPending === true) certStatus = "processing";
+  else certStatus = "stuck";
+
   return {
     tanggalDaftar,
     persetujuan,
@@ -505,6 +519,7 @@ export function computeStudentRow(
     feedbackMateri: rawFeedback != null ? String(rawFeedback) : "-",
     nilaiSurvei2: rawSurvey2 != null ? String(rawSurvey2) : "-",
     linkSertifikat: enr?.certificateDriveUrl || null,
+    certStatus,
 
     uid: u.uid || "",
     photoURL: u.photoURL || null,

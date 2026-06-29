@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { json, handleError } from "@/lib/api-helpers";
+import { normalizeCertName } from "@/lib/cert-name";
+import { syncStudentIndex } from "@/lib/sync-student-index";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -96,7 +98,8 @@ async function handle(req: NextRequest) {
           action: "generate_main_cert",
           templateId: mainCertSlideTemplateId,
           certId: data.certificateId,
-          userName: data.certificateName,
+          // Normalisasi defensif: data lama mungkin masih font "fancy" Unicode.
+          userName: normalizeCertName(data.certificateName) || data.certificateName,
           courseName: data.certificateCourseName || "Workshop Literasi Finansial",
           claimDate: claimDateStr,
           email,
@@ -124,6 +127,9 @@ async function handle(req: NextRequest) {
           certificateDriveFileId: driveFileId || "",
           pdfPending: false,
         });
+        // Sinkronkan studentsIndex agar link langsung muncul di tabel admin
+        // (kalau tidak, index basi: status Tersertifikasi tapi link "-").
+        if (data.userId) syncStudentIndex(data.userId);
         results.push({ email, status: "completed" });
       } else {
         results.push({ email, status: "error", reason: "GAS OK tanpa URL" });
