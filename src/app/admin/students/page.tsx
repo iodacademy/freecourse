@@ -1645,6 +1645,9 @@ export default function AdminStudentsPage() {
                 <p className={styles.confirmDesc} style={{ textAlign: "left", marginBottom: 12 }}>
                   Pilih kelompok siswa berdasarkan <strong>Tanggal Pendaftaran</strong> yang ingin diluluskan secara instan:
                 </p>
+                <p style={{ textAlign: "left", marginBottom: 12, fontSize: 12, color: "#64748b", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 12px", lineHeight: 1.5 }}>
+                  ℹ️ Peserta berstatus <strong>Belum Start</strong> akan otomatis di-enroll lengkap (kuis, survei, pre/post-test, jenis beasiswa) lalu diluluskan. Yang sudah <strong>In Progress/Selesai</strong> langsung dituntaskan ke sertifikat.
+                </p>
 
                 {dateGroups.length === 0 ? (
                   <div style={{ padding: 16, background: "#f8fafc", borderRadius: 8, color: "#64748b", textAlign: "center", marginBottom: 16 }}>
