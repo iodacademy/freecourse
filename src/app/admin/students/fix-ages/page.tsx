@@ -124,9 +124,16 @@ export default function FixAgesPage() {
             <CalendarClock size={24} />
           </div>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>Perbaiki Usia &gt; 29 Tahun</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+              Perbaiki Usia &gt; 29 Tahun
+              {!loading && (
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#d97706", marginLeft: 10 }}>
+                  ({students.length})
+                </span>
+              )}
+            </h1>
             <p style={{ color: "#64748b", margin: 0, fontSize: 14, marginTop: 4 }}>
-              Daftar peserta berusia lebih dari 29 tahun. Perbaiki tanggal lahirnya bila salah input.
+              Daftar peserta berusia lebih dari 29 tahun, diurutkan dari yang paling tua. Perbaiki tanggal lahirnya bila salah input.
             </p>
           </div>
         </div>

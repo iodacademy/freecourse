@@ -5,9 +5,23 @@ export function createSlug(text: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
+// Token gelar/singkatan akademik & honorifik yang wajar (lowercase, tanpa titik).
+// Nama bergelar seperti "Haris Darmawan, S.T., M.T." tidak boleh dianggap aneh.
+const TITLE_TOKENS = new Set([
+  // Gelar akademik
+  "st", "se", "sh", "si", "sp", "skom", "spd", "spt", "ssi", "ssos", "skm",
+  "sked", "sik", "sfarm", "sgz", "spsi", "sag", "sthi", "shut", "spar", "ssn",
+  "mt", "mm", "msi", "mkom", "mpd", "mh", "mba", "msc", "ma", "mkes", "mfarm",
+  "dr", "drs", "dra", "ir", "prof", "phd", "amd", "amdkeb", "amdkep",
+  // Honorifik
+  "h", "hj", "kh", "rr", "r", "raden", "tuan", "nyonya",
+]);
+
 export function isSuspiciousName(name: string | null | undefined): boolean {
   if (!name) return true;
-  const raw = name.trim();
+  // Normalisasi tanda kutip keriting (’ ‘ ´ `) → apostrof lurus, agar nama
+  // seperti "Muhammad Ma’ruf" tidak salah terdeteksi.
+  const raw = name.trim().replace(/[‘’ʼ`´]/g, "'");
   const n = raw.toLowerCase();
 
   // Terlalu pendek
@@ -30,24 +44,27 @@ export function isSuspiciousName(name: string | null | undefined): boolean {
 
   // ── Deteksi tambahan ──
 
-  // Karakter di luar huruf latin + spasi/tanda hubung/apostrof/titik yang wajar.
-  // Menangkap font unicode aneh (𝓨𝓸𝓶𝓪), emoji, aksara non-latin, simbol.
-  // Catatan: huruf beraksen (é, ñ, dll) tetap diperbolehkan via rentang Latin-1.
-  if (/[^a-zA-ZÀ-ÿ\s.'-]/.test(raw)) return true;
+  // Karakter di luar huruf latin + spasi + tanda baca nama yang wajar
+  // (titik, koma, tanda hubung, apostrof). Menangkap font unicode aneh
+  // (𝓨𝓸𝓶𝓪), emoji, aksara non-latin, simbol. Koma & titik diizinkan agar
+  // nama bergelar ("..., S.T., M.T.") tidak salah tuduh.
+  if (/[^a-zA-ZÀ-ÿ\s.,'-]/.test(raw)) return true;
 
   // Mengandung underscore / karakter pemisah tidak wajar (mis. "symll_")
-  if (/[_|~^`=+*/\\<>{}[\]@#$%]/.test(raw)) return true;
+  if (/[_|~^=+*/\\<>{}[\]@#$%]/.test(raw)) return true;
 
   // Ada "kata" tanpa huruf vokal sama sekali & panjang ≥4 (mis. "xkzq", "symll")
-  // — indikasi kuat ketikan keyboard asal.
-  const words = n.split(/\s+/).filter(Boolean);
+  // — indikasi ketikan keyboard asal. Token gelar (S.T., M.T., dll) dilewati.
+  const words = n.split(/[\s.,]+/).filter(Boolean);
   for (const w of words) {
     const letters = w.replace(/[^a-zà-ÿ]/g, "");
+    if (TITLE_TOKENS.has(letters)) continue;
     if (letters.length >= 4 && !/[aeiouàáâãäåèéêëìíîïòóôõöùúûü]/.test(letters)) return true;
   }
 
-  // Semua kata sangat pendek (≤1 huruf) — mis. "a b c"
-  if (words.length > 0 && words.every((w) => w.replace(/[^a-zà-ÿ]/g, "").length <= 1)) return true;
+  // Semua kata (di luar token gelar) sangat pendek (≤1 huruf) — mis. "a b c"
+  const nameWords = words.filter((w) => !TITLE_TOKENS.has(w.replace(/[^a-zà-ÿ]/g, "")));
+  if (nameWords.length > 0 && nameWords.every((w) => w.replace(/[^a-zà-ÿ]/g, "").length <= 1)) return true;
 
   return false;
 }

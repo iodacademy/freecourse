@@ -26,10 +26,13 @@ export async function GET(req: NextRequest) {
 
     let filtered;
     if (mode === "ages") {
-      filtered = all.filter((s) => {
-        const age = parseInt(s.umur, 10);
-        return !isNaN(age) && age > 29;
-      });
+      filtered = all
+        .filter((s) => {
+          const age = parseInt(s.umur, 10);
+          return !isNaN(age) && age > 29;
+        })
+        // Urutkan dari usia paling tua → termuda.
+        .sort((a, b) => (parseInt(b.umur, 10) || 0) - (parseInt(a.umur, 10) || 0));
     } else {
       filtered = all.filter((s) => isSuspiciousName(s.namaLengkap));
     }
