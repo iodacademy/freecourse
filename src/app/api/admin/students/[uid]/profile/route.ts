@@ -17,10 +17,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     const body = await req.json();
-    const { newName } = body;
+    const { newName, tanggalLahir } = body;
 
-    if (!newName || newName.trim().length < 3) {
-      return json({ error: "Nama terlalu pendek" }, 400);
+    // Minimal salah satu field yang diubah.
+    if (newName === undefined && tanggalLahir === undefined) {
+      return json({ error: "Tidak ada perubahan" }, 400);
     }
 
     const db = getAdminDb();
@@ -32,20 +33,40 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     const profileData = doc.data()?.profileData || {};
-    profileData.namaLengkap = newName.trim();
-    if (profileData.nama_lengkap !== undefined) {
-      profileData.nama_lengkap = newName.trim();
+    const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+
+    // ── Ubah nama ──
+    if (newName !== undefined) {
+      if (!newName || newName.trim().length < 3) {
+        return json({ error: "Nama terlalu pendek" }, 400);
+      }
+      profileData.namaLengkap = newName.trim();
+      if (profileData.nama_lengkap !== undefined) {
+        profileData.nama_lengkap = newName.trim();
+      }
+      update.displayName = newName.trim();
     }
 
-    await ref.update({
-      displayName: newName.trim(),
-      profileData,
-      updatedAt: FieldValue.serverTimestamp()
-    });
+    // ── Ubah tanggal lahir (format ISO "YYYY-MM-DD") ──
+    if (tanggalLahir !== undefined) {
+      const iso = String(tanggalLahir).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        return json({ error: "Format tanggal lahir harus YYYY-MM-DD" }, 400);
+      }
+      // Tulis ke key kanonik + key snake_case bila sudah ada, agar konsisten
+      // dengan cara aggregator membaca (mencari key mengandung "tanggal"+"lahir").
+      profileData.tanggalLahir = iso;
+      if (profileData.tanggal_lahir !== undefined) {
+        profileData.tanggal_lahir = iso;
+      }
+    }
+
+    update.profileData = profileData;
+    await ref.update(update);
 
     invalidateDashboardCache();
     syncStudentIndex(uid);
-    return json({ success: true, message: "Nama berhasil diperbarui" });
+    return json({ success: true, message: "Data berhasil diperbarui" });
   } catch (e) {
     return handleError(e);
   }

@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ChevronLeft, Save, Loader2, UserX, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { isSuspiciousName } from "@/lib/utils";
 
 export default function FixNamesPage() {
   const { user } = useAuth();
@@ -27,24 +26,22 @@ export default function FixNamesPage() {
       const token = await getToken();
       if (!token) return;
       
-      const res = await fetch(`/api/admin/dashboard/stats?_t=${Date.now()}`, {
+      // Endpoint khusus: memindai SEMUA siswa & sudah difilter nama aneh di server.
+      const res = await fetch(`/api/admin/students/fix-data?mode=names&_t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store'
       });
       if (!res.ok) throw new Error("Gagal mengambil data siswa");
-      
+
       const data = await res.json();
-      const allStudents = data.students || [];
-      
-      // Filter hanya yang namanya mencurigakan
-      const suspicious = allStudents.filter((s: any) => isSuspiciousName(s.namaLengkap));
-      
+      const suspicious = data.students || [];
+
       // Init state input
       const initialNames: Record<string, string> = {};
       suspicious.forEach((s: any) => {
         initialNames[s.uid] = s.namaLengkap || "";
       });
-      
+
       setNewNames(initialNames);
       setStudents(suspicious);
     } catch (e: any) {

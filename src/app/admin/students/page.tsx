@@ -1253,12 +1253,19 @@ export default function AdminStudentsPage() {
             </button>
             {!(profile?.role || "").toLowerCase().includes("public") && (
               <>
-                <a 
+                <a
                   href="/admin/students/fix-names"
                   target="_blank"
                   style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#475569", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
                 >
                   <UserX size={15} /> Auto Deteksi Nama Aneh
+                </a>
+                <a
+                  href="/admin/students/fix-ages"
+                  target="_blank"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#475569", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
+                >
+                  <CalendarDays size={15} /> Perbaiki Usia &gt; 29
                 </a>
                 <button
                   onClick={() => setChooserOpen(true)}
