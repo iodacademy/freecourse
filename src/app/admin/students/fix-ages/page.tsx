@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { ChevronLeft, Save, Loader2, CalendarClock, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, Save, Loader2, CalendarClock, CheckCircle2, Wand2, X, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 interface AgeStudent {
@@ -40,6 +40,12 @@ export default function FixAgesPage() {
   const [newDates, setNewDates] = useState<Record<string, string>>({}); // uid → ISO
   const [error, setError] = useState("");
 
+  // Perbaikan otomatis massal
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [autoFixing, setAutoFixing] = useState(false);
+  const [autoResult, setAutoResult] = useState("");
+
   const getToken = useCallback(async () => {
     if (!user) return "";
     try { return await (user as any).getIdToken(); } catch { return ""; }
@@ -66,6 +72,7 @@ export default function FixAgesPage() {
 
       setNewDates(initial);
       setStudents(list);
+      setSelected({});
     } catch (e: any) {
       setError(e.message || "Terjadi kesalahan");
     } finally {
@@ -109,6 +116,44 @@ export default function FixAgesPage() {
       alert(e.message);
     } finally {
       setSavingIds((prev) => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  // ── Seleksi untuk perbaikan otomatis ──
+  const selectedUids = students.filter((s) => selected[s.uid]).map((s) => s.uid);
+  const allSelected = students.length > 0 && selectedUids.length === students.length;
+
+  const toggleOne = (uid: string) => setSelected((prev) => ({ ...prev, [uid]: !prev[uid] }));
+  const toggleAll = () => {
+    if (allSelected) { setSelected({}); return; }
+    const next: Record<string, boolean> = {};
+    students.forEach((s) => { next[s.uid] = true; });
+    setSelected(next);
+  };
+
+  const handleAutoFix = async () => {
+    if (selectedUids.length === 0) return;
+    setAutoFixing(true);
+    setAutoResult("");
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/students/fix-ages-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uids: selectedUids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memperbaiki");
+      setConfirmOpen(false);
+      setAutoResult(`Berhasil memperbaiki ${data.updated} peserta${data.failed?.length ? `, ${data.failed.length} gagal` : ""}. Memuat ulang...`);
+      // Muat ulang daftar — yang sudah ≤29 akan hilang.
+      await fetchUsers();
+      setAutoResult(`Selesai. ${data.updated} peserta diperbaiki.`);
+    } catch (e: any) {
+      setConfirmOpen(false);
+      setError(e.message || "Terjadi kesalahan");
+    } finally {
+      setAutoFixing(false);
     }
   };
 
@@ -160,8 +205,36 @@ export default function FixAgesPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>
-                Ditemukan {students.length} peserta
+              {/* Toolbar seleksi + perbaikan otomatis */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "12px 16px", borderRadius: 10 }}>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#334155", cursor: "pointer" }}>
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ width: 16, height: 16, cursor: "pointer" }} />
+                  Pilih semua ({selectedUids.length}/{students.length} dipilih)
+                </label>
+                <button
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={selectedUids.length === 0 || autoFixing}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8,
+                    background: selectedUids.length === 0 || autoFixing ? "#f1f5f9" : "#d97706",
+                    color: selectedUids.length === 0 || autoFixing ? "#94a3b8" : "#fff",
+                    border: "none", fontWeight: 600, fontSize: 14,
+                    cursor: selectedUids.length === 0 || autoFixing ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {autoFixing ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
+                  Perbaiki Otomatis ({selectedUids.length})
+                </button>
+              </div>
+
+              {autoResult && (
+                <div style={{ background: "#ecfdf5", color: "#065f46", padding: "10px 14px", borderRadius: 8, fontSize: 13, border: "1px solid #a7f3d0" }}>
+                  {autoResult}
+                </div>
+              )}
+
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>
+                Ditemukan {students.length} peserta (diurutkan dari paling tua)
               </div>
 
               {students.map((s) => {
@@ -170,7 +243,13 @@ export default function FixAgesPage() {
                 const previewAge = ageFromIso(iso);
                 const unchanged = iso === toIsoDate(s.tanggalLahir);
                 return (
-                  <div key={s.uid} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", background: "#fff", border: "1px solid #e2e8f0", padding: "16px", borderRadius: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                  <div key={s.uid} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", background: selected[s.uid] ? "#fffbeb" : "#fff", border: selected[s.uid] ? "1px solid #fcd34d" : "1px solid #e2e8f0", padding: "16px", borderRadius: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                    <input
+                      type="checkbox"
+                      checked={!!selected[s.uid]}
+                      onChange={() => toggleOne(s.uid)}
+                      style={{ width: 18, height: 18, cursor: "pointer", flexShrink: 0 }}
+                    />
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", wordBreak: "break-all" }}>{s.namaLengkap || "(Tanpa nama)"}</div>
                       <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{s.email}</div>
@@ -215,6 +294,48 @@ export default function FixAgesPage() {
           )}
         </div>
       </div>
+
+      {/* ── Popup konfirmasi Perbaiki Otomatis ── */}
+      {confirmOpen && (
+        <div
+          onClick={() => !autoFixing && setConfirmOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, maxWidth: 440, width: "100%", padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <AlertTriangle size={20} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#0f172a" }}>Perbaiki Otomatis?</h3>
+              <button onClick={() => !autoFixing && setConfirmOpen(false)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.6, margin: "0 0 20px" }}>
+              Tahun lahir <strong>{selectedUids.length} peserta</strong> yang dipilih akan diganti
+              menjadi <strong>tahun acak 1998–2004</strong> (tanggal & bulan dipertahankan bila ada).
+              Tindakan ini menimpa data lama dan tidak bisa dibatalkan.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setConfirmOpen(false)}
+                disabled={autoFixing}
+                style={{ padding: "10px 18px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", color: "#475569", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleAutoFix}
+                disabled={autoFixing}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 8, border: "none", background: "#d97706", color: "#fff", fontWeight: 600, fontSize: 14, cursor: autoFixing ? "wait" : "pointer" }}
+              >
+                {autoFixing ? <Loader2 size={16} className="spin" /> : <Wand2 size={16} />}
+                Ya, Perbaiki
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }
