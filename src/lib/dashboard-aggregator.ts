@@ -1494,6 +1494,14 @@ export async function queryStudentsPaged(q: StudentsQuery = {}): Promise<Student
   const sortUsia = q.sortUsia || "default";
   const search = (q.search || "").trim().toLowerCase();
 
+  // Sort umur (Termuda/Tertua) butuh composite index umurNum untuk tiap kombinasi
+  // filter — dan varian DESC belum ada — sehingga orderBy("umurNum") bisa gagal
+  // (FAILED_PRECONDITION → 500). Sort umur jarang dipakai; delegasikan ke jalur
+  // in-memory queryStudents yang menangani semua kombinasi filter dengan aman.
+  if (sortUsia === "Termuda" || sortUsia === "Tertua") {
+    return queryStudents(q);
+  }
+
   // Bangun query dasar dengan filter equality
   let base: FirebaseFirestore.Query = db.collection(STUDENTS_INDEX).where("isStudent", "==", true);
   if (channel !== "all") base = base.where("channelKey", "==", channel);

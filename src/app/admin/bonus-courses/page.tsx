@@ -53,6 +53,9 @@ export default function AdminBonusCoursesPage() {
   const [topics, setTopics] = useState<BonusTopic[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Tab aktif / arsip (arsip = benefit berstatus nonaktif)
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+
   // Delete confirm modal
   const [deleteTarget, setDeleteTarget] = useState<BonusTopic | null>(null);
 
@@ -292,6 +295,14 @@ export default function AdminBonusCoursesPage() {
       ? "Tambah Benefit"
       : `Tambah Benefit — ${categoryLabel({ id: "", name: "", category: formCategory })}`;
 
+  // Pisahkan aktif vs arsip (nonaktif) berdasarkan status.
+  const isTopicActive = (t: BonusTopic) => (t.status || "active") === "active";
+  const activeCount = topics.filter(isTopicActive).length;
+  const archivedCount = topics.length - activeCount;
+  const visibleTopics = topics.filter((t) =>
+    activeTab === "active" ? isTopicActive(t) : !isTopicActive(t)
+  );
+
   return (
     <ProtectedRoute requireAdmin>
       <div className={styles.page}>
@@ -301,6 +312,24 @@ export default function AdminBonusCoursesPage() {
             Daftar benefit yang bisa dipilih peserta setelah klaim sertifikat, dikelompokkan per kategori.
           </p>
         </header>
+
+        {/* ── Tab Aktif / Arsip ── */}
+        <div className={styles.tabs}>
+          <button
+            type="button"
+            className={`${styles.tab} ${activeTab === "active" ? styles.tabActive : ""}`}
+            onClick={() => setActiveTab("active")}
+          >
+            Aktif{!loading && ` (${activeCount})`}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tab} ${activeTab === "archived" ? styles.tabActive : ""}`}
+            onClick={() => setActiveTab("archived")}
+          >
+            Arsip{!loading && ` (${archivedCount})`}
+          </button>
+        </div>
 
         {/* ── Tabel ── */}
         <div className={styles.tableWrap}>
@@ -323,8 +352,16 @@ export default function AdminBonusCoursesPage() {
                     {" "}Memuat data...
                   </td>
                 </tr>
-              ) : topics.length === 0 ? null : (
-                topics.map((topic) => {
+              ) : visibleTopics.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className={styles.centerCell} style={{ color: "var(--color-gray-500)" }}>
+                    {activeTab === "archived"
+                      ? "Belum ada benefit di arsip."
+                      : "Belum ada benefit. Klik “Tambah Benefit” di bawah."}
+                  </td>
+                </tr>
+              ) : (
+                visibleTopics.map((topic) => {
                   const isActive = (topic.status || "active") === "active";
                   return (
                     <tr key={topic.id} style={isActive ? undefined : { opacity: 0.55 }}>
@@ -380,8 +417,8 @@ export default function AdminBonusCoursesPage() {
                 })
               )}
 
-              {/* Baris placeholder Tambah */}
-              {!loading && (
+              {/* Baris placeholder Tambah — hanya di tab Aktif */}
+              {!loading && activeTab === "active" && (
                 <tr className={styles.addRow} onClick={openAdd}>
                   <td colSpan={6}>
                     <span className={styles.addRowInner}>
