@@ -22,10 +22,14 @@ export async function GET(req: NextRequest) {
     const docs = snap.docs
       .map((d) => {
         const data = d.data();
+        const cat = data.category || "vl";
         return {
           id: d.id,
           ...data,
-          category: data.category || "vl",
+          category: cat,
+          benefitType:
+            data.benefitType ||
+            (cat === "review_cv" ? "review_cv" : cat === "downloadable" ? "downloadable" : "course"),
           status: data.status || "active",
         };
       })
@@ -45,19 +49,32 @@ export async function POST(req: NextRequest) {
     await requireAdmin(req);
     const body = await req.json();
 
-    if (!body.name || !body.classCode) {
-      return json({ error: "name dan classCode wajib diisi" }, 400);
+    const category = body.category || "vl";
+    const benefitType =
+      body.benefitType ||
+      (category === "review_cv" ? "review_cv" : category === "downloadable" ? "downloadable" : "course");
+
+    if (!body.name) {
+      return json({ error: "name wajib diisi" }, 400);
+    }
+    // classCode hanya wajib untuk kategori yang generate redeem code portal (vl/bootcamp).
+    const needsClassCode = category === "vl" || category === "bootcamp";
+    if (needsClassCode && !body.classCode) {
+      return json({ error: "classCode wajib diisi untuk kategori ini" }, 400);
     }
 
     const data = {
       name: body.name,
-      category: body.category || "vl",
-      classCode: String(body.classCode).toUpperCase(),
+      category,
+      benefitType,
+      classCode: String(body.classCode ?? "").toUpperCase(),
       Kode_Basis: String(body.kodeBase ?? "").toUpperCase(),
       description: body.description || "",
       groupLink: body.groupLink || "",
       lastSessionDate: body.lastSessionDate || "",
       portalUrl: body.portalUrl ?? "https://app.iodacademy.id/portal-belajar/",
+      workshopData: category === "workshop" ? (body.workshopData || {}) : null,
+      downloadUrl: benefitType === "downloadable" ? (body.downloadUrl || "") : null,
       status: "active",
       createdAt: FieldValue.serverTimestamp(),
     };

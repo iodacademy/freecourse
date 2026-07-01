@@ -54,6 +54,8 @@ export default function StandaloneJourney() {
   const [redeemPortalUrl, setRedeemPortalUrl] = useState("");
   const [redeemGroupLink, setRedeemGroupLink] = useState("");
   const [redeemCategory, setRedeemCategory] = useState("");
+  const [redeemDownloadUrl, setRedeemDownloadUrl] = useState("");
+  const [redeemDone, setRedeemDone] = useState(false); // untuk kategori tanpa kode (workshop/downloadable)
   const [copied, setCopied] = useState(false);
 
   // Only run on client
@@ -254,11 +256,20 @@ export default function StandaloneJourney() {
         setRedeemError(data.error || "Gagal melakukan redeem kursus.");
         return;
       }
-      setRedeemCode(data.redeemCode);
-      setRedeemTopicName(data.topicName);
-      setRedeemPortalUrl(data.portalUrl);
-      setRedeemGroupLink(data.groupLink);
       setRedeemCategory(data.category);
+      const chosen = bonusCourses.find((c) => c.id === selectedTopic);
+      setRedeemTopicName(data.topicName || chosen?.name || "");
+      if (data.category === "workshop") {
+        setRedeemGroupLink(data.groupLink || "");
+        setRedeemDone(true);
+      } else if (data.category === "downloadable") {
+        setRedeemDownloadUrl(data.downloadUrl || chosen?.downloadUrl || "");
+        setRedeemDone(true);
+      } else {
+        setRedeemCode(data.redeemCode);
+        setRedeemPortalUrl(data.portalUrl);
+        setRedeemGroupLink(data.groupLink);
+      }
     } catch (error) {
       setRedeemError("Terjadi kesalahan jaringan.");
     } finally {
@@ -272,7 +283,16 @@ export default function StandaloneJourney() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const showSuccessRedeem = !!redeemCode;
+  const showSuccessRedeem = !!redeemCode || redeemDone;
+
+  // Filter benefit per tab. "lainnya" = downloadable saja (review_cv login-only,
+  // tidak ditampilkan di jalur standalone). "vl" juga mencakup data lama "wpb".
+  const visibleCourses = bonusCourses.filter((c) => {
+    const cat = c.category || "vl";
+    if (selectedCategory === "lainnya") return cat === "downloadable";
+    if (selectedCategory === "vl") return cat === "vl" || cat === "wpb";
+    return cat === selectedCategory;
+  });
 
   const handleClaimCertificate = async () => {
     setIsLoading(true);
@@ -528,27 +548,21 @@ export default function StandaloneJourney() {
                   </p>
 
                   <div className="flex gap-2 justify-center mb-6 flex-wrap">
-                    <button 
-                      onClick={() => { setSelectedCategory("vl"); setSelectedTopic(null); setRedeemError(""); }}
-                      className={`btn ${selectedCategory === "vl" ? "btn-primary" : "btn-outline"}`}
-                      style={{ borderRadius: 50, padding: "8px 16px", fontSize: "0.875rem" }}
-                    >
-                      Video Learning
-                    </button>
-                    <button 
-                      onClick={() => { setSelectedCategory("wpb"); setSelectedTopic(null); setRedeemError(""); }}
-                      className={`btn ${selectedCategory === "wpb" ? "btn-primary" : "btn-outline"}`}
-                      style={{ borderRadius: 50, padding: "8px 16px", fontSize: "0.875rem" }}
-                    >
-                      WPB
-                    </button>
-                    <button 
-                      onClick={() => { setSelectedCategory("bootcamp"); setSelectedTopic(null); setRedeemError(""); }}
-                      className={`btn ${selectedCategory === "bootcamp" ? "btn-primary" : "btn-outline"}`}
-                      style={{ borderRadius: 50, padding: "8px 16px", fontSize: "0.875rem" }}
-                    >
-                      Bootcamp
-                    </button>
+                    {[
+                      { key: "workshop", label: "Workshop" },
+                      { key: "bootcamp", label: "Bootcamp" },
+                      { key: "vl", label: "Video Learning" },
+                      { key: "lainnya", label: "Bonus Lainnya" },
+                    ].map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => { setSelectedCategory(tab.key); setSelectedTopic(null); setRedeemError(""); }}
+                        className={`btn ${selectedCategory === tab.key ? "btn-primary" : "btn-outline"}`}
+                        style={{ borderRadius: 50, padding: "8px 16px", fontSize: "0.875rem" }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
 
                   {!showSuccessRedeem ? (
@@ -558,9 +572,9 @@ export default function StandaloneJourney() {
                           {redeemError}
                         </div>
                       )}
-                      {bonusCourses.filter(c => c.category === selectedCategory).length === 0 ? (
+                      {visibleCourses.length === 0 ? (
                         <div className="text-center p-6 bg-gray-50 rounded-lg">
-                          <p className="text-muted m-0 text-sm">Maaf, saat ini belum ada kelas di kategori ini.</p>
+                          <p className="text-muted m-0 text-sm">Maaf, saat ini belum ada benefit di kategori ini.</p>
                         </div>
                       ) : (
                         <div>
@@ -572,7 +586,7 @@ export default function StandaloneJourney() {
                             textAlign: "left",
                             marginBottom: "24px"
                           }}>
-                            {bonusCourses.filter(c => c.category === selectedCategory).map((course, idx) => {
+                            {visibleCourses.map((course, idx) => {
                               const isSelected = selectedTopic === course.id;
                               return (
                                 <div key={idx} 
@@ -641,8 +655,40 @@ export default function StandaloneJourney() {
                         </div>
                       )}
                     </>
+                  ) : redeemCategory === "workshop" ? (
+                    /* ── SUKSES WORKSHOP ── */
+                    <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "16px", padding: "32px", textAlign: "center", marginTop: "24px" }}>
+                      <div style={{ width: "64px", height: "64px", background: "#22C55E", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "white" }}>
+                        <CheckCircle2 size={32} />
+                      </div>
+                      <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#166534", marginBottom: "8px" }}>Pendaftaran Workshop Berhasil!</h2>
+                      <p style={{ color: "#15803D", marginBottom: "24px", lineHeight: "1.6" }}>
+                        Kamu terdaftar di <strong>{redeemTopicName}</strong>. Detail & link workshop sudah dikirim ke {userData?.alamat_email}.
+                      </p>
+                      {redeemGroupLink && (
+                        <a href={redeemGroupLink} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: "#25D366", color: "#fff", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          Gabung Grup WhatsApp ↗
+                        </a>
+                      )}
+                    </div>
+                  ) : redeemCategory === "downloadable" ? (
+                    /* ── SUKSES DOWNLOADABLE ── */
+                    <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "16px", padding: "32px", textAlign: "center", marginTop: "24px" }}>
+                      <div style={{ width: "64px", height: "64px", background: "#22C55E", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "white" }}>
+                        <CheckCircle2 size={32} />
+                      </div>
+                      <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#166534", marginBottom: "8px" }}>{redeemTopicName}</h2>
+                      <p style={{ color: "#15803D", marginBottom: "24px", lineHeight: "1.6" }}>Kontenmu siap diunduh.</p>
+                      {redeemDownloadUrl ? (
+                        <a href={redeemDownloadUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          Download ↓
+                        </a>
+                      ) : (
+                        <p style={{ color: "#B91C1C" }}>Link download belum tersedia. Hubungi admin.</p>
+                      )}
+                    </div>
                   ) : (
-                    /* ── SUKSES REDEEM ── */
+                    /* ── SUKSES REDEEM (vl/bootcamp) ── */
                     <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "16px", padding: "32px", textAlign: "center", marginTop: "24px" }}>
                       <div style={{ width: "64px", height: "64px", background: "#22C55E", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "white" }}>
                         <CheckCircle2 size={32} />

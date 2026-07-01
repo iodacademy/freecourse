@@ -19,12 +19,15 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
     if (body.name !== undefined)       update.name       = body.name;
     if (body.category !== undefined)   update.category   = body.category;
+    if (body.benefitType !== undefined) update.benefitType = body.benefitType;
     if (body.classCode !== undefined)  update.classCode  = String(body.classCode).toUpperCase();
     if (body.Kode_Basis !== undefined) update.Kode_Basis = String(body.Kode_Basis).toUpperCase();
     if (body.description !== undefined) update.description = body.description;
     if (body.groupLink !== undefined)  update.groupLink  = body.groupLink;
     if (body.lastSessionDate !== undefined) update.lastSessionDate = body.lastSessionDate;
     if (body.portalUrl !== undefined)  update.portalUrl  = body.portalUrl;
+    if (body.workshopData !== undefined) update.workshopData = body.workshopData;
+    if (body.downloadUrl !== undefined) update.downloadUrl = body.downloadUrl;
     if (body.status !== undefined)     update.status     = body.status;
 
     await ref.update(update);

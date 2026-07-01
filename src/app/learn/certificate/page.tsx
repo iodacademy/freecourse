@@ -501,23 +501,19 @@ export default function CertificatePage() {
                   📖 Review Materi
                 </button>
 
-                {/* Tombol Beasiswa/Kemitraan Bonus */}
-                {(enrollment?.channelSource === "beasiswa" || enrollment?.channelSource === "kemitraan") && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && !enrollment?.bonusCourseRedeemCode && (
+                {/* Tombol Pilih Benefit — untuk SEMUA jalur yang punya enrollment
+                    dan belum memilih benefit apa pun (redeem code / beasiswaType). */}
+                {!!enrollment?.channelSource && !enrollment?.beasiswaType && !enrollment?.bonusCourseRedeemCode && (
                   <button
                     className="btn btn-secondary w-full"
-                    onClick={() => {
-                      if (enrollment.channelSource === "kemitraan") {
-                        setCatModalOpen(true);
-                      } else {
-                        router.push("/learn/bonus");
-                      }
-                    }}
+                    onClick={() => setCatModalOpen(true)}
                   >
-                    🎁 Pilih Kursus Tambahan Gratis!
+                    🎁 Pilih Benefit Gratis!
                   </button>
                 )}
 
-                {(enrollment?.channelSource === "beasiswa" || enrollment?.channelSource === "kemitraan") && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && enrollment?.bonusCourseRedeemCode && (
+                {/* Sudah pilih benefit dengan redeem code (vl/bootcamp) */}
+                {!!enrollment?.channelSource && enrollment?.beasiswaType !== "wpb" && enrollment?.beasiswaType !== "bootcamp" && enrollment?.beasiswaType !== "workshop" && enrollment?.bonusCourseRedeemCode && (
                   <div style={{
                     background: "var(--color-bg-accent)", border: "1px solid rgba(204,0,0,0.15)",
                     borderRadius: 8, padding: "12px 16px", fontSize: 14, textAlign: "left",
@@ -529,7 +525,8 @@ export default function CertificatePage() {
                   </div>
                 )}
 
-                {(enrollment?.channelSource === "beasiswa" || enrollment?.channelSource === "kemitraan") && (enrollment?.beasiswaType === "wpb" || enrollment?.beasiswaType === "bootcamp") && enrollment?.bonusCourseRedeemCode && (
+                {/* WPB / Bootcamp — kode redeem + grup WA */}
+                {(enrollment?.beasiswaType === "wpb" || enrollment?.beasiswaType === "bootcamp") && enrollment?.bonusCourseRedeemCode && (
                   <div style={{
                     background: "#f0fdf4", border: "1px solid #16a34a",
                     borderRadius: 8, padding: "16px", fontSize: 14, textAlign: "left", display: "flex", flexDirection: "column", gap: 12
@@ -542,12 +539,44 @@ export default function CertificatePage() {
                       </code>
                     </div>
                     {enrollment.waGroupLink && (
-                      <a 
-                        href={enrollment.waGroupLink} 
-                        target="_blank" 
+                      <a
+                        href={enrollment.waGroupLink}
+                        target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                          display: "inline-block", background: "#25D366", color: "#fff", 
+                          display: "inline-block", background: "#25D366", color: "#fff",
+                          padding: "10px 16px", borderRadius: 8, fontWeight: 600, textAlign: "center", textDecoration: "none"
+                        }}
+                      >
+                        📱 Bergabung ke Grup WhatsApp
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Benefit lain (Workshop / Review CV / Downloadable) sudah dipilih */}
+                {(enrollment?.beasiswaType === "workshop" || enrollment?.beasiswaType === "review_cv" || enrollment?.beasiswaType === "downloadable") && (
+                  <div style={{
+                    background: "#f0fdf4", border: "1px solid #16a34a",
+                    borderRadius: 8, padding: "16px", fontSize: 14, textAlign: "left", display: "flex", flexDirection: "column", gap: 10
+                  }}>
+                    <h3 style={{ margin: 0, color: "#166534", fontSize: 16 }}>
+                      {enrollment.beasiswaType === "workshop" && "Kamu terdaftar di Workshop! 🎉"}
+                      {enrollment.beasiswaType === "review_cv" && "CV kamu sudah dikirim! ✅"}
+                      {enrollment.beasiswaType === "downloadable" && "Benefit kamu sudah aktif! 🎁"}
+                    </h3>
+                    <p style={{ margin: 0, color: "#166534" }}>
+                      {enrollment.beasiswaType === "workshop" && "Detail & link sudah dikirim ke email kamu."}
+                      {enrollment.beasiswaType === "review_cv" && "Tim kami akan mereview CV kamu. Pantau email untuk hasilnya."}
+                      {enrollment.beasiswaType === "downloadable" && "Buka /learn/bonus untuk mengunduh kembali."}
+                    </p>
+                    {enrollment.beasiswaType === "workshop" && enrollment.waGroupLink && (
+                      <a
+                        href={enrollment.waGroupLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-block", background: "#25D366", color: "#fff",
                           padding: "10px 16px", borderRadius: 8, fontWeight: 600, textAlign: "center", textDecoration: "none"
                         }}
                       >
@@ -661,53 +690,26 @@ export default function CertificatePage() {
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {/* Option 1: Video Learning */}
-              <button 
-                onClick={() => router.push("/learn/bonus?cat=vl")}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
-                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
-                }}
-                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--color-primary)"}
-                onMouseOut={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
-              >
-                <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>🎥 Video Learning</strong>
-                <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
-                  Akses Modul Video Rekaman yang bisa kamu pelajari kapan saja secara mandiri.
-                </span>
-              </button>
-
-              {/* Option 2: WPB */}
-              <button 
-                onClick={() => router.push("/learn/bonus?cat=wpb")}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
-                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
-                }}
-                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--color-primary)"}
-                onMouseOut={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
-              >
-                <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>💼 Workshop Praktikal Berproject (WPB)</strong>
-                <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
-                  Webinar gratis dengan mentor selama 1 atau 2 sesi. Dapatkan Sertifikat pelatihan Resmi dari ioda academy.
-                </span>
-              </button>
-
-              {/* Option 3: Bootcamp */}
-              <button 
-                onClick={() => router.push("/learn/bonus?cat=bootcamp")}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
-                  padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
-                }}
-                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--color-primary)"}
-                onMouseOut={(e) => e.currentTarget.style.borderColor = "#e5e7eb"}
-              >
-                <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>🚀 Specialized Bootcamp</strong>
-                <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
-                  Pelatihan intensif dengan mentor selama 4 sesi. Dapatkan sertifikat kompetensi resmi dari ioda academy.
-                </span>
-              </button>
+              {[
+                { cat: "workshop", emoji: "🎤", title: "Workshop", desc: "Ikuti workshop online bersama mentor. Detail & link dikirim ke email kamu." },
+                { cat: "bootcamp", emoji: "🚀", title: "Specialized Bootcamp", desc: "Pelatihan intensif dengan mentor. Dapatkan sertifikat kompetensi resmi dari ioda academy." },
+                { cat: "vl", emoji: "🎥", title: "Video Learning", desc: "Akses modul video rekaman yang bisa kamu pelajari kapan saja secara mandiri." },
+                { cat: "lainnya", emoji: "🎁", title: "Bonus Lainnya", desc: "Review CV, e-book, template, dan konten bermanfaat lainnya." },
+              ].map((opt) => (
+                <button
+                  key={opt.cat}
+                  onClick={() => router.push(`/learn/bonus?cat=${opt.cat}`)}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left",
+                    padding: 16, borderRadius: 12, border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", transition: "all 0.2s"
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.borderColor = "var(--color-primary)")}
+                  onMouseOut={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
+                >
+                  <strong style={{ fontSize: 16, color: "#111", marginBottom: 4 }}>{opt.emoji} {opt.title}</strong>
+                  <span style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>{opt.desc}</span>
+                </button>
+              ))}
             </div>
 
             <button

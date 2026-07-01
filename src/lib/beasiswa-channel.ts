@@ -11,6 +11,8 @@
  *    di-RANDOM dari ketiga pilihan agar distribusinya natural.
  */
 
+// Pool kategori untuk auto-complete acak (HANYA kategori "course" klasik).
+// review_cv & downloadable TIDAK ikut di-random.
 export const BEASISWA_CATEGORIES = ["vl", "wpb", "bootcamp"] as const;
 export type BeasiswaCategory = (typeof BEASISWA_CATEGORIES)[number];
 
@@ -19,11 +21,15 @@ export const DEFAULT_BEASISWA_CHANNEL =
 
 const CATEGORY_LABEL: Record<string, string> = {
   vl: "Video Learning",
-  wpb: "WPB",
+  wpb: "WPB",          // data lama — tetap ditangani agar tidak error
   bootcamp: "Bootcamp",
+  workshop: "Workshop",
+  review_cv: "Review CV",
+  downloadable: "Downloadable Konten",
 };
 
-/** Ubah kategori → label detailChannel. Kategori tak dikenal → default. */
+/** Ubah kategori → label detailChannel. Kategori tak dikenal → default.
+ *  Label SELALU prefix "Beasiswa ..." untuk semua channel (keputusan produk). */
 export function detailChannelFromCategory(category?: string | null): string {
   const key = String(category || "").toLowerCase();
   const label = CATEGORY_LABEL[key];

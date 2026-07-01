@@ -343,3 +343,63 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Category Picker (Step 1 wizard) ─── */
+.categoryPicker {
+  padding: 20px 24px 24px;
+}
+
+.categoryHint {
+  font-size: 14px;
+  color: var(--color-gray-600);
+  margin: 0 0 16px;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.categoryCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: 12px;
+  background: var(--color-white);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.05s;
+  color: var(--color-primary);
+}
+
+.categoryCard:hover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-accent, #fff5f5);
+}
+
+.categoryCard:active {
+  transform: scale(0.99);
+}
+
+.categoryCardLabel {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-gray-900);
+}
+
+.categoryCardDesc {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--color-gray-500);
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .categoryGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -152,7 +152,9 @@ export interface Enrollment {
   bonusCourseTopicId: string | null;
   bonusCourseRedeemCode: string | null;
   waGroupLink?: string;
-  beasiswaType?: "vl" | "wpb" | "bootcamp";
+  // "wpb" = data lama (dibiarkan). "workshop"/"review_cv"/"downloadable" = kategori benefit baru.
+  beasiswaType?: "vl" | "wpb" | "bootcamp" | "workshop" | "review_cv" | "downloadable";
+  detailChannel?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -232,13 +234,41 @@ export interface PartnerCode {
   createdAt: Date;
 }
 
-// Bonus Course Topic
+// Kategori Benefit (eks Bonus Course).
+// "wpb" = kategori lama, tetap ditangani agar data lama tidak error.
+export type BenefitCategory =
+  | "vl"
+  | "wpb"
+  | "bootcamp"
+  | "workshop"
+  | "review_cv"
+  | "downloadable";
+
+// Tipe benefit: "course" (vl/bootcamp/workshop = redeem/daftar), "review_cv", "downloadable"
+export type BenefitType = "course" | "review_cv" | "downloadable";
+
+export interface WorkshopBenefitData {
+  date?: string;        // ISO "2026-06-15"
+  time?: string;        // "09.00-12.00 WIB"
+  platform?: string;
+  meetingLink?: string;
+  waGroupLink?: string;
+}
+
+// Bonus Course Topic (Benefit)
 export interface BonusCourseTopic {
   id: string;
   name: string;
-  description: string;
-  classCode: string;
-  portalUrl: string;
+  description?: string;
+  category?: BenefitCategory;
+  benefitType?: BenefitType;
+  classCode?: string;         // opsional untuk workshop/review_cv/downloadable
+  Kode_Basis?: string;
+  groupLink?: string;
+  lastSessionDate?: string;
+  portalUrl?: string;
+  workshopData?: WorkshopBenefitData;
+  downloadUrl?: string;       // untuk benefitType "downloadable"
   status: "active" | "inactive";
   createdAt: Date;
 }

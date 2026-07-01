@@ -12,7 +12,7 @@ const menuItems = [
   { href: "/admin/events", label: "Event / Channel", icon: <Calendar size={18} /> },
   { href: "/admin/courses", label: "Modul Financial Literacy", icon: <BookOpen size={18} /> },
   { href: "/admin/certificates", label: "Sertifikat", icon: <GraduationCap size={18} /> },
-  { href: "/admin/bonus-courses", label: "Kursus Tambahan", icon: <Library size={18} /> },
+  { href: "/admin/bonus-courses", label: "Benefit", icon: <Library size={18} /> },
   { href: "/admin/students", label: "Siswa & Laporan", icon: <Users size={18} /> },
   { href: "/admin/partner-codes", label: "Tracking Mitra", icon: <Tag size={18} /> },
   { href: "/admin/settings", label: "Pengaturan", icon: <Settings size={18} /> },
@@ -73,7 +73,7 @@ export default function AdminSidebar() {
           .filter((item) => {
             const role = profile?.role?.toLowerCase() || "";
             if (role.includes("public")) {
-              const hiddenLabels = ["Modul Financial Literacy", "Kursus Tambahan", "Pengaturan"];
+              const hiddenLabels = ["Modul Financial Literacy", "Benefit", "Pengaturan"];
               if (hiddenLabels.includes(item.label)) return false;
             }
             return true;

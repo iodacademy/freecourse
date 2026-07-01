@@ -11,6 +11,7 @@ import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendEmailViaGAS } from "@/lib/gas-email";
 import { bonusRedeemEmail } from "@/lib/email-templates/bonus-redeem-email";
+import { workshopConfirmationEmail } from "@/lib/email-templates/workshop-emails";
 import { detailChannelFromCategory } from "@/lib/beasiswa-channel";
 
 export async function POST(req: NextRequest) {
@@ -42,14 +43,83 @@ export async function POST(req: NextRequest) {
     const enrollData = enrollDoc.data()!;
     if (enrollData.userId !== decoded.uid) return json({ error: "Forbidden" }, 403);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
-    if (enrollData.bonusCourseRedeemCode) return json({ error: "Kode redeem sudah diklaim" }, 400);
+    if (enrollData.bonusCourseRedeemCode || enrollData.beasiswaType) {
+      return json({ error: "Kamu sudah memilih benefit sebelumnya" }, 400);
+    }
 
     // Ambil data user
     const userDoc = await db.collection("users").doc(decoded.uid).get();
     const userData = userDoc.data() || {};
     const emailUsername = (userData.emailUsername as string) || "user";
-    const namaLengkap = (userData.nama_lengkap as string) || (userData.displayName as string) || decoded.name || "Peserta";
+    const namaLengkap =
+      (userData.profileData?.namaLengkap as string) ||
+      (userData.nama_lengkap as string) ||
+      (userData.displayName as string) ||
+      decoded.name ||
+      "Peserta";
     const displayName = (userData.displayName as string) || namaLengkap;
+
+    const category = topicData.category || "vl";
+
+    // ── WORKSHOP: tidak generate redeem code portal. Kirim email konfirmasi
+    //    workshop + tampilkan link grup WA. Sama seperti pendaftaran workshop event. ──
+    if (category === "workshop") {
+      const wd = topicData.workshopData || {};
+      const waGroupLink = wd.waGroupLink || topicData.groupLink || "";
+      const detailChannel = detailChannelFromCategory("workshop");
+      await enrollRef.update({
+        bonusCourseTopicId: topicId,
+        beasiswaType: "workshop",
+        waGroupLink,
+        detailChannel,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      await db.collection("users").doc(decoded.uid).set(
+        { detailChannel, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      try {
+        const { subject, htmlBody } = workshopConfirmationEmail({
+          recipientName: displayName,
+          workshopTitle: namaKelas,
+          date: wd.date || "",
+          time: wd.time || "",
+          platform: wd.platform || "",
+          meetingLink: wd.meetingLink || "",
+          waGroupLink,
+          speakerName: "",
+          speakerTitle: "",
+        });
+        sendEmailViaGAS({ to: decoded.email!, subject, htmlBody }).catch((err) =>
+          console.error("[redeem] Gagal kirim email workshop:", err)
+        );
+      } catch (emailErr) {
+        console.error("[redeem] Error email workshop:", emailErr);
+      }
+      return json({ success: true, category: "workshop", groupLink: waGroupLink });
+    }
+
+    // ── DOWNLOADABLE: tandai pilihan, tampilkan tombol download di UI. ──
+    if (category === "downloadable") {
+      const detailChannel = detailChannelFromCategory("downloadable");
+      await enrollRef.update({
+        bonusCourseTopicId: topicId,
+        beasiswaType: "downloadable",
+        detailChannel,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      await db.collection("users").doc(decoded.uid).set(
+        { detailChannel, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      return json({
+        success: true,
+        category: "downloadable",
+        downloadUrl: topicData.downloadUrl || "",
+        topicName: namaKelas,
+      });
+    }
+    // review_cv ditangani oleh /api/enrollments/review-cv (butuh upload file).
 
     // Generate Kode: emailUsername (lowercase) + ClassCode
     const emailUsernameClean = emailUsername.toLowerCase().replace(/[^a-z0-9.]/g, "");
@@ -58,27 +128,24 @@ export async function POST(req: NextRequest) {
     const redeemCodeUpper = redeemCode.toUpperCase();
     const now = new Date().toISOString();
 
-    const category = topicData.category || "vl";
     const waGroupLink = topicData.groupLink || "";
 
-    // detailChannel mengikuti kategori yang dipilih — HANYA untuk peserta dari
-    // jalur beasiswa (Facebook Instant Form). Peserta kemitraan tidak diubah.
+    // detailChannel mengikuti kategori yang dipilih — untuk SEMUA channel,
+    // label selalu prefix "Beasiswa ..." (keputusan produk).
+    const detailChannel = detailChannelFromCategory(category);
     const enrollUpdate: Record<string, unknown> = {
       bonusCourseTopicId: topicId,
       bonusCourseRedeemCode: redeemCode,
       beasiswaType: category,
       waGroupLink: waGroupLink,
+      detailChannel,
       updatedAt: FieldValue.serverTimestamp(),
     };
-    if (enrollData.channelSource === "beasiswa") {
-      const detailChannel = detailChannelFromCategory(category);
-      enrollUpdate.detailChannel = detailChannel;
-      // Samakan juga di dokumen users agar konsisten di dashboard.
-      await db.collection("users").doc(decoded.uid).set(
-        { detailChannel, updatedAt: FieldValue.serverTimestamp() },
-        { merge: true }
-      );
-    }
+    // Samakan juga di dokumen users agar konsisten di dashboard.
+    await db.collection("users").doc(decoded.uid).set(
+      { detailChannel, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
 
     // Simpan ke enrollment
     await enrollRef.update(enrollUpdate);

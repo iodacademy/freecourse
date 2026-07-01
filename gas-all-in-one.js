@@ -27,6 +27,13 @@ var CERT_FOLDER_ID         = "11CGGPpHDYBrC2Vfm14BRICnBhOF1O5pB";
 var MAIN_TEMPLATE_ID       = "1E7qirTYtP79RcmM7uwdH9gevaNtutCETZfAsLhx6hfc";
 var WORKSHOP_TEMPLATE_ID   = "1DAMmG7d9c4XXHdAP9EJhD8pVl1mXkW1ADj3mDS-scNk";
 
+// === KONFIGURASI REVIEW CV (Benefit "Review CV") ===
+// Folder Drive tujuan simpan CV & Google Sheet tempat mencatat data submit.
+var CV_FOLDER_ID           = "1SlYAO_dC_r9wx773-nzBvkK_bB6taZdH";
+var CV_SHEET_ID            = "1KuNb0fzM_SEFc-O8cHaaIXI9j_prTuiW1c3HkCkjKU0";
+var CV_SHEET_NAME          = "Review CV";
+var CV_SHEET_HEADERS       = ["Timestamp", "Nama Lengkap", "Email", "Link CV", "Sudah Direview", "Status Email"];
+
 var NEXT_API_URL = "https://freecourse.iodacademy.id/api/cron/workshop-reminder";
 var ADMIN_KEY    = "ADMINFL26";
 
@@ -102,6 +109,19 @@ function doPost(e) {
         result = sendEmail(data);
         break;
 
+      case "upload_cv":
+        result = uploadCv(data);
+        break;
+
+      case "append_cv_row":
+        result = appendCvRow(data);
+        break;
+
+      case "submit_cv":
+        // Gabungan: upload file + tulis baris sheet dalam satu panggilan.
+        result = submitCv(data);
+        break;
+
       default:
         // Backward compat: jika ada field to/subject/htmlBody tanpa action → kirim email
         if (data.to && data.subject && data.htmlBody) {
@@ -139,6 +159,123 @@ function sendEmail(data) {
 
   GmailApp.sendEmail(to, subject, "", { htmlBody: htmlBody });
   return { success: true, to: to };
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// 1b. REVIEW CV — Upload ke Drive & catat ke Google Sheet
+// ═══════════════════════════════════════════════════════════════
+
+// Bersihkan string agar aman untuk nama file
+function sanitizeFileName_(s) {
+  return String(s || "").replace(/[\\/:*?"<>|]/g, "-").trim();
+}
+
+// Upload file CV (base64) ke folder Drive. Return { success, fileUrl, fileId }.
+function uploadCv(data) {
+  var base64    = data.fileBase64 || data.base64 || "";
+  var mimeType  = data.mimeType || "application/pdf";
+  var namaLengkap = data.namaLengkap || data.name || "Peserta";
+  var email     = data.email || "";
+  var ext       = data.ext || "pdf";
+
+  if (!base64) return { success: false, error: "fileBase64 kosong" };
+
+  var bytes = Utilities.base64Decode(base64);
+  var baseName = sanitizeFileName_(namaLengkap) + (email ? " - " + sanitizeFileName_(email) : "");
+  var fileName = "CV - " + baseName + "." + ext;
+
+  var blob = Utilities.newBlob(bytes, mimeType, fileName);
+  var folder = DriveApp.getFolderById(CV_FOLDER_ID);
+  var file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  var fileUrl = "https://drive.google.com/file/d/" + file.getId() + "/view";
+  Logger.log("CV uploaded: " + fileName + " → " + fileUrl);
+  return { success: true, fileUrl: fileUrl, fileId: file.getId() };
+}
+
+// Ambil / buat sheet Review CV, pastikan header ada di baris pertama.
+function getCvSheet_() {
+  var ss = SpreadsheetApp.openById(CV_SHEET_ID);
+  var sheet = ss.getSheetByName(CV_SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(CV_SHEET_NAME);
+
+  // Tulis header otomatis bila sheet kosong / baris 1 kosong.
+  var needHeader = sheet.getLastRow() === 0;
+  if (!needHeader) {
+    var firstCell = sheet.getRange(1, 1).getValue();
+    if (!firstCell) needHeader = true;
+  }
+  if (needHeader) {
+    sheet.getRange(1, 1, 1, CV_SHEET_HEADERS.length).setValues([CV_SHEET_HEADERS]);
+    sheet.getRange(1, 1, 1, CV_SHEET_HEADERS.length).setFontWeight("bold").setBackground("#FFE5E5");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// Tambah 1 baris data CV ke sheet. Kolom penanda default: Belum / Belum Dikirim.
+function appendCvRow(data) {
+  var namaLengkap = data.namaLengkap || data.name || "";
+  var email     = data.email || "";
+  var fileUrl   = data.fileUrl || "";
+  var timestamp = data.timestamp || (new Date()).toISOString();
+
+  var sheet = getCvSheet_();
+  sheet.appendRow([
+    timestamp,
+    namaLengkap,
+    email,
+    fileUrl,
+    "Belum",         // Sudah Direview
+    "Belum Dikirim", // Status Email
+  ]);
+  Logger.log("CV row appended: " + email);
+  return { success: true };
+}
+
+// Gabungan upload + append dalam satu request (dipakai app).
+function submitCv(data) {
+  var up = uploadCv(data);
+  if (!up.success) return up;
+  var appendRes = appendCvRow({
+    namaLengkap: data.namaLengkap || data.name,
+    email: data.email,
+    fileUrl: up.fileUrl,
+    timestamp: data.timestamp,
+  });
+  return { success: true, fileUrl: up.fileUrl, fileId: up.fileId, appended: appendRes.success };
+}
+
+// ── TEST akses: klik Run fungsi ini di editor GAS untuk memastikan akun GAS
+//    punya akses ke folder Drive & Sheet CV. Tidak butuh argumen.
+//    Sukses → ada file "CV - Test Akses ....pdf" di folder Drive + 1 baris baru
+//    di tab "Review CV". Gagal permission → error jelas di Logger. ──
+function testSubmitCv() {
+  // File PDF minimal valid (base64) — cukup untuk cek izin tulis ke Drive.
+  var dummyPdfBase64 =
+    "JVBERi0xLjEKJcOkw7zDtsOfCjEgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDIgMCBSPj4KZW5kb2JqCjIgMCBvYmoKPDwvVHlwZS9QYWdlcy9LaWRzWzMgMCBSXS9Db3VudCAxPj4KZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMTAwIDEwMF0+PgplbmRvYmoKdHJhaWxlcgo8PC9Sb290IDEgMCBSPj4KJSVFT0Y=";
+
+  var res = submitCv({
+    fileBase64: dummyPdfBase64,
+    mimeType: "application/pdf",
+    ext: "pdf",
+    namaLengkap: "Test Akses",
+    email: "test-akses@example.com",
+    timestamp: new Date().toISOString(),
+  });
+
+  Logger.log(JSON.stringify(res));
+
+  if (res && res.success) {
+    Logger.log("[OK] Akses Drive & Sheet BERHASIL. Cek file di folder Drive & baris baru di tab '" + CV_SHEET_NAME + "'.");
+    Logger.log("[OK] File uji: " + res.fileUrl);
+    Logger.log("CATATAN: hapus file & baris uji ini secara manual bila tidak diperlukan.");
+  } else {
+    Logger.log("[GAGAL] Cek pesan error di atas. Biasanya karena akun GAS belum di-share sebagai Editor ke folder/sheet CV.");
+  }
+  return res;
 }
 
 

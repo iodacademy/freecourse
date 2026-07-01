@@ -11,6 +11,31 @@ export interface EmailPayload {
   htmlBody: string;
 }
 
+/**
+ * Panggil GAS Web App dengan action generik (mis. "submit_cv", "upload_cv").
+ * GAS endpoint sama dengan email (GAS_EMAIL_WEBHOOK_URL). Mengembalikan JSON hasil.
+ */
+export async function callGAS<T = unknown>(payload: Record<string, unknown>): Promise<T> {
+  if (!GAS_URL) {
+    throw new Error("GAS_EMAIL_WEBHOOK_URL belum diset");
+  }
+  const res = await fetch(GAS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    // GAS balas via redirect ke script.googleusercontent.com — fetch ikut redirect otomatis.
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`GAS error ${res.status}: ${text.slice(0, 300)}`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`GAS response bukan JSON: ${text.slice(0, 300)}`);
+  }
+}
+
 export async function sendEmailViaGAS(payload: EmailPayload): Promise<void> {
   if (!GAS_URL) {
     console.warn("[email] GAS_EMAIL_WEBHOOK_URL belum diset — email tidak dikirim");
