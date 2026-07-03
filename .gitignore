@@ -49,3 +49,7 @@ next-env.d.ts
 
 # google apps script (dikelola terpisah, tidak di-track)
 gas-leads-sync.js
+
+# Log audit pemulihan (data pribadi, jangan commit)
+_recover_*.tsv
+_recover_*.mjs

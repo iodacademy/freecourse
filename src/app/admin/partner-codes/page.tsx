@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
-import { AlertTriangle, Copy, Check, ChevronRight } from "lucide-react";
+import { AlertTriangle, Copy, Check, ChevronRight, LayoutDashboard } from "lucide-react";
 
 interface PartnerCodeStat {
   id: string;
@@ -16,6 +16,7 @@ interface PartnerCodeStat {
   status: "active" | "disabled" | "closed" | "draft";
   quota: number;
   createdAt: any;
+  dashboardToken?: string;
   stats: {
     registered: number;
     inProgress: number;
@@ -66,6 +67,14 @@ export default function AdminPartnerCodesPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const copyDashboard = (pc: PartnerCodeStat) => {
+    if (!pc.dashboardToken) return;
+    const link = `${window.location.origin}/mitra/${pc.dashboardToken}`;
+    navigator.clipboard.writeText(link);
+    setCopied(`dash-${pc.id}`);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
   return (
     <ProtectedRoute requireAdmin>
       <div className={styles.page}>
@@ -101,6 +110,7 @@ export default function AdminPartnerCodesPage() {
                   <th>Event / Mitra</th>
                   <th>Kode Mitra</th>
                   <th>Link Pendaftaran</th>
+                  <th>Dashboard Mitra</th>
                   <th style={{ textAlign: "center" }}>Total Daftar</th>
                   <th style={{ textAlign: "center" }}>Dalam Proses</th>
                   <th style={{ textAlign: "center" }}>Selesai</th>
@@ -130,6 +140,32 @@ export default function AdminPartnerCodesPage() {
                             {copied === pc.code ? <><Check size={11} /> Tersalin</> : <><Copy size={11} /> Salin</>}
                           </button>
                         </div>
+                      </td>
+                      <td>
+                        {pc.dashboardToken ? (
+                          <div className={styles.linkCell}>
+                            <a
+                              className={styles.linkText}
+                              href={`/mitra/${pc.dashboardToken}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Buka dashboard mitra"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                            >
+                              <LayoutDashboard size={12} /> Buka
+                            </a>
+                            <button
+                              className={`${styles.copyBtn} ${copied === `dash-${pc.id}` ? styles.copyBtnDone : ""}`}
+                              onClick={(e) => { e.stopPropagation(); copyDashboard(pc); }}
+                              title="Salin link dashboard mitra"
+                            >
+                              {copied === `dash-${pc.id}` ? <><Check size={11} /> Tersalin</> : <><Copy size={11} /> Salin</>}
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
+                        )}
                       </td>
                       <td style={{ textAlign: "center" }}><strong>{pc.stats.registered}</strong></td>
                       <td style={{ textAlign: "center" }}><strong>{pc.stats.inProgress}</strong></td>

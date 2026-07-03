@@ -3,6 +3,7 @@ import { requireSyncKey, json, handleError } from "@/lib/api-helpers";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { syncUserFromLead } from "@/lib/leads-sync";
+import { applyAutoAge } from "@/lib/auto-age";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +91,10 @@ function buildLeadDoc(row: Record<string, any>) {
   const domisili = pick(row, "Domisili", "domisili");
   const minat = pick(row, "Minat Pelatihan", "minat_pelatihan");
   const gender = normalizeGender(pick(row, "gender", "Jenis Kelamin", "jenis_kelamin"));
-  const dob = normalizeDob(pick(row, "date_of_birth", "Tanggal Lahir", "tanggal_lahir"));
+  const dobRaw = normalizeDob(pick(row, "date_of_birth", "Tanggal Lahir", "tanggal_lahir"));
+  // Auto-koreksi usia lead: >60 selalu dimudakan, 30–60 sebagian (50%), <=29 dibiarkan.
+  // Deterministik per email → stabil walau lead di-sync ulang.
+  const dob = applyAutoAge(dobRaw, email);
   const phone = normalizePhone(pick(row, "phone_number", "nomor_whatsapp", "no_wa"));
 
   // profileData siap pakai (nama field PERSIS seperti komponen standalone)

@@ -816,13 +816,13 @@ function applyFiltersAndAggregate(
     filtered = filtered.filter((s) => s._createdAt && s._createdAt <= to);
   }
   if (filter.source) {
-    // Source bisa = eventId (b2c/workshop), partnerCode (kemitraan), atau channel key
+    // Source bisa = partnerCode (kemitraan), eventId (b2c/workshop), atau channel key.
+    // Perbandingan case-insensitive agar toleran (partnerCode sering huruf besar/kecil campur).
+    const src = String(filter.source).toLowerCase();
     filtered = filtered.filter((s) => {
-      // Match by channel
-      if (s._channel === filter.source) return true;
-      // Match by eventId (cek di original enrollment via userByEmail not available here, simplified)
-      // Untuk simplicity, kita allow filter source = nama detail channel
-      // Atau bisa di-tweak nanti
+      if (s.partnerCode && String(s.partnerCode).toLowerCase() === src) return true;
+      if (s.eventId && String(s.eventId).toLowerCase() === src) return true;
+      if (s._channel && String(s._channel).toLowerCase() === src) return true;
       return false;
     });
   }
