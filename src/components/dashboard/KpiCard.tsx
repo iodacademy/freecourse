@@ -15,11 +15,14 @@ interface Props {
   active?: boolean;
   onClick?: () => void;
   subLabel?: string;
+  // Sembunyikan target, persentase, & progress bar (mis. dashboard mitra).
+  hideTarget?: boolean;
 }
 
 export default function KpiCard({
   label, value, completed, target, icon, variant = "red",
-  clickable = false, active = false, onClick, subLabel = "Total Pendaftar"
+  clickable = false, active = false, onClick, subLabel = "Total Pendaftar",
+  hideTarget = false,
 }: Props) {
   const pct = pctOf(value, target);
   const showPct = target > 0;
@@ -46,16 +49,20 @@ export default function KpiCard({
           {subLabel}: <strong>{fmtIntID(completed)}</strong>
         </p>
       )}
-      <p className={styles.kpiTargetText}>
-        Target <strong>{target > 0 ? fmtIntID(target) : "—"}</strong>
-      </p>
-      <div className={styles.kpiBottom}>
-        <span className={styles.kpiPct}>{showPct ? `${pct}%` : "—"}</span>
-        <span>dari target</span>
-      </div>
-      <div className={styles.progressTrack}>
-        <div className={styles.progressFill} style={{ width: `${showPct ? Math.min(100, pct) : 0}%` }} />
-      </div>
+      {!hideTarget && (
+        <>
+          <p className={styles.kpiTargetText}>
+            Target <strong>{target > 0 ? fmtIntID(target) : "—"}</strong>
+          </p>
+          <div className={styles.kpiBottom}>
+            <span className={styles.kpiPct}>{showPct ? `${pct}%` : "—"}</span>
+            <span>dari target</span>
+          </div>
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} style={{ width: `${showPct ? Math.min(100, pct) : 0}%` }} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

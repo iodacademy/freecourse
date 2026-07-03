@@ -60,11 +60,13 @@ interface Props {
   filters: DashboardFilterState;
   onFilterChange: (next: DashboardFilterState) => void;
   rightActions?: React.ReactNode; // untuk Export Excel & Salin Link Publik (admin only)
+  // Sembunyikan target & persentase completion di KPI (dipakai dashboard mitra).
+  hideTargets?: boolean;
 }
 
 const RANK_RAMP = ["#CC0000", "#EC5563", "#F18A93", "#F6B5BB", "#FAD9DC"];
 
-export default function DashboardView({ data, mode, filters, onFilterChange, rightActions }: Props) {
+export default function DashboardView({ data, mode, filters, onFilterChange, rightActions, hideTargets = false }: Props) {
   const { stats } = data;
 
   // Active filter chips
@@ -119,6 +121,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
           value={stats.total}
           completed={mode === "admin" ? stats.totalCompleted : undefined}
           target={stats.totalTarget}
+          hideTarget={hideTargets}
           icon={<Users size={26} strokeWidth={1.75} />}
           variant="ink"
         />
@@ -127,6 +130,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
           value={stats.perempuan}
           completed={mode === "admin" ? stats.perempuanCompleted : undefined}
           target={stats.perempuanTarget}
+          hideTarget={hideTargets}
           icon={<Heart size={26} strokeWidth={1.75} />}
           variant="red"
           clickable
@@ -138,6 +142,7 @@ export default function DashboardView({ data, mode, filters, onFilterChange, rig
           value={stats.disabilitas}
           completed={mode === "admin" ? stats.disabilitasCompleted : undefined}
           target={stats.disabilitasTarget}
+          hideTarget={hideTargets}
           icon={<Accessibility size={26} strokeWidth={1.75} />}
           variant="red"
           clickable
