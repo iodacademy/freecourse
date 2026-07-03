@@ -12,6 +12,7 @@ const PUBLIC_API_ROUTES = [
   '/api/verify',                  // Verifikasi sertifikat — publik
   '/api/cron',                    // Cron jobs (workshop reminder) — auth via query key
   '/api/public/dashboard',        // Dashboard public view — auth via URL token
+  '/api/public/mitra',            // Dashboard per-mitra — auth via URL token (dashboardToken)
   '/api/sync/sheet-data',         // GAS cron sync — auth via X-Sync-Key header
   '/api/public/standalone',       // Standalone freecourse submit
   '/api/public/leads',            // Ingest leads Meta Instant Form (GAS) — auth via X-Sync-Key header
