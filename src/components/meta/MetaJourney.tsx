@@ -312,13 +312,33 @@ export default function MetaJourney() {
 
   const showSuccessRedeem = !!redeemCode || redeemDone;
 
-  // Filter benefit per tab. "lainnya" = downloadable saja (review_cv login-only).
-  const visibleCourses = bonusCourses.filter((c) => {
-    const cat = c.category || "vl";
-    if (selectedCategory === "lainnya") return cat === "downloadable";
-    if (selectedCategory === "vl") return cat === "vl" || cat === "wpb";
-    return cat === selectedCategory;
-  });
+  // Cocokkan benefit ke tab kategori. "lainnya" = downloadable saja
+  // (review_cv login-only). "vl" mencakup data lama "wpb".
+  const matchesTab = (course: any, tab: string) => {
+    const cat = course.category || "vl";
+    if (tab === "lainnya") return cat === "downloadable";
+    if (tab === "vl") return cat === "vl" || cat === "wpb";
+    return cat === tab;
+  };
+
+  const ALL_TABS = [
+    { key: "workshop", label: "Workshop" },
+    { key: "bootcamp", label: "Bootcamp" },
+    { key: "vl", label: "Video Learning" },
+    { key: "lainnya", label: "Bonus Lainnya" },
+  ];
+  // Hanya tampilkan tab yang punya minimal 1 benefit.
+  const availableTabs = ALL_TABS.filter((t) => bonusCourses.some((c) => matchesTab(c, t.key)));
+
+  const visibleCourses = bonusCourses.filter((c) => matchesTab(c, selectedCategory));
+
+  // Pastikan kategori terpilih selalu tab yang ada isinya (mis. default "vl" kosong).
+  useEffect(() => {
+    if (availableTabs.length === 0) return;
+    if (!availableTabs.some((t) => t.key === selectedCategory)) {
+      setSelectedCategory(availableTabs[0].key);
+    }
+  }, [availableTabs, selectedCategory]);
 
   // Buka popup konfirmasi nama (isi awal dari nama yang ada).
   const openNameModal = () => {
@@ -626,12 +646,7 @@ export default function MetaJourney() {
                   </p>
 
                   <div className="flex gap-2 justify-center mb-6 flex-wrap">
-                    {[
-                      { key: "workshop", label: "Workshop" },
-                      { key: "bootcamp", label: "Bootcamp" },
-                      { key: "vl", label: "Video Learning" },
-                      { key: "lainnya", label: "Bonus Lainnya" },
-                    ].map((tab) => (
+                    {availableTabs.map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => { setSelectedCategory(tab.key); setSelectedTopic(null); setRedeemError(""); }}
