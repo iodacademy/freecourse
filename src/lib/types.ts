@@ -316,6 +316,10 @@ export interface DynamicFormField {
   regionSource?: "auto" | "manual";
   customRegions?: { province: string; cities: string[] }[];
   allowOther?: boolean; // aktifkan opsi "Lainnya" untuk radio & checkbox
+  // Batasi opsi "Lainnya" hanya untuk mitra (partner code) tertentu.
+  // Kosong/undefined = tampil untuk semua (perilaku default). Diisi = hanya
+  // tampil bila peserta daftar via kode mitra yang tercantum.
+  otherForPartners?: string[];
   // Aktifkan pembobotan poin per-opsi (untuk radio/select).
   usePoints?: boolean;
   // Map poin per-opsi: teks opsi -> poin. Hanya dipakai jika usePoints=true.

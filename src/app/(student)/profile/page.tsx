@@ -506,11 +506,22 @@ function ProfileContent() {
     return Math.round(((currentPageIdx + 1) / pages.length) * 100);
   };
 
+  // ─── Opsi "Lainnya" aktif untuk peserta ini? ───
+  // Jika field.otherForPartners diisi, "Lainnya" hanya tampil bila kode mitra
+  // peserta saat ini termasuk di dalamnya. Kosong = tampil untuk semua.
+  const otherEnabledFor = (field: DynamicFormField): boolean => {
+    if (!field.allowOther) return false;
+    const restrict = field.otherForPartners || [];
+    if (restrict.length === 0) return true;
+    const pc = (partnerCode || profile?.partnerCode || "").toUpperCase();
+    return !!pc && restrict.map((c) => String(c).toUpperCase()).includes(pc);
+  };
+
   // ─── Determine if a radio field should be segmented (2 options = segmented) ───
   const isSegmentedField = (field: DynamicFormField) => {
     if (field.type !== 'radio') return false;
     const opts = field.options || [];
-    return opts.length === 2 && !field.allowOther;
+    return opts.length === 2 && !otherEnabledFor(field);
   };
 
   // ─── Determine if a radio/checkbox field should be pill chips ───
@@ -629,7 +640,7 @@ function ProfileContent() {
                 {opt}
               </button>
             ))}
-            {field.allowOther && (
+            {otherEnabledFor(field) && (
               <button
                 type="button"
                 className={`pf-pill ${val === '__other__' ? 'pf-pill--active' : ''}`}
@@ -687,7 +698,7 @@ function ProfileContent() {
                 {opt}
               </button>
             ))}
-            {field.allowOther && (
+            {otherEnabledFor(field) && (
               <button
                 type="button"
                 className={`pf-pill ${selected.includes('__other__') ? 'pf-pill--active' : ''}`}

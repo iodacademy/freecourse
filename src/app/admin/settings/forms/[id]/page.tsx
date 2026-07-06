@@ -85,6 +85,9 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Daftar kode mitra B2B (untuk fitur "Lainnya khusus mitra tertentu").
+  const [partnerCodes, setPartnerCodes] = useState<{ code: string; partnerName: string }[]>([]);
+
   const [alertMsg, setAlertMsg] = useState("");
   const [confirmDeleteSecId, setConfirmDeleteSecId] = useState<string | null>(null);
 
@@ -153,7 +156,23 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     if (!user) return;
     fetchForm();
+    fetchPartnerCodes();
   }, [user]);
+
+  async function fetchPartnerCodes() {
+    try {
+      const idToken = await user?.getIdToken();
+      const res = await fetch("/api/partner-codes", { headers: { Authorization: `Bearer ${idToken}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = (Array.isArray(data) ? data : [])
+        .filter((p: any) => p.code && p.code !== "-")
+        .map((p: any) => ({ code: p.code as string, partnerName: p.partnerName as string }));
+      setPartnerCodes(list);
+    } catch (e) {
+      console.error("[form-builder] gagal ambil partner codes", e);
+    }
+  }
 
   async function fetchForm() {
     try {
@@ -711,6 +730,53 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
                                 </div>
                                 <span className={styles.otherPreviewText}>Lainnya...</span>
                                 <span className={styles.otherPreviewInput}>[ input teks ]</span>
+                              </div>
+                            )}
+
+                            {/* ── Batasi "Lainnya" ke mitra tertentu ── */}
+                            {field.allowOther && (
+                              <div style={{ marginTop: 10, paddingLeft: 4 }}>
+                                <div style={{ fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 6 }}>
+                                  Tampilkan &ldquo;Lainnya&rdquo; hanya untuk mitra tertentu?
+                                  <span style={{ fontWeight: 400, color: "#9ca3af" }}> (kosongkan = tampil untuk semua)</span>
+                                </div>
+                                {partnerCodes.length === 0 ? (
+                                  <div style={{ fontSize: 11.5, color: "#9ca3af" }}>Belum ada kode mitra B2B.</div>
+                                ) : (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                    {partnerCodes.map((pc) => {
+                                      const sel = field.otherForPartners || [];
+                                      const checked = sel.includes(pc.code);
+                                      return (
+                                        <label
+                                          key={pc.code}
+                                          style={{
+                                            display: "inline-flex", alignItems: "center", gap: 6,
+                                            fontSize: 12, padding: "4px 10px", borderRadius: 20,
+                                            border: `1.5px solid ${checked ? "#CC0000" : "#e5e7eb"}`,
+                                            background: checked ? "#fff5f5" : "#fff",
+                                            color: checked ? "#CC0000" : "#374151",
+                                            cursor: "pointer", fontWeight: checked ? 600 : 400,
+                                          }}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                              const next = new Set(field.otherForPartners || []);
+                                              if (e.target.checked) next.add(pc.code); else next.delete(pc.code);
+                                              const arr = Array.from(next);
+                                              updateField(section.id, field.id, { otherForPartners: arr.length ? arr : undefined });
+                                            }}
+                                            style={{ margin: 0 }}
+                                          />
+                                          {pc.code}
+                                          <span style={{ color: "#9ca3af", fontWeight: 400 }}>· {pc.partnerName}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
