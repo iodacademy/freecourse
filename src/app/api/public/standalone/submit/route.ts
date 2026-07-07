@@ -43,6 +43,9 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
     const userId = email.toLowerCase(); // Use email as the document ID for simplicity and uniqueness
     const enrollmentId = userId;
+    const cleanPayloadObject = (value: any) => (
+      value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+    );
     
     // Get settings for dynamic step IDs
     const settingsDoc = await db.collection("settings").doc("app").get();
@@ -76,9 +79,11 @@ export async function POST(request: NextRequest) {
           userId: userId,
           email: email,
           displayName: payload.nama_lengkap || '',
-          courseId: 'course-main',
+          courseId: payload.courseId || 'course-main',
           channelSource: payload.channelSource || 'beasiswa',
           detailChannel: payload.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+          beasiswaType: payload.beasiswaType || 'bootcamp',
+          bulkEnrolled: true,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
           currentStep: 1, // Step 1 is material
@@ -174,11 +179,60 @@ export async function POST(request: NextRequest) {
       return json(request, { success: true, message: 'Survey updated' });
     }
 
+    if (action === 'sync_enrollment') {
+      // Sinkronisasi dari Student Center untuk peserta yang sudah certified
+      // sebelum enrollment berhasil dibuat di database Financial Literacy.
+      const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      const enrollmentDoc = await enrollmentRef.get();
+      const profileData = cleanPayloadObject(payload.profileData || userDoc.data()?.profileData);
+      const displayName = payload.displayName || payload.confirmedName || profileData.nama_lengkap || userDoc.data()?.displayName || '';
+      const stepProgress = cleanPayloadObject(payload.stepProgress);
+
+      await enrollmentRef.set({
+        ...(!enrollmentDoc.exists ? {
+          id: enrollmentId,
+          userId: userId,
+          email: email,
+          createdAt: FieldValue.serverTimestamp(),
+          stepProgress: {},
+        } : {}),
+        displayName,
+        courseId: payload.courseId || 'course-main',
+        channelSource: payload.channelSource || userDoc.data()?.channelSource || 'beasiswa',
+        detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || 'bootcamp',
+        bulkEnrolled: true,
+        currentStep: 3,
+        updatedAt: FieldValue.serverTimestamp(),
+        status: 'certified',
+        certificateClaimed: true,
+        certificateClaimedAt: FieldValue.serverTimestamp(),
+        certificateCourseName: payload.certificateCourseName || 'Financial Literacy',
+        certificateIssuer: payload.certificateIssuer || 'IODA Academy',
+        certificateId: payload.certificateId || '',
+        certificateName: payload.confirmedName || displayName,
+        certificateDriveUrl: payload.certificateDriveUrl || payload.driveUrl || '',
+        certificateDriveFileId: payload.certificateDriveFileId || '',
+        ...(Object.keys(stepProgress).length ? { stepProgress } : {}),
+        ...(payload.customFormResult ? { customFormResult: payload.customFormResult } : {}),
+        ...(payload.quiz ? { quiz: payload.quiz } : {}),
+        ...(payload.survey ? { survey: payload.survey } : {}),
+      }, { merge: true });
+
+      invalidateDashboardCache();
+      syncStudentIndex(userId);
+
+      return json(request, { success: true, message: 'Enrollment synced' });
+    }
+
     if (action === 'certificate') {
       // 4. Claim Certificate
       const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
+      const enrollmentDoc = await enrollmentRef.get();
       const settingsDoc = await db.collection("settings").doc("app").get();
 
       // Jika peserta mengonfirmasi/memperbaiki nama saat klaim sertifikat,
@@ -265,16 +319,36 @@ export async function POST(request: NextRequest) {
       }
       
       await enrollmentRef.set({
+        ...(!enrollmentDoc.exists ? {
+          id: enrollmentId,
+          userId: userId,
+          email: email,
+          createdAt: FieldValue.serverTimestamp(),
+          stepProgress: {},
+        } : {}),
+        displayName: userName,
+        courseId: payload.courseId || 'course-main',
+        channelSource: payload.channelSource || userDoc.data()?.channelSource || 'beasiswa',
+        detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || 'bootcamp',
+        bulkEnrolled: true,
+        currentStep: 3,
         updatedAt: FieldValue.serverTimestamp(),
         status: 'certified',
         certificateClaimed: true,
         certificateClaimedAt: FieldValue.serverTimestamp(),
-        certificateCourseName: courseName,
-        certificateIssuer: issuerName,
+        certificateCourseName: payload.certificateCourseName || courseName,
+        certificateIssuer: payload.certificateIssuer || issuerName,
         certificateId: certId,
         certificateName: userName,
         certificateDriveUrl: driveUrl || "",
         certificateDriveFileId: driveFileId || "",
+        ...(Object.keys(cleanPayloadObject(payload.stepProgress)).length ? {
+          stepProgress: payload.stepProgress,
+        } : {}),
+        ...(payload.customFormResult ? { customFormResult: payload.customFormResult } : {}),
+        ...(payload.quiz ? { quiz: payload.quiz } : {}),
+        ...(payload.survey ? { survey: payload.survey } : {}),
       }, { merge: true });
 
       invalidateDashboardCache();
