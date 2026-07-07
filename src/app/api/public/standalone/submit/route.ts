@@ -6,13 +6,38 @@ import { syncStudentIndex } from '@/lib/sync-student-index';
 import { normalizeCertName, validateCertName } from '@/lib/cert-name';
 import { FieldValue } from 'firebase-admin/firestore';
 
+const ALLOWED_ORIGINS = new Set([
+  'https://app.iodacademy.id',
+  'http://localhost:5173',
+  'http://localhost:5174',
+]);
+
+const corsHeaders = (request: NextRequest) => {
+  const origin = request.headers.get('origin') || '';
+  return {
+    ...(ALLOWED_ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Vary': 'Origin',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+};
+
+const json = (request: NextRequest, data: unknown, status = 200) => NextResponse.json(data, {
+  status,
+  headers: corsHeaders(request),
+});
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, email, payload } = body;
 
     if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+      return json(request, { error: 'Email is required' }, 400);
     }
 
     const db = getAdminDb();
@@ -76,7 +101,7 @@ export async function POST(request: NextRequest) {
       }
 
       syncStudentIndex(userId);
-      return NextResponse.json({ success: true, message: 'Identity saved' });
+      return json(request, { success: true, message: 'Identity saved' });
     }
 
     if (action === 'pretest') {
@@ -93,7 +118,7 @@ export async function POST(request: NextRequest) {
       }, { merge: true });
 
       syncStudentIndex(userId);
-      return NextResponse.json({ success: true, message: 'Pre-test saved', score });
+      return json(request, { success: true, message: 'Pre-test saved', score });
     }
 
     if (action === 'quiz') {
@@ -123,7 +148,7 @@ export async function POST(request: NextRequest) {
       }, { merge: true });
 
       syncStudentIndex(userId);
-      return NextResponse.json({ success: true, message: 'Quiz updated' });
+      return json(request, { success: true, message: 'Quiz updated' });
     }
 
     if (action === 'survey') {
@@ -146,7 +171,7 @@ export async function POST(request: NextRequest) {
       }, { merge: true });
 
       syncStudentIndex(userId);
-      return NextResponse.json({ success: true, message: 'Survey updated' });
+      return json(request, { success: true, message: 'Survey updated' });
     }
 
     if (action === 'certificate') {
@@ -167,9 +192,10 @@ export async function POST(request: NextRequest) {
       // yang tak ter-render). Tolak dengan pesan ramah-pengguna bila tak layak.
       try { validateCertName(userName); }
       catch (e: any) {
-        return NextResponse.json(
+        return json(
+          request,
           { error: e?.message || "Nama tidak valid. Isi nama lengkap sesuai KTP." },
-          { status: 400 }
+          400
         );
       }
 
@@ -254,13 +280,13 @@ export async function POST(request: NextRequest) {
       invalidateDashboardCache();
       syncStudentIndex(userId);
 
-      return NextResponse.json({ success: true, message: 'Certificate claimed', certId, driveUrl });
+      return json(request, { success: true, message: 'Certificate claimed', certId, driveUrl });
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return json(request, { error: 'Invalid action' }, 400);
 
   } catch (error: any) {
     console.error('API Standalone Submit Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return json(request, { error: error.message || 'Internal Server Error' }, 500);
   }
 }

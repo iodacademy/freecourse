@@ -1,0 +1,634 @@
+/**
+ * Standalone Form Styles (Premium Form - .pf-*)
+ * 
+ * Ekstraksi CSS untuk integrasi dengan aplikasi eksternal.
+ * Copy file ini atau classes yang dibutuhkan ke project Anda.
+ * 
+ * Dependencies:
+ * - CSS Variables (lihat bagian paling bawah file ini)
+ * - Font: Inter atau system font stack
+ */
+
+/* ══════════════════════════════════════════════════════════════
+   PAGE & LAYOUT
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+  padding: 40px 20px 80px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CARD COMPONENTS
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-card {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 24px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.pf-card__head {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  padding: 28px 32px;
+  color: white;
+}
+
+.pf-card__head h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.pf-card__head p {
+  font-size: 11px;
+  opacity: 0.85;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.pf-card__body {
+  padding: 28px 32px 32px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FORM FIELDS
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-field-group {
+  margin-bottom: 20px;
+}
+
+.pf-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gray-700);
+  margin-bottom: 6px;
+}
+
+.pf-input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+  background: white;
+  color: var(--color-gray-900);
+}
+
+.pf-input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.08);
+}
+
+.pf-input--error {
+  border-color: #ef4444 !important;
+  background: #fef2f2;
+}
+
+.pf-input::placeholder {
+  color: var(--color-gray-400);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FIELD DESCRIPTIONS & NOTES
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-field-desc {
+  font-size: 11px;
+  color: var(--color-gray-600);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.pf-field-desc b,
+.pf-field-desc strong { font-weight: 700; }
+
+.pf-field-desc i,
+.pf-field-desc em { font-style: italic; }
+
+.pf-field-desc u { text-decoration: underline; }
+
+.pf-field-desc s { text-decoration: line-through; }
+
+.pf-field-desc h3 { 
+  font-size: 14px; 
+  font-weight: 700; 
+  margin: 6px 0 4px; 
+  color: var(--color-gray-800); 
+}
+
+.pf-field-desc ol { 
+  padding-left: 18px; 
+  margin: 4px 0; 
+  list-style-type: decimal; 
+}
+
+.pf-field-desc ul { 
+  padding-left: 18px; 
+  margin: 4px 0; 
+  list-style-type: disc; 
+}
+
+.pf-field-desc li { margin: 2px 0; }
+
+.pf-field-desc p { margin: 3px 0; }
+
+.pf-field-note {
+  font-size: 10.5px;
+  color: var(--color-gray-500);
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SEGMENTED CONTROL (Radio Button Style)
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.pf-segmented__opt {
+  text-align: center;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-gray-700);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.pf-segmented__opt:hover {
+  border-color: rgba(204, 0, 0, 0.3);
+  background: #fff5f5;
+}
+
+.pf-segmented__opt::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.pf-segmented__opt--active {
+  background: white;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.pf-segmented__opt--active::before {
+  border-color: var(--color-primary);
+}
+
+/* Divider between segments */
+.pf-segmented__opt:first-child::after {
+  content: "";
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 60%;
+  background: #e5e7eb;
+}
+
+.pf-segmented:has(.pf-segmented__opt--active) .pf-segmented__opt:first-child::after {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PILL CHIPS (Multi-select & Single-select)
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 50px;
+  background: white;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-gray-700);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.pf-pill:hover {
+  border-color: rgba(204, 0, 0, 0.3);
+  background: #fff5f5;
+}
+
+.pf-pill--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+  font-weight: 600;
+}
+
+.pf-pill--active:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+.pf-pill__check {
+  width: 12px;
+  height: 12px;
+  display: none;
+}
+
+.pf-pill--active .pf-pill__check {
+  display: inline-block;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WHATSAPP INPUT WITH PREFIX
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-wa-affix {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.pf-wa-affix:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.08);
+}
+
+.pf-wa-affix--error {
+  border-color: #ef4444 !important;
+  background: #fef2f2;
+}
+
+.pf-wa-prefix {
+  padding: 0 12px;
+  background: var(--color-gray-50);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-gray-700);
+  border-right: 1px solid #e5e7eb;
+}
+
+.pf-wa-affix .pf-input {
+  border: none;
+  flex: 1;
+  border-radius: 0;
+}
+
+.pf-wa-affix .pf-input:focus {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ERROR MESSAGES
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: #dc2626;
+  font-size: 11px;
+  margin-top: 6px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.pf-error::before {
+  content: "⚠";
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SUCCESS BANNER
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-success {
+  padding: 12px 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.pf-submit-btn {
+  flex: 2;
+  padding: 14px 28px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pf-submit-btn:hover { 
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(204, 0, 0, 0.2);
+}
+
+.pf-submit-btn:active { 
+  transform: scale(0.98);
+}
+
+.pf-submit-btn:disabled { 
+  opacity: 0.7; 
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pf-back-btn {
+  flex: 1;
+  padding: 14px 24px;
+  background: var(--color-bg-soft);
+  color: var(--color-gray-700);
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pf-back-btn:hover { 
+  background: var(--color-bg-accent);
+  border-color: var(--color-gray-300);
+}
+
+.pf-back-btn:active { 
+  transform: scale(0.98);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROGRESS BAR
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-progress {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pf-progress__bar {
+  flex: 1;
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 50px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pf-progress__bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 50px;
+  transition: width 0.3s ease;
+}
+
+.pf-progress__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-gray-700);
+  min-width: 35px;
+  text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SPINNER / LOADING
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: pf-spin 0.6s linear infinite;
+}
+
+@keyframes pf-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CONDITIONAL REVEAL (Pink Background)
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-reveal {
+  overflow: hidden;
+  background: #fff5f5;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  animation: pf-reveal-slide 0.3s ease;
+}
+
+@keyframes pf-reveal-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pf-reveal__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gray-700);
+  margin-bottom: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   OTHER INPUT (Lainnya field)
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-other-input {
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+.pf-other-input label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-gray-600);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.pf-other-input .pf-input {
+  padding: 9px 11px;
+  font-size: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BLOCKED INLINE (Info Box)
+   ══════════════════════════════════════════════════════════════ */
+
+.pf-blocked-inline {
+  margin: 20px 0 0;
+  padding: 16px;
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  max-width: 500px;
+}
+
+.pf-blocked-inline__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-gray-900);
+  margin: 0 0 6px;
+}
+
+.pf-blocked-inline__body {
+  font-size: 12.5px;
+  color: var(--color-gray-600);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE (Mobile)
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  .pf-page {
+    padding: 20px 14px 48px;
+  }
+
+  .pf-card {
+    max-width: 100%;
+    border-radius: 12px;
+  }
+
+  .pf-card__body {
+    padding: 22px 16px 28px;
+  }
+
+  .pf-card__head {
+    padding: 20px 16px;
+  }
+
+  .pf-card__head h2 {
+    font-size: 15px;
+  }
+
+  .pf-segmented {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-blocked-inline {
+    max-width: 100%;
+  }
+
+  .pf-btn-row {
+    flex-direction: column;
+  }
+
+  .pf-submit-btn,
+  .pf-back-btn {
+    flex: 1;
+    width: 100%;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CSS VARIABLES (REQUIRED)
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Primary Colors */
+  --color-primary: #CC0000;
+  --color-primary-dark: #990000;
+  
+  /* Gray Scale */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  
+  /* Background */
+  --color-bg-soft: #fafafa;
+  --color-bg-accent: #f5f5f5;
+  
+  /* Utility */
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+}
