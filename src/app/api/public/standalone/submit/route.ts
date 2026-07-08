@@ -5,6 +5,7 @@ import { invalidateDashboardCache } from '@/lib/dashboard-aggregator';
 import { syncStudentIndex } from '@/lib/sync-student-index';
 import { normalizeCertName, validateCertName } from '@/lib/cert-name';
 import { FieldValue } from 'firebase-admin/firestore';
+import { randomBytes } from 'crypto';
 
 const ALLOWED_ORIGINS = new Set([
   'https://app.iodacademy.id',
@@ -46,6 +47,10 @@ export async function POST(request: NextRequest) {
     const cleanPayloadObject = (value: any) => (
       value && typeof value === 'object' && !Array.isArray(value) ? value : {}
     );
+    const mergeStepProgress = (current: any, next: any) => ({
+      ...cleanPayloadObject(current),
+      ...cleanPayloadObject(next),
+    });
     
     // Get settings for dynamic step IDs
     const settingsDoc = await db.collection("settings").doc("app").get();
@@ -72,25 +77,32 @@ export async function POST(request: NextRequest) {
       // Initialize enrollment if it doesn't exist
       const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
       const enrollmentSnap = await enrollmentRef.get();
-      
-      if (!enrollmentSnap.exists) {
-        await enrollmentRef.set({
+      const enrollmentData = enrollmentSnap.data() || {};
+
+      await enrollmentRef.set({
+        ...(!enrollmentSnap.exists ? {
           id: enrollmentId,
           userId: userId,
           email: email,
-          displayName: payload.nama_lengkap || '',
-          courseId: payload.courseId || 'course-main',
-          channelSource: payload.channelSource || 'beasiswa',
-          detailChannel: payload.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-          beasiswaType: payload.beasiswaType || 'bootcamp',
-          bulkEnrolled: true,
           createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-          currentStep: 1, // Step 1 is material
-          status: 'active',
-          stepProgress: {}
-        });
-      }
+          stepProgress: {},
+        } : {}),
+        displayName: payload.nama_lengkap || enrollmentData.displayName || '',
+        courseId: payload.courseId || enrollmentData.courseId || 'course-main',
+        channelSource: payload.channelSource || enrollmentData.channelSource || 'beasiswa',
+        detailChannel: payload.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+        beasiswaType: payload.beasiswaType || enrollmentData.beasiswaType || 'bootcamp',
+        bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
+        certificateClaimed: enrollmentData.certificateClaimed ?? false,
+        certificateClaimedAt: enrollmentData.certificateClaimedAt ?? null,
+        certificateDriveUrl: enrollmentData.certificateDriveUrl ?? "",
+        certificateDriveFileId: enrollmentData.certificateDriveFileId ?? "",
+        certificateEmailSent: enrollmentData.certificateEmailSent ?? false,
+        pdfPending: enrollmentData.pdfPending ?? false,
+        updatedAt: FieldValue.serverTimestamp(),
+        currentStep: Math.max(Number(enrollmentData.currentStep || 1), 1),
+        status: enrollmentData.status || 'active',
+      }, { merge: true });
 
       // Tandai lead INI sudah verifikasi (mengisi identitas). Dipakai tombol
       // "Auto Complete — Instant Form" untuk MELEWATI peserta yang sudah jadi
@@ -186,9 +198,11 @@ export async function POST(request: NextRequest) {
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
       const enrollmentDoc = await enrollmentRef.get();
+      const enrollmentData = enrollmentDoc.data() || {};
       const profileData = cleanPayloadObject(payload.profileData || userDoc.data()?.profileData);
       const displayName = payload.displayName || payload.confirmedName || profileData.nama_lengkap || userDoc.data()?.displayName || '';
-      const stepProgress = cleanPayloadObject(payload.stepProgress);
+      const stepProgress = mergeStepProgress(enrollmentData.stepProgress, payload.stepProgress);
+      const driveUrl = payload.certificateDriveUrl || payload.driveUrl || enrollmentData.certificateDriveUrl || '';
 
       await enrollmentRef.set({
         ...(!enrollmentDoc.exists ? {
@@ -208,13 +222,15 @@ export async function POST(request: NextRequest) {
         updatedAt: FieldValue.serverTimestamp(),
         status: 'certified',
         certificateClaimed: true,
-        certificateClaimedAt: FieldValue.serverTimestamp(),
+        certificateClaimedAt: enrollmentData.certificateClaimedAt || FieldValue.serverTimestamp(),
         certificateCourseName: payload.certificateCourseName || 'Financial Literacy',
         certificateIssuer: payload.certificateIssuer || 'IODA Academy',
-        certificateId: payload.certificateId || '',
+        certificateId: payload.certificateId || enrollmentData.certificateId || '',
         certificateName: payload.confirmedName || displayName,
-        certificateDriveUrl: payload.certificateDriveUrl || payload.driveUrl || '',
-        certificateDriveFileId: payload.certificateDriveFileId || '',
+        certificateDriveUrl: driveUrl,
+        certificateDriveFileId: payload.certificateDriveFileId || enrollmentData.certificateDriveFileId || '',
+        certificateEmailSent: enrollmentData.certificateEmailSent ?? false,
+        pdfPending: !driveUrl,
         ...(Object.keys(stepProgress).length ? { stepProgress } : {}),
         ...(payload.customFormResult ? { customFormResult: payload.customFormResult } : {}),
         ...(payload.quiz ? { quiz: payload.quiz } : {}),
@@ -227,12 +243,40 @@ export async function POST(request: NextRequest) {
       return json(request, { success: true, message: 'Enrollment synced' });
     }
 
+    if (action === 'certificate_status') {
+      const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
+      const enrollmentDoc = await enrollmentRef.get();
+      if (!enrollmentDoc.exists) {
+        return json(request, { error: 'Enrollment belum ditemukan.' }, 404);
+      }
+
+      const enrollmentData = enrollmentDoc.data() || {};
+      const syncToken = String(payload?.syncToken || payload?.certificateSyncToken || '').trim();
+      const storedToken = String(enrollmentData.studentCenterSyncToken || '').trim();
+      if (!storedToken || syncToken !== storedToken) {
+        return json(request, { error: 'Token sinkronisasi tidak valid.' }, 403);
+      }
+
+      return json(request, {
+        success: true,
+        certificateClaimed: enrollmentData.certificateClaimed === true,
+        status: enrollmentData.status || '',
+        certificateId: enrollmentData.certificateId || '',
+        certificateDriveUrl: enrollmentData.certificateDriveUrl || '',
+        driveUrl: enrollmentData.certificateDriveUrl || '',
+        certificateDriveFileId: enrollmentData.certificateDriveFileId || '',
+        pdfPending: enrollmentData.pdfPending === true,
+        syncToken: storedToken,
+      });
+    }
+
     if (action === 'certificate') {
       // 4. Claim Certificate
       const enrollmentRef = db.collection('enrollments').doc(enrollmentId);
       const userRef = db.collection('users').doc(userId);
       const userDoc = await userRef.get();
       const enrollmentDoc = await enrollmentRef.get();
+      const enrollmentData = enrollmentDoc.data() || {};
       const settingsDoc = await db.collection("settings").doc("app").get();
 
       // Jika peserta mengonfirmasi/memperbaiki nama saat klaim sertifikat,
@@ -275,7 +319,7 @@ export async function POST(request: NextRequest) {
       
       const year = new Date().getFullYear();
       const randomHex = Math.random().toString(16).substr(2, 6).toUpperCase();
-      const certId = `CERT-${year}-${randomHex}`;
+      const certId = enrollmentData.certificateId || `CERT-${year}-${randomHex}`;
 
       // (We already fetched settings at the top)
       const gasWebAppUrl = settings.gasWebAppUrl || "";
@@ -283,10 +327,59 @@ export async function POST(request: NextRequest) {
       
       const courseName = settings.mainCertTitle || 'Workshop Literasi Finansial';
 
-      let driveUrl = null;
-      let driveFileId = null;
+      let driveUrl = enrollmentData.certificateDriveUrl || null;
+      let driveFileId = enrollmentData.certificateDriveFileId || null;
+      const syncToken = enrollmentData.studentCenterSyncToken || randomBytes(24).toString('hex');
+      const stepProgress = mergeStepProgress(enrollmentData.stepProgress, payload.stepProgress);
+      const hasDriveUrl = !!driveUrl;
 
-      if (gasWebAppUrl) {
+      await enrollmentRef.set({
+        ...(!enrollmentDoc.exists ? {
+          id: enrollmentId,
+          userId: userId,
+          email: email,
+          createdAt: FieldValue.serverTimestamp(),
+        } : {}),
+        displayName: userName,
+        courseId: payload.courseId || enrollmentData.courseId || 'course-main',
+        channelSource: payload.channelSource || userDoc.data()?.channelSource || enrollmentData.channelSource || 'beasiswa',
+        detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || enrollmentData.beasiswaType || 'bootcamp',
+        bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
+        currentStep: Math.max(Number(enrollmentData.currentStep || 1), 3),
+        updatedAt: FieldValue.serverTimestamp(),
+        status: 'certified',
+        certificateClaimed: true,
+        certificateClaimedAt: enrollmentData.certificateClaimedAt || FieldValue.serverTimestamp(),
+        certificateCourseName: payload.certificateCourseName || courseName,
+        certificateIssuer: payload.certificateIssuer || issuerName,
+        certificateId: certId,
+        certificateName: userName,
+        certificateDriveUrl: driveUrl || "",
+        certificateDriveFileId: driveFileId || "",
+        certificateEmailSent: enrollmentData.certificateEmailSent ?? false,
+        studentCenterSyncToken: syncToken,
+        pdfPending: !hasDriveUrl,
+        stepProgress,
+        ...(payload.customFormResult ? { customFormResult: payload.customFormResult } : {}),
+        ...(payload.quiz ? { quiz: payload.quiz } : {}),
+        ...(payload.survey ? { survey: payload.survey } : {}),
+      }, { merge: true });
+
+      if (!gasWebAppUrl || !mainCertSlideTemplateId) {
+        invalidateDashboardCache();
+        syncStudentIndex(userId);
+        return json(request, {
+          success: true,
+          message: 'Certificate recorded, PDF queued',
+          certId,
+          driveUrl: driveUrl || "",
+          pdfPending: true,
+          syncToken,
+        });
+      }
+
+      if (gasWebAppUrl && !driveUrl) {
         try {
           const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
           const now = new Date();
@@ -302,59 +395,57 @@ export async function POST(request: NextRequest) {
             email: email,
           };
 
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 20000);
           const gasRes = await fetch(gasWebAppUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(gasPayload),
+            signal: controller.signal,
           });
+          clearTimeout(timeout);
+
+          const gasData = await gasRes.json().catch(() => ({}));
 
           if (gasRes.ok) {
-            const gasData = await gasRes.json();
-            driveUrl = gasData.downloadUrl || gasData.pdfUrl || null;
-            driveFileId = gasData.fileId || null;
+            driveUrl = gasData.downloadUrl
+              || gasData.pdfUrl
+              || gasData.driveUrl
+              || gasData.certificateDriveUrl
+              || gasData.webViewLink
+              || gasData.viewUrl
+              || gasData.url
+              || null;
+            driveFileId = gasData.fileId
+              || gasData.driveFileId
+              || gasData.certificateDriveFileId
+              || null;
+          } else {
+            console.error("GAS certificate failed:", gasData);
           }
         } catch (gasErr) {
           console.error("GAS error:", gasErr);
         }
       }
-      
+
       await enrollmentRef.set({
-        ...(!enrollmentDoc.exists ? {
-          id: enrollmentId,
-          userId: userId,
-          email: email,
-          createdAt: FieldValue.serverTimestamp(),
-          stepProgress: {},
-        } : {}),
-        displayName: userName,
-        courseId: payload.courseId || 'course-main',
-        channelSource: payload.channelSource || userDoc.data()?.channelSource || 'beasiswa',
-        detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || 'bootcamp',
-        bulkEnrolled: true,
-        currentStep: 3,
         updatedAt: FieldValue.serverTimestamp(),
-        status: 'certified',
-        certificateClaimed: true,
-        certificateClaimedAt: FieldValue.serverTimestamp(),
-        certificateCourseName: payload.certificateCourseName || courseName,
-        certificateIssuer: payload.certificateIssuer || issuerName,
-        certificateId: certId,
-        certificateName: userName,
         certificateDriveUrl: driveUrl || "",
         certificateDriveFileId: driveFileId || "",
-        ...(Object.keys(cleanPayloadObject(payload.stepProgress)).length ? {
-          stepProgress: payload.stepProgress,
-        } : {}),
-        ...(payload.customFormResult ? { customFormResult: payload.customFormResult } : {}),
-        ...(payload.quiz ? { quiz: payload.quiz } : {}),
-        ...(payload.survey ? { survey: payload.survey } : {}),
+        pdfPending: !driveUrl,
       }, { merge: true });
 
       invalidateDashboardCache();
       syncStudentIndex(userId);
 
-      return json(request, { success: true, message: 'Certificate claimed', certId, driveUrl });
+      return json(request, {
+        success: true,
+        message: driveUrl ? 'Certificate claimed' : 'Certificate recorded, PDF queued',
+        certId,
+        driveUrl: driveUrl || "",
+        pdfPending: !driveUrl,
+        syncToken,
+      });
     }
 
     return json(request, { error: 'Invalid action' }, 400);
