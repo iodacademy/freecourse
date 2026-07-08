@@ -178,6 +178,17 @@ function normalizeEmail(e: string | null | undefined): string {
   return (e || "").toLowerCase().trim();
 }
 
+function toReadableDetailChannel(value: string): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const cleaned = raw.replace(/^Kelas Reguler Ioda Academy\s*-\s*/i, "");
+  const match = cleaned.match(/^(WPB|BOOTCAMP|VL|REGULER)[_\s-]+(.+)$/i);
+  if (!match) return cleaned.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  const program = match[1].toUpperCase();
+  const className = match[2].replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  return `${program} - ${className}`;
+}
+
 // ─── Helper: text-match fallback untuk mapping ──────────────────────────────
 
 type StepWithSurvey = {
@@ -372,7 +383,7 @@ export function computeStudentRow(
   // standalone/Meta yang ditandai "All Beasiswa - Facebook Instant Forms").
   const storedDetail = ((enr as any)?.detailChannel || (u as any).detailChannel || "").toString().trim();
   if (storedDetail) {
-    detailChannel = storedDetail;
+    detailChannel = toReadableDetailChannel(storedDetail);
   } else if (rawChannel === "beasiswa" || rawChannel === "workshop") {
     const evId = enr?.eventId || u.eventId;
     if (evId) {
