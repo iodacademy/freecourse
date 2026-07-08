@@ -244,7 +244,13 @@ function deriveStatus(
   totalSteps: number
 ): DashboardStudent["status"] {
   if (!enr) return "Belum Start";
-  if (enr.certificateClaimed) return "Tersertifikasi";
+  const status = String((enr as any).status || "").toLowerCase();
+  if (
+    enr.certificateClaimed ||
+    status === "certified" ||
+    status === "completed" ||
+    !!String((enr as any).certificateDriveUrl || "").trim()
+  ) return "Tersertifikasi";
   if (enr.currentStep > totalSteps) return "Selesai";
   return "In Progress";
 }
@@ -286,6 +292,29 @@ function collectEnrollmentAnswerMaps(enr: any): any[] {
   }
   pushMap(enr?.survey);
   return maps;
+}
+
+function collectEnrollmentAssessments(enr: any): any[] {
+  const results: any[] = [];
+  const pushAssessment = (value: any) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) results.push(value);
+  };
+
+  pushAssessment(enr?.quiz);
+  for (const sp of Object.values((enr?.stepProgress || {}) as Record<string, any>)) {
+    pushAssessment((sp as any)?.assessmentResult);
+    for (const block of ((sp as any)?.lessonResult?.blocks || [])) {
+      pushAssessment(block?.assessmentResult);
+    }
+  }
+  return results;
+}
+
+function getBestQuizAssessment(enr: any, quizStepId: string | null): any | null {
+  const direct = quizStepId && enr?.stepProgress ? (enr.stepProgress as any)[quizStepId]?.assessmentResult : null;
+  const assessments = [direct, ...collectEnrollmentAssessments(enr)].filter(Boolean);
+  if (!assessments.length) return null;
+  return assessments.find((item) => item.passed === true) || assessments[0];
 }
 
 function findInterestFromEnrollment(enr: any): string[] {
@@ -548,10 +577,12 @@ export function computeStudentRow(
     minatArray = rawMinatData.filter((x) => typeof x === "string" && x.trim());
   } else if (typeof rawMinatData === "string" && rawMinatData.trim() !== "") {
     minatArray = [rawMinatData.trim()];
-  } else if (enr?.bonusCourseTopicId) {
+  }
+  if (!minatArray.length && enr?.bonusCourseTopicId) {
     const tName = topicsById.get(enr.bonusCourseTopicId)?.name;
     if (tName) minatArray = [tName];
-  } else {
+  }
+  if (!minatArray.length) {
     minatArray = findInterestFromEnrollment(enr);
   }
   const minat = minatArray.length > 0 ? minatArray.join("; ") : "Belum Pilih";
@@ -561,16 +592,13 @@ export function computeStudentRow(
   // Nilai Quiz + statusKuis
   let quizScore: number | null = null;
   let statusKuis: DashboardStudent["statusKuis"] = "-";
-  if (quizStepId && enr?.stepProgress) {
-    const sp: StepProgress | undefined = enr.stepProgress[quizStepId];
-    if (sp?.assessmentResult) {
-      // Ambil firstPassScore jika ada, fallback ke score
-      quizScore = sp.assessmentResult.firstPassScore ?? sp.assessmentResult.score ?? null;
-      if (sp.assessmentResult.passed === true || sp.assessmentResult.firstPassScore != null || (quizScore != null && quizScore >= 60)) {
-        statusKuis = "LULUS";
-      } else if (sp.assessmentResult.attempts > 0) {
-        statusKuis = "TIDAK LULUS";
-      }
+  const quizAssessment = getBestQuizAssessment(enr, quizStepId);
+  if (quizAssessment) {
+    quizScore = quizAssessment.firstPassScore ?? quizAssessment.score ?? quizAssessment.rawScore ?? null;
+    if (quizAssessment.passed === true || quizAssessment.firstPassScore != null || (quizScore != null && quizScore >= 60)) {
+      statusKuis = "LULUS";
+    } else if (quizAssessment.attempts > 0 || quizScore != null) {
+      statusKuis = "TIDAK LULUS";
     }
   }
 
@@ -1251,7 +1279,167 @@ function stripInternal(s: FullStudent): DashboardStudent {
   return pub;
 }
 
+function isDefaultLatestStudentsPage(q: StudentsQuery = {}): boolean {
+  const page = q.page || 1;
+  const pageSize = q.pageSize || 20;
+  return (
+    !q.bypassCache &&
+    page >= 1 &&
+    pageSize > 0 &&
+    (q.channel || "all") === "all" &&
+    (q.detailChannel || "all") === "all" &&
+    (q.statusKuis || "all") === "all" &&
+    (q.status || "all") === "all" &&
+    (q.sortUsia || "default") === "default" &&
+    !(q.search || "").trim()
+  );
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+function rememberLatestEnrollment(
+  byKey: Map<string, Enrollment & { id: string; _ts: number }>,
+  id: string,
+  data: any,
+): void {
+  if (!data || (data.courseId && data.courseId !== "course-main")) return;
+  const ts =
+    (data.updatedAt?.toMillis?.() as number) ||
+    (data.certificateClaimedAt?.toMillis?.() as number) ||
+    (data.createdAt?.toMillis?.() as number) ||
+    0;
+  const enrollment = { id, ...data, _ts: ts } as Enrollment & { id: string; _ts: number };
+  const keys = new Set(
+    [
+      data.userId,
+      normalizeEmail(data.email),
+      id,
+      normalizeEmail(id),
+    ].filter((key) => String(key || "").trim()).map((key) => String(key).trim())
+  );
+  for (const key of keys) {
+    const prev = byKey.get(key);
+    if (!prev || ts > prev._ts) byKey.set(key, enrollment);
+  }
+}
+
+async function countProfileCompletedUsers(): Promise<number> {
+  const db = getAdminDb();
+  const ref = db.collection("users").where("profileCompleted", "==", true);
+  const aggregate = (ref as any).count;
+  if (typeof aggregate === "function") {
+    const snap = await (ref as any).count().get();
+    return Number(snap.data().count || 0);
+  }
+  return (await ref.get()).size;
+}
+
+async function queryStudentsLatestDirect(q: StudentsQuery = {}): Promise<StudentsPage> {
+  const db = getAdminDb();
+  const page = Math.max(1, q.page || 1);
+  const pageSize = Math.max(1, Math.min(200, q.pageSize || 50));
+  const targetStart = (page - 1) * pageSize;
+  const lookups = await loadLookups();
+
+  const total = await countProfileCompletedUsers();
+  const users: any[] = [];
+  let scanned = 0;
+  let accepted = 0;
+  const scanLimit = Math.max(100, pageSize * 2);
+
+  while (users.length < pageSize) {
+    const snap = await db.collection("users")
+      .orderBy("createdAt", "desc")
+      .offset(scanned)
+      .limit(scanLimit)
+      .get();
+    if (snap.empty) break;
+    scanned += snap.size;
+
+    for (const d of snap.docs) {
+      const u = { uid: d.id, ...(d.data() as any) };
+      if (u.role === "admin" || !u.profileCompleted || !normalizeEmail(u.email)) continue;
+      if (accepted < targetStart) {
+        accepted += 1;
+        continue;
+      }
+      if (users.length < pageSize) users.push(u);
+      accepted += 1;
+      if (users.length >= pageSize) break;
+    }
+
+    if (snap.size < scanLimit) break;
+  }
+
+  const emails = Array.from(new Set(users.map((u: any) => normalizeEmail(u.email)).filter(Boolean)));
+  const uids = Array.from(new Set(users.map((u: any) => String(u.uid || "").trim()).filter(Boolean)));
+  const enrollmentByKey = new Map<string, Enrollment & { id: string; _ts: number }>();
+  const seenDocs = new Set<string>();
+  const rememberSnap = (docSnap: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot) => {
+    if (!docSnap.exists || seenDocs.has(docSnap.id)) return;
+    seenDocs.add(docSnap.id);
+    rememberLatestEnrollment(enrollmentByKey, docSnap.id, docSnap.data() as any);
+  };
+
+  for (const batch of chunkArray(emails, 10)) {
+    const snap = await db.collection("enrollments").where("email", "in", batch).get();
+    snap.docs.forEach(rememberSnap);
+  }
+  for (const batch of chunkArray(uids, 10)) {
+    const snap = await db.collection("enrollments").where("userId", "in", batch).get();
+    snap.docs.forEach(rememberSnap);
+  }
+  await Promise.all(emails.map(async (email) => {
+    const docSnap = await db.collection("enrollments").doc(email).get();
+    rememberSnap(docSnap);
+  }));
+
+  const rows = users
+    .map((u: any) => {
+      const email = normalizeEmail(u.email);
+      const enr = enrollmentByKey.get(u.uid) || enrollmentByKey.get(email) || null;
+      return computeStudentRow({ ...u, email } as any, enr as any, lookups);
+    })
+    .sort((a, b) => {
+      const ta = a._createdAt ? a._createdAt.getTime() : 0;
+      const tb = b._createdAt ? b._createdAt.getTime() : 0;
+      return tb - ta;
+    });
+
+  const channelSummary: Record<string, number> = { umum: 0, kemitraan: 0, beasiswa: 0, workshop: 0 };
+  const detailCounts = new Map<string, number>();
+  for (const s of rows) {
+    const ch = (s.channelSource || s._channel || "").toLowerCase();
+    if (ch in channelSummary) channelSummary[ch]++;
+    if (s.detailChannel && s.detailChannel !== "-") {
+      detailCounts.set(s.detailChannel, (detailCounts.get(s.detailChannel) || 0) + 1);
+    }
+  }
+
+  return {
+    students: rows.map(stripInternal),
+    total,
+    filteredTotal: total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    page,
+    pageSize,
+    channelSummary,
+    detailChannelOptions: Array.from(detailCounts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, count]) => ({ value, count })),
+    generatedAt: toWIBString(new Date()),
+  };
+}
+
 export async function queryStudents(q: StudentsQuery = {}): Promise<StudentsPage> {
+  if (isDefaultLatestStudentsPage(q)) {
+    return queryStudentsLatestDirect(q);
+  }
+
   const raw = await getRawDatasetCached(q.bypassCache);
   const all = raw.allStudents;
 

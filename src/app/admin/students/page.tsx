@@ -877,7 +877,7 @@ export default function AdminStudentsPage() {
   const [activeSearch, setActiveSearch] = useState("");
 
   // Server-side pagination
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 50;
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filteredTotal, setFilteredTotal] = useState(0);
