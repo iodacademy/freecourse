@@ -29,7 +29,8 @@ export default function PurgeStudentsPage() {
   const [detailOptions, setDetailOptions] = useState<DetailOption[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState("");
 
@@ -63,17 +64,25 @@ export default function PurgeStudentsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal memuat data");
-      setChannelSummary(data.channelSummary || {});
+      // channelSummary hanya dikirim saat request tanpa channel — jangan timpa
+      // dengan objek kosong ketika sedang memuat detail satu channel.
+      if (data.channelSummary && Object.keys(data.channelSummary).length > 0) {
+        setChannelSummary(data.channelSummary);
+      }
       setDetailOptions(ch ? (data.detailChannelOptions || []) : []);
       setSelected({});
     } catch (e: any) {
       setError(e.message || "Terjadi kesalahan");
     } finally {
       setLoading(false);
+      setLoadedOnce(true);
     }
   }, [getToken]);
 
-  useEffect(() => { if (user) loadPreview(""); }, [user, loadPreview]);
+  useEffect(() => {
+    if (!user) return;      // tunggu sesi admin siap
+    loadPreview("");
+  }, [user, loadPreview]);
 
   function pickChannel(ch: string) {
     setChannel(ch);
@@ -206,27 +215,43 @@ export default function PurgeStudentsPage() {
         {/* Step 1: pilih channel */}
         <div style={{ marginTop: 28 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 10 }}>1. Pilih Channel Source</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {Object.entries(channelSummary).sort((a, b) => a[0].localeCompare(b[0])).map(([ch, count]) => (
-              <button
-                key={ch}
-                onClick={() => pickChannel(ch)}
-                disabled={loading}
-                style={{
-                  padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  border: `1.5px solid ${channel === ch ? "#dc2626" : "#e2e8f0"}`,
-                  background: channel === ch ? "#fef2f2" : "#fff",
-                  color: channel === ch ? "#dc2626" : "#334155",
-                }}
-              >
-                {CHANNEL_LABELS[ch] || ch} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({count})</span>
+
+          {loading && !loadedOnce ? (
+            <div style={{ color: "#64748b", fontSize: 14, padding: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
+              <Loader2 size={18} className="spin" /> Memuat daftar channel...
+            </div>
+          ) : Object.keys(channelSummary).length === 0 ? (
+            <div style={{ background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 10, padding: "16px", fontSize: 14, color: "#64748b" }}>
+              Tidak ada data channel yang bisa ditampilkan.
+              {error ? "" : " Coba klik Muat ulang."}
+              <button onClick={() => loadPreview("")} disabled={loading}
+                style={{ marginLeft: 10, padding: "6px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#334155" }}>
+                <RefreshCw size={13} style={{ verticalAlign: "middle", marginRight: 4 }} /> Muat ulang
               </button>
-            ))}
-            <button onClick={() => loadPreview(channel)} disabled={loading} title="Muat ulang"
-              style={{ padding: "8px 12px", borderRadius: 20, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", color: "#64748b" }}>
-              <RefreshCw size={14} className={loading ? "spin" : ""} />
-            </button>
-          </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {Object.entries(channelSummary).sort((a, b) => a[0].localeCompare(b[0])).map(([ch, count]) => (
+                <button
+                  key={ch}
+                  onClick={() => pickChannel(ch)}
+                  disabled={loading}
+                  style={{
+                    padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    border: `1.5px solid ${channel === ch ? "#dc2626" : "#e2e8f0"}`,
+                    background: channel === ch ? "#fef2f2" : "#fff",
+                    color: channel === ch ? "#dc2626" : "#334155",
+                  }}
+                >
+                  {CHANNEL_LABELS[ch] || ch} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({count})</span>
+                </button>
+              ))}
+              <button onClick={() => loadPreview(channel)} disabled={loading} title="Muat ulang"
+                style={{ padding: "8px 12px", borderRadius: 20, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", color: "#64748b" }}>
+                <RefreshCw size={14} className={loading ? "spin" : ""} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Step 2: pilih detail channel */}

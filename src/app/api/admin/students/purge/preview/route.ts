@@ -58,18 +58,12 @@ export async function GET(req: NextRequest) {
 
     const rows = snap.docs.map(readUser);
 
-    // Ringkasan per channelSource (dari SEMUA student, tanpa filter channel)
-    // supaya UI bisa menampilkan pilihan channel + jumlahnya.
-    let channelSummary: Record<string, number> = {};
+    // Ringkasan per channelSource — hanya dihitung saat belum memilih channel
+    // (client menyimpannya). Menghindari scan ulang seluruh koleksi.
+    const channelSummary: Record<string, number> = {};
     if (!channel) {
       for (const r of rows) {
         const ch = r.channelSource || "(kosong)";
-        channelSummary[ch] = (channelSummary[ch] || 0) + 1;
-      }
-    } else {
-      const allSnap = await db.collection("users").where("role", "==", "student").get();
-      for (const d of allSnap.docs) {
-        const ch = ((d.data() as any).channelSource || "").toLowerCase() || "(kosong)";
         channelSummary[ch] = (channelSummary[ch] || 0) + 1;
       }
     }
