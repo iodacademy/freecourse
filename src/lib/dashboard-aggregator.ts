@@ -716,10 +716,20 @@ async function buildRawDataset(): Promise<RawDataset> {
       (data.updatedAt?.toMillis?.() as number) ||
       (data.createdAt?.toMillis?.() as number) ||
       0;
-    const userId = data.userId || data.email || d.id;
-    const prev = enrollmentByUser.get(userId);
-    if (!prev || ts > prev._ts) {
-      enrollmentByUser.set(userId, { id: d.id, ...data, _ts: ts });
+    const enrollment = { id: d.id, ...data, _ts: ts };
+    const keys = new Set(
+      [
+        data.userId,
+        normalizeEmail(data.email),
+        d.id,
+        normalizeEmail(d.id),
+      ].filter((key) => String(key || "").trim()).map((key) => String(key).trim())
+    );
+    for (const key of keys) {
+      const prev = enrollmentByUser.get(key);
+      if (!prev || ts > prev._ts) {
+        enrollmentByUser.set(key, enrollment);
+      }
     }
   }
 
@@ -1381,26 +1391,28 @@ export async function upsertStudentIndex(uid: string): Promise<void> {
   const email = normalizeEmail(u.email);
   let enr: (Enrollment & { id: string }) | null = null;
   let enrTs = -1;
-  const consider = (d: FirebaseFirestore.QueryDocumentSnapshot) => {
-    const data = d.data() as any;
+  const candidateDocs: Array<{ id: string; data: any }> = [];
+  const seenEnrollmentDocs = new Set<string>();
+  const remember = (d: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot) => {
+    if (!d.exists || seenEnrollmentDocs.has(d.id)) return;
+    seenEnrollmentDocs.add(d.id);
+    candidateDocs.push({ id: d.id, data: d.data() as any });
+  };
+  const consider = (d: { id: string; data: any }) => {
+    const data = d.data || {};
+    if (data.courseId && data.courseId !== "course-main") return;
     const ts = (data.updatedAt?.toMillis?.() as number) || (data.createdAt?.toMillis?.() as number) || 0;
     if (ts > enrTs) { enr = { id: d.id, ...data }; enrTs = ts; }
   };
   const byUid = await db.collection("enrollments").where("userId", "==", uid).get();
-  byUid.docs.forEach(consider);
-  if (email && email !== uid) {
+  byUid.docs.forEach(remember);
+  if (email) {
     const byEmail = await db.collection("enrollments").where("email", "==", email).get();
-    byEmail.docs.forEach(consider);
+    byEmail.docs.forEach(remember);
+    const byDocEmail = await db.collection("enrollments").doc(email).get();
+    remember(byDocEmail);
   }
-  // Pastikan hanya enrollment mainCourse yang dipakai (samakan dengan buildRawDataset).
-  // mainCourseId tak tersedia di lookups; pakai courseId "course-main" sebagai default
-  // ditambah enrollment apa pun jika tidak ada yang course-main (toleran).
-  if (enr && (enr as any).courseId && (enr as any).courseId !== "course-main") {
-    const main = byUid.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
-      .filter((e) => e.courseId === "course-main")
-      .sort((a, b) => ((b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0)))[0];
-    if (main) enr = main as any;
-  }
+  candidateDocs.forEach(consider);
 
   const row = computeStudentRow(u as any, enr, lookups);
   const doc = buildIndexDoc(row);

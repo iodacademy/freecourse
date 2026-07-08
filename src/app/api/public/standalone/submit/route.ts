@@ -169,6 +169,9 @@ export async function POST(request: NextRequest) {
           createdAt: FieldValue.serverTimestamp(),
           stepProgress: {},
         } : {}),
+        id: enrollmentId,
+        userId: userId,
+        email: email,
         displayName: profileData.nama_lengkap || payload.nama_lengkap || enrollmentData.displayName || '',
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || enrollmentData.channelSource),
@@ -306,6 +309,9 @@ export async function POST(request: NextRequest) {
           createdAt: FieldValue.serverTimestamp(),
           stepProgress: {},
         } : {}),
+        id: enrollmentId,
+        userId: userId,
+        email: email,
         displayName,
         courseId: payload.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource),
@@ -350,6 +356,9 @@ export async function POST(request: NextRequest) {
       if (!storedToken || syncToken !== storedToken) {
         return json(request, { error: 'Token sinkronisasi tidak valid.' }, 403);
       }
+
+      invalidateDashboardCache();
+      syncStudentIndex(userId);
 
       return json(request, {
         success: true,
@@ -440,6 +449,9 @@ export async function POST(request: NextRequest) {
           email: email,
           createdAt: FieldValue.serverTimestamp(),
         } : {}),
+        id: enrollmentId,
+        userId: userId,
+        email: email,
         displayName: userName,
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource || enrollmentData.channelSource),
