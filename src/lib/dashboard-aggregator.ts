@@ -263,6 +263,109 @@ function getProfileString(profileData: any, key: string): string {
   return String(v);
 }
 
+function toAnswerArray(value: any): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  if (value == null || value === "") return [];
+  return [String(value).trim()];
+}
+
+function collectEnrollmentAnswerMaps(enr: any): any[] {
+  const maps: any[] = [];
+  const pushMap = (value: any) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) maps.push(value);
+  };
+
+  pushMap(enr?.customFormResult?.answers);
+  for (const sp of Object.values((enr?.stepProgress || {}) as Record<string, any>)) {
+    pushMap((sp as any)?.formResult?.answers);
+    pushMap((sp as any)?.surveyResult);
+    for (const block of ((sp as any)?.lessonResult?.blocks || [])) {
+      pushMap(block?.formResult?.answers);
+      pushMap(block?.surveyResult);
+    }
+  }
+  pushMap(enr?.survey);
+  return maps;
+}
+
+function findInterestFromEnrollment(enr: any): string[] {
+  for (const answers of collectEnrollmentAnswerMaps(enr)) {
+    for (const [key, value] of Object.entries(answers)) {
+      const values = toAnswerArray(value);
+      if (!values.length) continue;
+      const lowerKey = String(key).toLowerCase();
+      if (
+        lowerKey.includes("minat") ||
+        lowerKey.includes("pelatihan") ||
+        lowerKey.includes("preferensi") ||
+        lowerKey.includes("bidang") ||
+        lowerKey.includes("kerja")
+      ) {
+        return values;
+      }
+    }
+  }
+
+  for (const answers of collectEnrollmentAnswerMaps(enr)) {
+    for (const [key, value] of Object.entries(answers)) {
+      const values = toAnswerArray(value);
+      if (!Array.isArray(value) || !values.length) continue;
+      const lowerKey = String(key).toLowerCase();
+      if (lowerKey.includes("rating") || lowerKey.includes("score")) continue;
+      if (values.every((item) => !/^\d+(\.\d+)?$/.test(item) && !["ya", "tidak"].includes(item.toLowerCase()))) {
+        return values;
+      }
+    }
+  }
+  return [];
+}
+
+function findSurveyAnswerFromEnrollment(enr: any, qId: string | null, kind: "survey1" | "feedback" | "survey2"): string | number | null {
+  const maps = collectEnrollmentAnswerMaps(enr);
+  if (qId) {
+    for (const answers of maps) {
+      const ans = answers[qId] ?? answers.answers?.[qId];
+      if (ans != null && ans !== "") return ans as any;
+    }
+  }
+
+  const ratingKeys = ["sq-rating", "rating"];
+  if (kind === "survey1" || kind === "survey2") {
+    const ratingAnswers = maps
+      .map((answers) => {
+        for (const key of ratingKeys) {
+          const value = answers[key];
+          if (value != null && value !== "") return value;
+        }
+        for (const [key, value] of Object.entries(answers)) {
+          if (String(key).toLowerCase().includes("rating") && value != null && value !== "") return value;
+        }
+        return null;
+      })
+      .filter((value) => value != null && value !== "");
+    const pick = kind === "survey1" ? ratingAnswers[0] : ratingAnswers[ratingAnswers.length - 1];
+    return pick != null ? (pick as any) : null;
+  }
+
+  for (const answers of maps) {
+    for (const key of ["sq-feedback", "feedback", "masukan", "alasan"]) {
+      const value = answers[key];
+      if (value != null && value !== "") return value as any;
+    }
+    for (const [key, value] of Object.entries(answers)) {
+      const lowerKey = String(key).toLowerCase();
+      if (
+        value != null &&
+        value !== "" &&
+        (lowerKey.includes("feedback") || lowerKey.includes("masukan") || lowerKey.includes("alasan") || lowerKey.includes("ceritakan"))
+      ) {
+        return value as any;
+      }
+    }
+  }
+  return null;
+}
+
 function getCityFromProfile(profileData: any): string {
   // Cek beberapa kemungkinan key
   const candidates = ["asal_daerah", "asalDaerah", "kota", "kotaKabupaten"];
@@ -448,6 +551,8 @@ export function computeStudentRow(
   } else if (enr?.bonusCourseTopicId) {
     const tName = topicsById.get(enr.bonusCourseTopicId)?.name;
     if (tName) minatArray = [tName];
+  } else {
+    minatArray = findInterestFromEnrollment(enr);
   }
   const minat = minatArray.length > 0 ? minatArray.join("; ") : "Belum Pilih";
 
@@ -470,20 +575,13 @@ export function computeStudentRow(
   }
 
   // Survey ratings
-  function findAnswer(qId: string | null): string | number | null {
-    if (!qId || !enr?.stepProgress) return null;
-    for (const sp of Object.values(enr.stepProgress as Record<string, StepProgress>)) {
-      const sr = sp?.surveyResult as any;
-      if (!sr) continue;
-      const ans = sr[qId] ?? sr.answers?.[qId];
-      if (ans != null && ans !== "") return ans as any;
-    }
-    return null;
+  function findAnswer(qId: string | null, kind: "survey1" | "feedback" | "survey2"): string | number | null {
+    return findSurveyAnswerFromEnrollment(enr, qId, kind);
   }
 
-  const rawSurvey1 = findAnswer(survey1.id);
-  const rawFeedback = findAnswer(feedback.id);
-  const rawSurvey2 = findAnswer(survey2.id);
+  const rawSurvey1 = findAnswer(survey1.id, "survey1");
+  const rawFeedback = findAnswer(feedback.id, "feedback");
+  const rawSurvey2 = findAnswer(survey2.id, "survey2");
 
   // Nilai Pre-test — disimpan di users.profileData.pretest_score
   let pretestScore: number | null = null;
