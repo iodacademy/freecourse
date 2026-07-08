@@ -1282,6 +1282,15 @@ export default function AdminStudentsPage() {
                     <Upload size={15} /> Import Peserta
                   </a>
                 )}
+                {profile?.isSuperAdmin && (
+                  <a
+                    href="/admin/students/purge"
+                    title="Hapus data peserta berdasarkan channel (Super Admin)"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#dc2626", border: "1px solid #fecaca", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 500, textDecoration: "none" }}
+                  >
+                    <Trash2 size={15} /> Hapus Data
+                  </a>
+                )}
               </>
             )}
             <button className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
