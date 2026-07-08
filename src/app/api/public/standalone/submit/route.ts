@@ -12,6 +12,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
   'http://localhost:5174',
 ]);
+const FINANCIAL_CHANNELS = new Set(['umum', 'beasiswa', 'kemitraan', 'workshop']);
 
 const corsHeaders = (request: NextRequest) => {
   const origin = request.headers.get('origin') || '';
@@ -44,9 +45,89 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
     const userId = email.toLowerCase(); // Use email as the document ID for simplicity and uniqueness
     const enrollmentId = userId;
+    const normalizeChannelSource = (value: any, fallback = 'umum') => {
+      const channel = String(value || '').trim().toLowerCase();
+      return FINANCIAL_CHANNELS.has(channel) ? channel : fallback;
+    };
     const cleanPayloadObject = (value: any) => (
       value && typeof value === 'object' && !Array.isArray(value) ? value : {}
     );
+    const compactObject = (value: any) => Object.fromEntries(
+      Object.entries(cleanPayloadObject(value)).filter(([, item]) => {
+        if (Array.isArray(item)) return item.length > 0;
+        return item !== undefined && item !== null && item !== '';
+      })
+    );
+    const toArrayValue = (value: any) => {
+      if (Array.isArray(value)) return value.filter((item) => String(item ?? '').trim());
+      if (value === undefined || value === null || value === '') return [];
+      return [value];
+    };
+    const firstValue = (...values: any[]) => values.find((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return String(value ?? '').trim();
+    });
+    const getLearningInterest = (...sources: any[]) => {
+      for (const source of sources) {
+        if (!source || typeof source !== 'object') continue;
+        const exact = source.jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati;
+        if (toArrayValue(exact).length) return toArrayValue(exact);
+        for (const [key, value] of Object.entries(source)) {
+          const lowerKey = String(key).toLowerCase();
+          const values = toArrayValue(value);
+          if (!values.length) continue;
+          if (
+            lowerKey.includes('minat')
+            || lowerKey.includes('pelatihan')
+            || lowerKey.includes('preferensi')
+            || lowerKey.includes('bidang')
+          ) {
+            return values;
+          }
+        }
+      }
+      return [];
+    };
+    const normalizeProfileData = (incoming: any, fallback: any = {}) => {
+      const base = cleanPayloadObject(fallback);
+      const raw = cleanPayloadObject(incoming);
+      const nested = cleanPayloadObject(raw.profileData);
+      const merged = { ...base, ...raw, ...nested };
+      const disabilitas = firstValue(
+        merged.disabilitas,
+        merged.apakah_anda_merupakan_penyandang_disabilitas
+      ) || '';
+      const kategoriDisabilitas = firstValue(
+        merged.kategori_disabilitas_yang_anda_miliki,
+        merged.kategori_disabilitas,
+        merged.kategoriDisabilitas
+      ) || '';
+      const minat = getLearningInterest(merged);
+      const normalized = {
+        ...merged,
+        nama_lengkap: firstValue(merged.nama_lengkap, merged.namaLengkap, merged.displayName) || '',
+        alamat_email: firstValue(merged.alamat_email, merged.email) || email,
+        nomor_whatsapp: firstValue(merged.nomor_whatsapp, merged.nomorWA, merged.noWa) || '',
+        asal_daerah: firstValue(merged.asal_daerah, merged.kota, merged.kotaKabupaten) || '',
+        jenis_kelamin: firstValue(merged.jenis_kelamin, merged.jenisKelamin) || '',
+        tanggal_lahir: firstValue(merged.tanggal_lahir, merged.tanggalLahir) || '',
+        disabilitas,
+        ...(disabilitas === 'Ya' ? { kategori_disabilitas_yang_anda_miliki: kategoriDisabilitas } : {}),
+        jika_diberikan_kesempatan_pelatihan_bidang_apa_yang_paling_anda_minati: minat,
+        apakah_anda_setuju_dan_bersedia_untuk_mengisi_data_pada_form_ini: firstValue(
+          merged.apakah_anda_setuju_dan_bersedia_untuk_mengisi_data_pada_form_ini,
+          merged.persetujuan,
+          merged.setuju
+        ) || 'Ya',
+      };
+      delete (normalized as any).profileData;
+      delete (normalized as any).channelSource;
+      delete (normalized as any).detailChannel;
+      delete (normalized as any).beasiswaType;
+      delete (normalized as any).courseId;
+      delete (normalized as any).customFormResult;
+      return compactObject(normalized);
+    };
     const mergeStepProgress = (current: any, next: any) => ({
       ...cleanPayloadObject(current),
       ...cleanPayloadObject(next),
@@ -61,17 +142,18 @@ export async function POST(request: NextRequest) {
     if (action === 'identity') {
       // 1. Save Identity Form
       const userRef = db.collection('users').doc(userId);
+      const profileData = normalizeProfileData(payload.profileData || payload);
       await userRef.set({
         uid: userId,
         email: email,
-        displayName: payload.nama_lengkap || '',
-        channelSource: payload.channelSource || 'beasiswa',
+        displayName: profileData.nama_lengkap || payload.nama_lengkap || '',
+        channelSource: normalizeChannelSource(payload.channelSource),
         detailChannel: payload.detailChannel || 'All Beasiswa - Facebook Instant Forms',
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         profileCompleted: true,
         role: 'student',
-        profileData: payload
+        profileData
       }, { merge: true });
 
       // Initialize enrollment if it doesn't exist
@@ -87,9 +169,9 @@ export async function POST(request: NextRequest) {
           createdAt: FieldValue.serverTimestamp(),
           stepProgress: {},
         } : {}),
-        displayName: payload.nama_lengkap || enrollmentData.displayName || '',
+        displayName: profileData.nama_lengkap || payload.nama_lengkap || enrollmentData.displayName || '',
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
-        channelSource: payload.channelSource || enrollmentData.channelSource || 'beasiswa',
+        channelSource: normalizeChannelSource(payload.channelSource || enrollmentData.channelSource),
         detailChannel: payload.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
         beasiswaType: payload.beasiswaType || enrollmentData.beasiswaType || 'bootcamp',
         bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
@@ -199,10 +281,22 @@ export async function POST(request: NextRequest) {
       const userDoc = await userRef.get();
       const enrollmentDoc = await enrollmentRef.get();
       const enrollmentData = enrollmentDoc.data() || {};
-      const profileData = cleanPayloadObject(payload.profileData || userDoc.data()?.profileData);
+      const profileData = normalizeProfileData(payload.profileData || userDoc.data()?.profileData, userDoc.data()?.profileData);
       const displayName = payload.displayName || payload.confirmedName || profileData.nama_lengkap || userDoc.data()?.displayName || '';
       const stepProgress = mergeStepProgress(enrollmentData.stepProgress, payload.stepProgress);
       const driveUrl = payload.certificateDriveUrl || payload.driveUrl || enrollmentData.certificateDriveUrl || '';
+
+      await userRef.set({
+        uid: userId,
+        email,
+        displayName,
+        channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource),
+        detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+        updatedAt: FieldValue.serverTimestamp(),
+        profileCompleted: true,
+        role: 'student',
+        profileData,
+      }, { merge: true });
 
       await enrollmentRef.set({
         ...(!enrollmentDoc.exists ? {
@@ -214,7 +308,7 @@ export async function POST(request: NextRequest) {
         } : {}),
         displayName,
         courseId: payload.courseId || 'course-main',
-        channelSource: payload.channelSource || userDoc.data()?.channelSource || 'beasiswa',
+        channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource),
         detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
         beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || 'bootcamp',
         bulkEnrolled: true,
@@ -278,12 +372,14 @@ export async function POST(request: NextRequest) {
       const enrollmentDoc = await enrollmentRef.get();
       const enrollmentData = enrollmentDoc.data() || {};
       const settingsDoc = await db.collection("settings").doc("app").get();
+      const currentUserData = userDoc.data() || {};
+      const profileData = normalizeProfileData(payload.profileData || currentUserData.profileData, currentUserData.profileData);
 
       // Jika peserta mengonfirmasi/memperbaiki nama saat klaim sertifikat,
       // pakai nama itu (dirapikan) untuk sertifikat DAN simpan ke semua data.
       const confirmedNameRaw = (payload && payload.confirmedName) || "";
       const confirmedName = normalizeCertName(confirmedNameRaw);
-      const userName = confirmedName || normalizeCertName(userDoc.data()?.displayName || "");
+      const userName = confirmedName || normalizeCertName(profileData.nama_lengkap || currentUserData.displayName || "");
       const issuerName = 'IODA Academy';
 
       // Jalur peserta → nama WAJIB valid (cegah nama kosong / NIK / font fancy
@@ -303,8 +399,12 @@ export async function POST(request: NextRequest) {
         await userRef.set(
           {
             displayName: confirmedName,
-            profileData: { nama_lengkap: confirmedName },
+            channelSource: normalizeChannelSource(payload.channelSource || currentUserData.channelSource),
+            detailChannel: payload.detailChannel || currentUserData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+            profileData: { ...profileData, nama_lengkap: confirmedName },
             updatedAt: FieldValue.serverTimestamp(),
+            profileCompleted: true,
+            role: 'student',
           },
           { merge: true }
         );
@@ -342,7 +442,7 @@ export async function POST(request: NextRequest) {
         } : {}),
         displayName: userName,
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
-        channelSource: payload.channelSource || userDoc.data()?.channelSource || enrollmentData.channelSource || 'beasiswa',
+        channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource || enrollmentData.channelSource),
         detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
         beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || enrollmentData.beasiswaType || 'bootcamp',
         bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
@@ -426,6 +526,20 @@ export async function POST(request: NextRequest) {
         } catch (gasErr) {
           console.error("GAS error:", gasErr);
         }
+      }
+      if (!confirmedName) {
+        await userRef.set(
+          {
+            displayName: userName,
+            channelSource: normalizeChannelSource(payload.channelSource || currentUserData.channelSource),
+            detailChannel: payload.detailChannel || currentUserData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
+            updatedAt: FieldValue.serverTimestamp(),
+            profileCompleted: true,
+            role: 'student',
+            profileData: { ...profileData, nama_lengkap: userName },
+          },
+          { merge: true }
+        );
       }
 
       await enrollmentRef.set({
