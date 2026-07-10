@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
-import { Plus, Trash2, Edit, CheckCircle, Circle, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, CheckCircle, Circle, Copy, Eye } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { DynamicForm } from "@/lib/types";
 import { ConfirmDialog, AlertDialog, PromptDialog } from "@/components/Modal/Dialogs";
@@ -40,6 +40,7 @@ export default function AdminFormsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [previewForm, setPreviewForm] = useState<DynamicForm | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -86,6 +87,33 @@ export default function AdminFormsPage() {
     } catch (e) {
       console.error(e);
       setAlertMsg("Gagal membuat form");
+    }
+  }
+
+  async function duplicateForm(form: DynamicForm) {
+    setDuplicatingId(form.id);
+    try {
+      const idToken = await getToken();
+      const sectionsCopy = JSON.parse(JSON.stringify(form.sections || []));
+      const res = await fetch("/api/admin/forms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          title: `${form.title} (Duplikat)`,
+          sections: sectionsCopy
+        })
+      });
+      if (!res.ok) throw new Error("Gagal menduplikat form");
+      setAlertMsg("Form berhasil diduplikat sebagai custom/event only.");
+      fetchForms();
+    } catch (e) {
+      console.error(e);
+      setAlertMsg("Gagal menduplikat form");
+    } finally {
+      setDuplicatingId(null);
     }
   }
 
@@ -180,6 +208,14 @@ export default function AdminFormsPage() {
                             title="Preview Form"
                           >
                             <Eye size={16} />
+                          </button>
+                          <button
+                            className={styles.duplicateBtn}
+                            onClick={() => duplicateForm(form)}
+                            disabled={duplicatingId === form.id}
+                            title="Duplikat Form"
+                          >
+                            <Copy size={16} />
                           </button>
                           <Link href={`/admin/settings/forms/${form.id}`} className={styles.editBtn} title="Edit Form" style={{ flex: 'none' }}>
                             <Edit size={16} />

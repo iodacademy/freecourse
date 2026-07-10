@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
-import { AlertTriangle, Copy, Check, School, Target, Mic, Search, X, Upload, User, ImageIcon, Calendar, Clock, Monitor, ChevronRight, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Archive, Copy, Check, School, Target, Mic, Search, X, Upload, User, ImageIcon, Calendar, Clock, Monitor, ChevronRight, ArrowLeft } from "lucide-react";
 import { ConfirmDialog } from "@/components/Modal/Dialogs";
 import type { DynamicForm } from "@/lib/types";
 
@@ -137,15 +137,28 @@ export default function AdminEventsPage() {
 
   // Filtered — channel + search lokal
   const filtered = events.filter((e) => {
-    const matchChannel = filter === "all" || e.channelType === filter;
-    if (!activeSearch) return matchChannel;
+    const isArchived = e.status !== "active";
+    const matchStatus = filter === "archived" ? isArchived : !isArchived;
+    const matchChannel = filter === "all" || filter === "archived" || e.channelType === filter;
+    const baseMatch = matchStatus && matchChannel;
+    if (!activeSearch) return baseMatch;
     const q = activeSearch.toLowerCase();
-    return matchChannel && (
+    return baseMatch && (
       e.name.toLowerCase().includes(q) ||
       (e.partnerCode || "").toLowerCase().includes(q) ||
       (e.campusName || "").toLowerCase().includes(q)
     );
   });
+
+  const emptyCopy = filter === "archived"
+    ? {
+        title: "Arsip Masih Kosong",
+        body: "Event draft atau selesai akan muncul di sini.",
+      }
+    : {
+        title: "Belum Ada Event Aktif",
+        body: "Klik \"+ Buat Event Baru\" untuk memulai.",
+      };
 
   const handleSearch = (ev: React.KeyboardEvent<HTMLInputElement>) => {
     if (ev.key !== "Enter") return;
@@ -406,10 +419,11 @@ export default function AdminEventsPage() {
         <div className={styles.filterBar}>
           <div className={styles.filters}>
             {[
-              { key: "all", label: "Semua Event", icon: null },
+              { key: "all", label: "Semua Event Aktif", icon: null },
               { key: "b2b_campus", label: "Kemitraan", icon: <School size={16} /> },
               { key: "b2c_ads", label: "Beasiswa/Ads", icon: <Target size={16} /> },
               { key: "b2c_workshop", label: "Workshop", icon: <Mic size={16} /> },
+              { key: "archived", label: "Arsip", icon: <Archive size={16} /> },
             ].map((f) => (
               <button
                 key={f.key}
@@ -446,8 +460,8 @@ export default function AdminEventsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className={styles.emptyState}>
-            <h3>Belum Ada Event</h3>
-            <p>Klik &quot;+ Buat Event Baru&quot; untuk memulai.</p>
+            <h3>{emptyCopy.title}</h3>
+            <p>{emptyCopy.body}</p>
           </div>
         ) : (
           <div className={styles.tableContainer}>
