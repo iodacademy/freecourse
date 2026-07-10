@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
 import { AlertTriangle, Copy, Check, School, Target, Mic, Search, X, Upload, User, ImageIcon, Calendar, Clock, Monitor, ChevronRight, ArrowLeft } from "lucide-react";
 import { ConfirmDialog } from "@/components/Modal/Dialogs";
+import type { DynamicForm } from "@/lib/types";
 
 interface EventData {
   id: string;
@@ -18,6 +19,7 @@ interface EventData {
   endDate: string | null;
   campusName: string | null;
   partnerCode: string | null;
+  formId?: string | null;
   createdAt: any;
 }
 
@@ -36,6 +38,7 @@ const CHANNEL_PATHS: Record<string, string> = {
 export default function AdminEventsPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<EventData[]>([]);
+  const [forms, setForms] = useState<DynamicForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
@@ -57,6 +60,7 @@ export default function AdminEventsPage() {
     startDate: "",
     partnerCode: "",
     audienceLabel: "",
+    formId: "",
   });
 
   // Form khusus workshop
@@ -114,6 +118,22 @@ export default function AdminEventsPage() {
   }, [getToken]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  const fetchForms = useCallback(async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/forms", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setForms(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("[AdminEvents] Gagal memuat daftar form:", e);
+    }
+  }, [getToken]);
+
+  useEffect(() => { fetchForms(); }, [fetchForms]);
 
   // Filtered — channel + search lokal
   const filtered = events.filter((e) => {
@@ -210,6 +230,7 @@ export default function AdminEventsPage() {
         startDate: form.startDate || null,
         partnerCode: form.channelType === "b2b_campus" ? form.partnerCode : null,
         audienceLabel: form.channelType === "b2b_campus" ? form.audienceLabel : null,
+        formId: form.formId || null,
         workshopData,
         beasiswaConfig: form.channelType === "b2c_ads" ? beasiswaConfig : null,
       };
@@ -296,7 +317,7 @@ export default function AdminEventsPage() {
   const openCreate = () => {
     setEditing(null);
     setWizardStep(1);
-    setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "", audienceLabel: "" });
+    setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "", audienceLabel: "", formId: "" });
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
     setBeasiswaConfig({ type: "vl", namaKelas: "", kodeBasis: "", kodeKelas: "", waGroupLink: "", topikList: [] });
     setPhotoFile(null);
@@ -326,6 +347,7 @@ export default function AdminEventsPage() {
       startDate: formattedDate,
       partnerCode: evt.partnerCode || "",
       audienceLabel: (evt as any).audienceLabel || "",
+      formId: evt.formId || "",
     });
     setWorkshopForm({
       date: wd?.date || "",
@@ -560,6 +582,30 @@ export default function AdminEventsPage() {
               {/* ── STEP 2: Form Editor ── */}
               {wizardStep === 2 && (
                 <div className={styles.formGrid}>
+                  <div className={styles.formCol} style={{ gridColumn: "1 / -1" }}>
+                    <div className={styles.formSection}>
+                      <div className={styles.formSectionTitle}>Form Pendaftaran</div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Form yang Dipakai Peserta</label>
+                        <select
+                          className={styles.formInput}
+                          value={form.formId}
+                          onChange={(e) => setForm({ ...form, formId: e.target.value })}
+                        >
+                          <option value="">Gunakan Default Global</option>
+                          {forms.filter((f) => !f.isActive || f.id === form.formId).map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.title}{f.isActive ? " (Default Global - pinned)" : " (Custom/Event Only)"}
+                            </option>
+                          ))}
+                        </select>
+                        <span className={styles.formHint}>
+                          Kosongkan untuk event lama/default. Pilih custom form jika event ini perlu form khusus, misalnya asal daerah terbatas.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* ─── WORKSHOP FORM ─── */}
                   {form.channelType === "b2c_workshop" && (
                     <>

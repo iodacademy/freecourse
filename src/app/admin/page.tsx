@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardView, { DashboardFilterState } from "@/components/dashboard/DashboardView";
 import ExportModal, { ExportMode } from "@/components/dashboard/ExportModal";
+import type { AreaKey } from "@/lib/regions";
 import styles from "@/components/dashboard/dashboard.module.css";
 import Link from "next/link";
 
@@ -43,6 +44,19 @@ function AdminDashboardContent() {
     source: searchParams.get("source"),
   };
 
+  // Mode "Hanya Data Clean" — disimpan di URL agar bertahan saat refresh/share.
+  // Sengaja di luar `filters`: ini opsi tampilan kartu, bukan filter baris, dan
+  // tidak boleh ikut terkirim ke URL export.
+  const cleanOnly = searchParams.get("cleanOnly") === "1";
+
+  function setCleanOnly(next: boolean) {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (next) sp.set("cleanOnly", "1");
+    else sp.delete("cleanOnly");
+    const s = sp.toString();
+    router.replace(`/admin${s ? `?${s}` : ""}`, { scroll: false });
+  }
+
   const fetchData = useCallback(async (bypassCache = false) => {
     if (!user) return;
     setLoading(true);
@@ -50,6 +64,7 @@ function AdminDashboardContent() {
     try {
       const token = await user.getIdToken();
       const sp = new URLSearchParams(buildQuery(filters).replace(/^\?/, ""));
+      if (cleanOnly) sp.set("cleanOnly", "1");
       if (bypassCache) sp.set("refresh", "1"); // paksa rebuild cache di server
       const qs = sp.toString() ? `?${sp.toString()}` : "";
       const res = await fetch(`/api/admin/dashboard/stats${qs}`, {
@@ -85,11 +100,13 @@ function AdminDashboardContent() {
     }
   }
 
-  async function handleExport(mode: ExportMode) {
+  async function handleExport(mode: ExportMode, areas?: AreaKey[]) {
     if (!user) throw new Error("Sesi tidak valid");
     const token = await user.getIdToken();
     const sp = new URLSearchParams(buildQuery(filters).replace(/^\?/, ""));
     if (mode !== "clean") sp.set("mode", mode);
+    // Hanya kirim ?areas bila sebagian area dipilih (undefined = semua area).
+    if (mode === "clean" && areas?.length) sp.set("areas", areas.join(","));
     const qs = sp.toString() ? `?${sp.toString()}` : "";
     const res = await fetch(`/api/admin/dashboard/export-excel${qs}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -182,11 +199,14 @@ function AdminDashboardContent() {
         filters={filters}
         onFilterChange={applyFilters}
         rightActions={rightActions}
+        cleanOnly={cleanOnly}
+        onCleanOnlyChange={setCleanOnly}
       />
       <ExportModal
         isOpen={exportOpen}
         onClose={() => setExportOpen(false)}
         onExport={handleExport}
+        allowAreaSelect
       />
     </>
   );

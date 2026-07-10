@@ -12,6 +12,14 @@
  *  - settings/app (target + mapping)
  */
 import { getAdminDb } from "./firebase-admin";
+import {
+  AREAS,
+  areaOfCity,
+  isAgeEligible,
+  isAreaKey,
+  isDisabilitasValue,
+  type AreaKey,
+} from "./regions";
 import type {
   UserProfile,
   Enrollment,
@@ -78,6 +86,19 @@ export type DashboardStudent = {
   channelSource: string; // the original db value
 };
 
+/** Ringkasan satu area program (dipakai card Per Area di dashboard internal). */
+export type AreaStat = {
+  key: AreaKey | "luar";
+  label: string;
+  desc: string;
+  /** Semua peserta di area ini (lolos filter aktif). */
+  registered: number;
+  /** Yang berstatus Tersertifikasi. */
+  completed: number;
+  /** Tersertifikasi DAN memenuhi syarat usia Data Clean. */
+  cleanCompleted: number;
+};
+
 export type DashboardStats = {
   total: number;
   totalCompleted: number;
@@ -101,6 +122,10 @@ export type DashboardStats = {
   tidakLulusKuis: number;
   channelBreakdown: Record<string, { registered: number; completed: number }>;
   sourceList: Array<{ key: string; label: string; share: number }>;
+  /** Ringkasan per area program + satu entri "Daerah Lainnya" di akhir (4 kartu). */
+  areaStats: AreaStat[];
+  /** Apakah metrik di atas dihitung dalam mode "Hanya Data Clean". */
+  cleanOnly: boolean;
 };
 
 export type DashboardResult = {
@@ -162,6 +187,16 @@ function calcAge(tanggalLahirIso: string | undefined | null): string {
   const md = now.getMonth() - birth.getMonth();
   if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
   return age >= 0 && age < 150 ? String(age) : "-";
+}
+
+/**
+ * Umur string ("23" / "-") → number. Mengembalikan null bila tidak terbaca.
+ * Pakai parseInt, bukan Number(): `Number("")` = 0 → peserta tanpa tanggal
+ * lahir akan terbaca "umur 0" dan lolos batas usia Data Clean.
+ */
+function parseAgeNum(ageStr: string): number | null {
+  const n = parseInt(ageStr, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 function ageToBucket(ageStr: string): string | null {
@@ -439,6 +474,10 @@ type FullStudent = DashboardStudent & {
   _disabilitas: string;
   _kota: string;
   _ageBucket: string | null;
+  /** Umur sebagai angka; null bila tanggal lahir kosong/tak terbaca. */
+  _ageNum: number | null;
+  /** Area program (jabodetabek/medan/surabaya) atau null bila di luar area. */
+  _area: AreaKey | null;
   _channel: string; // raw enrollments.channelSource
   _quizScore: number | null;
   _pretestScore: number | null;
@@ -669,6 +708,8 @@ export function computeStudentRow(
     _disabilitas: disabilitas,
     _kota: kota,
     _ageBucket: ageBucket,
+    _ageNum: parseAgeNum(umur),
+    _area: areaOfCity(kota),
     _channel: rawChannel,
     _quizScore: quizScore,
     _pretestScore: pretestScore,
@@ -729,7 +770,7 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
 
 export async function aggregateDashboard(
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean; rawExport?: boolean; mismatchExport?: boolean; bypassCache?: boolean } = {}
+  options: AggregateOptions = {}
 ): Promise<DashboardResult> {
   const raw = await getRawDatasetCached(options.bypassCache);
   return applyFiltersAndAggregate(raw, filter, options);
@@ -922,12 +963,43 @@ async function buildRawDataset(): Promise<RawDataset> {
 
 // ─── Filter + agregasi + paginate (murah, per request) ──────────────────────
 
+/**
+ * Opsi agregasi.
+ *  - `cleanOnly`  : hitung stats hanya dari peserta yang lolos syarat Data Clean.
+ *  - `areas`      : batasi Data Clean ke sebagian area (undefined/kosong = semua).
+ *                   Tidak berlaku untuk `mismatchExport`.
+ */
+export type AggregateOptions = {
+  includeStudents?: boolean;
+  exportOnlyCertified?: boolean;
+  cleanExport?: boolean;
+  rawExport?: boolean;
+  mismatchExport?: boolean;
+  cleanOnly?: boolean;
+  areas?: AreaKey[];
+  bypassCache?: boolean;
+};
+
 function applyFiltersAndAggregate(
   raw: RawDataset,
   filter: DashboardFilter = {},
-  options: { includeStudents?: boolean; exportOnlyCertified?: boolean; cleanExport?: boolean; rawExport?: boolean; mismatchExport?: boolean } = {}
+  options: AggregateOptions = {}
 ): DashboardResult {
   const { allStudents, totalSteps, targets, quizStepId, quizStepTitle, survey1, feedback, survey2 } = raw;
+
+  // ─── Aturan "Data Clean" ──────────────────────────────────────────────────
+  // Peserta dianggap sesuai bila berdomisili di salah satu area program DAN
+  // usianya 18–29 (18–35 untuk penyandang disabilitas).
+  const hasDisabilitas = (s: FullStudent) => isDisabilitasValue(s._disabilitas);
+  const isCleanEligible = (s: FullStudent) =>
+    s._area !== null && isAgeEligible(s._ageNum, hasDisabilitas(s));
+
+  // Subset area yang diminta pemanggil (export Clean per-area). Kosong/undefined
+  // = semua area program.
+  const selectedAreas =
+    options.areas && options.areas.length > 0 ? new Set<AreaKey>(options.areas) : null;
+  const inSelectedAreas = (s: FullStudent) =>
+    !selectedAreas || (s._area !== null && selectedAreas.has(s._area));
 
   // ─── Apply filter ─────────────────────────────────────────────────────────
   let filtered = allStudents;
@@ -974,19 +1046,60 @@ function applyFiltersAndAggregate(
     });
   }
 
+  // ─── Mode "Hanya Data Clean" ──────────────────────────────────────────────
+  // Bila aktif, SELURUH metrik dashboard (Completion, card per area, rerata,
+  // asal, usia, …) dihitung hanya dari peserta yang lolos syarat area+usia —
+  // sehingga semua angka di layar berasal dari populasi yang sama, dan
+  // konsisten dengan jumlah baris export Data Clean.
+  //
+  // Sengaja variabel terpisah, bukan menimpa `filtered`: pemilihan baris
+  // export di bawah membaca `filtered` dan punya aturannya sendiri (mis.
+  // Data Tidak Sesuai justru butuh baris yang TIDAK clean).
+  const statsBase = options.cleanOnly
+    ? filtered.filter((s) => isCleanEligible(s) && inSelectedAreas(s))
+    : filtered;
+
+  // ─── Card Per Area ────────────────────────────────────────────────────────
+  // Dihitung dari `statsBase` agar ikut menyusut saat toggle Data Clean aktif.
+  // Kalau memakai `filtered`, card area akan menampilkan populasi mentah
+  // sementara KPI di atasnya sudah tersaring → Jabodetabek bisa terlihat lebih
+  // besar daripada Total Completion.
+  const areaStats: AreaStat[] = AREAS.map((area) => {
+    const inArea = statsBase.filter((s) => s._area === area.key);
+    const certified = inArea.filter((s) => s.status === "Tersertifikasi");
+    return {
+      key: area.key,
+      label: area.label,
+      desc: area.desc,
+      registered: inArea.length,
+      completed: certified.length,
+      // Dalam mode cleanOnly semua baris sudah clean → sama dengan `completed`.
+      cleanCompleted: certified.filter(isCleanEligible).length,
+    };
+  });
+  const luarArea = statsBase.filter((s) => s._area === null);
+  const outsideArea: AreaStat = {
+    key: "luar",
+    label: "Daerah Lainnya",
+    desc: "Kota di luar Jabodetabek, Surabaya, dan Medan",
+    registered: luarArea.length,
+    completed: luarArea.filter((s) => s.status === "Tersertifikasi").length,
+    cleanCompleted: 0,
+  };
+
   // ─── Agregasi ─────────────────────────────────────────────────────────────
 
   // Ambil hanya yang tersertifikasi (Completion) untuk metrik dashboard utama
-  const certifiedFiltered = filtered.filter((s) => s.status === "Tersertifikasi");
+  const certifiedFiltered = statsBase.filter((s) => s.status === "Tersertifikasi");
 
   const total = certifiedFiltered.length;
-  const totalCompleted = filtered.length;
-  
-  const perempuanFiltered = filtered.filter((s) => s._gender === "Perempuan");
+  const totalCompleted = statsBase.length;
+
+  const perempuanFiltered = statsBase.filter((s) => s._gender === "Perempuan");
   const perempuan = perempuanFiltered.filter((s) => s.status === "Tersertifikasi").length;
   const perempuanCompleted = perempuanFiltered.length;
-  
-  const disabilitasFiltered = filtered.filter((s) => s._disabilitas === "Ya" || s._disabilitas === "Penyandang Disabilitas");
+
+  const disabilitasFiltered = statsBase.filter(hasDisabilitas);
   const disabilitas = disabilitasFiltered.filter((s) => s.status === "Tersertifikasi").length;
   const disabilitasCompleted = disabilitasFiltered.length;
 
@@ -1041,7 +1154,10 @@ function applyFiltersAndAggregate(
     ["30+", usiaCount["30+"]],
   ];
 
-  // Channel breakdown — pakai ALL students (sebelum filter) supaya bisa lihat distribusi global
+  // Channel breakdown & sourceList sengaja memakai `allStudents` (pra-filter,
+  // termasuk pra-cleanOnly): keduanya BUKAN metrik yang ditampilkan, melainkan
+  // daftar opsi filter Sumber. Kalau ikut menyusut, opsi bisa hilang dari menu
+  // dan user tak bisa membatalkan filternya sendiri.
   const channelBreakdown: Record<string, { registered: number; completed: number }> = {
     umum: { registered: 0, completed: 0 },
     beasiswa: { registered: 0, completed: 0 },
@@ -1095,6 +1211,11 @@ function applyFiltersAndAggregate(
     tidakLulusKuis,
     channelBreakdown,
     sourceList,
+    // Selalu 4 kartu (3 area + Daerah Lainnya) agar barisnya konsisten.
+    // Dalam mode cleanOnly, "Daerah Lainnya" pasti 0 — itu memang informasinya:
+    // tak ada peserta luar area yang ikut terhitung.
+    areaStats: [...areaStats, outsideArea],
+    cleanOnly: !!options.cleanOnly,
   };
 
   // Strip internal fields kalau includeStudents
@@ -1103,14 +1224,6 @@ function applyFiltersAndAggregate(
   //    (Selesai + Tersertifikasi). raw ambil semua; mismatch disaring komplemen Clean.
   //  - exportOnlyCertified → hanya yang Tersertifikasi (dipakai export Clean).
   //  - selain itu → seluruh hasil filter.
-  const jabodetabek = ["jakarta", "bogor", "depok", "tangerang", "bekasi"];
-  const isJabodetabekCity = (s: FullStudent) => {
-    const kota = (s._kota || "").toLowerCase();
-    return jabodetabek.some((k) => kota.includes(k));
-  };
-  // Peserta dianggap "sesuai" (Clean) jika usia ≤29 DAN domisili Jabodetabek.
-  const isCleanEligible = (s: FullStudent) => s._ageBucket !== "30+" && isJabodetabekCity(s);
-
   let sourceArray =
     options.rawExport || options.mismatchExport
       ? filtered.filter((s) => s.status === "Selesai" || s.status === "Tersertifikasi")
@@ -1119,13 +1232,15 @@ function applyFiltersAndAggregate(
       : filtered;
 
   if (options.mismatchExport) {
-    // Data Tidak Sesuai: non-Jabodetabek ATAU usia >29 (komplemen dari Clean).
+    // Data Tidak Sesuai = komplemen Clean: di luar area program ATAU usia
+    // melewati batas. Sengaja TIDAK menghormati `options.areas` — filenya
+    // memang untuk melihat semua baris yang tidak lolos.
     sourceArray = sourceArray.filter((s) => !isCleanEligible(s));
   } else if (options.cleanExport && !options.rawExport) {
-    // Data Clean: usia ≤29 & Jabodetabek.
-    sourceArray = sourceArray.filter(isCleanEligible);
+    // Data Clean: dalam area terpilih & usia memenuhi syarat.
+    sourceArray = sourceArray.filter((s) => isCleanEligible(s) && inSelectedAreas(s));
   }
-  
+
   // Sort sourceArray by _createdAt (oldest to newest)
   sourceArray.sort((a, b) => {
     const timeA = a._createdAt ? a._createdAt.getTime() : 0;
@@ -1134,11 +1249,7 @@ function applyFiltersAndAggregate(
   });
 
   const students: DashboardStudent[] = options.includeStudents
-    ? sourceArray.map((s) => {
-        const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore, _pretestScore,
-                _survey1Rating, _survey2Rating, _minatArray, _createdAt, _linkSertifikat, ...pub } = s;
-        return pub;
-      })
+    ? sourceArray.map(stripInternal)
     : [];
 
   return {
@@ -1159,6 +1270,21 @@ function applyFiltersAndAggregate(
 }
 
 // ─── Helper: parse filter dari URL search params ────────────────────────────
+
+/**
+ * Baca parameter `?areas=jabodetabek,medan` → daftar AreaKey valid.
+ * Nilai tak dikenal dibuang. Kosong/absen → null (artinya: semua area).
+ */
+export function parseAreasFromSearchParams(sp: URLSearchParams): AreaKey[] | undefined {
+  const raw = sp.get("areas");
+  if (!raw) return undefined;
+  const keys = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s !== "")
+    .filter(isAreaKey);
+  return keys.length > 0 ? Array.from(new Set(keys)) : undefined;
+}
 
 export function parseFilterFromSearchParams(sp: URLSearchParams): DashboardFilter {
   const get = (k: string) => {
@@ -1273,9 +1399,11 @@ function matchStatusFilter(studentStatus: string, uiFilter: string): boolean {
   }
 }
 
+/** Buang field internal "_" agar tidak bocor ke payload API / file export. */
 function stripInternal(s: FullStudent): DashboardStudent {
-  const { _gender, _disabilitas, _kota, _ageBucket, _channel, _quizScore, _pretestScore,
-          _survey1Rating, _survey2Rating, _minatArray, _createdAt, _linkSertifikat, ...pub } = s;
+  const { _gender, _disabilitas, _kota, _ageBucket, _ageNum, _area, _channel, _quizScore,
+          _pretestScore, _survey1Rating, _survey2Rating, _minatArray, _createdAt,
+          _linkSertifikat, ...pub } = s;
   return pub;
 }
 

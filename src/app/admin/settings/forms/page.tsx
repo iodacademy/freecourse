@@ -163,10 +163,10 @@ export default function AdminFormsPage() {
                       </td>
                       <td>
                         {form.isActive ? (
-                          <span className={styles.activeBadge}><CheckCircle size={14} /> Aktif</span>
+                          <span className={styles.activeBadge}><CheckCircle size={14} /> Default Global</span>
                         ) : (
                           <button className={styles.setBtn} onClick={() => toggleActive(form.id, form.isActive)}>
-                            <Circle size={14} /> Jadikan Aktif
+                            <Circle size={14} /> Custom/Event Only - Jadikan Default
                           </button>
                         )}
                       </td>

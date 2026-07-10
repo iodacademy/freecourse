@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckCircle2, ShieldCheck, Building2 } from "lucide-react";
 import { WILAYAH_INDONESIA } from "@/lib/wilayah";
+import { ageRangeFor, isDisabilitasValue } from "@/lib/regions";
 import SearchableSelect from "@/components/SearchableSelect";
 import type { DynamicForm, DynamicFormField, DynamicFormSection, SkipRule } from "@/lib/types";
 
@@ -79,6 +80,7 @@ function ProfileContent() {
   const isEditMode = searchParams.get("edit") === "true";
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const redirectingRef = useRef(false);
+  const resolvedEventId = profile?.eventId || urlEventId || partnerEventId || "";
 
   // Computed: pages
   const pages = activeForm ? buildPages(activeForm.sections) : [];
@@ -108,23 +110,33 @@ function ProfileContent() {
     }
   }, [authLoading, user, profile, router, searchParams, isEditMode, saved]);
 
-  // 2. Fetch Active Form
+  // 2. Resolve form: event-specific custom form, falling back to global default.
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchForm() {
+      setLoadingForm(true);
       try {
-        const res = await fetch("/api/forms/active");
+        const qs = resolvedEventId ? `?eventId=${encodeURIComponent(resolvedEventId)}` : "";
+        const res = await fetch(`/api/forms/resolve${qs}`);
         if (res.ok) {
           const data = await res.json();
-          setActiveForm(data);
+          if (!cancelled) {
+            setActiveForm(data);
+            setCurrentPageIdx(0);
+            setBlocked(null);
+            setErrors({});
+          }
         }
       } catch (e) {
         console.error(e);
       } finally {
-        setLoadingForm(false);
+        if (!cancelled) setLoadingForm(false);
       }
     }
     fetchForm();
-  }, []);
+    return () => { cancelled = true; };
+  }, [resolvedEventId]);
 
   // 3. Pre-fill existing data + auto-validate partnerCode jika sudah ada
   useEffect(() => {
@@ -286,9 +298,20 @@ function ProfileContent() {
                    let age = now.getFullYear() - birth.getFullYear();
                    const md = now.getMonth() - birth.getMonth();
                    if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
-                   
-                   if (age < 18 || age > 29) {
-                     errs[field.name] = `Usia yang diperbolehkan adalah 18-29 tahun (Usia saat ini: ${age} tahun)`;
+
+                   // Penyandang disabilitas boleh sampai 35 th; selain itu 29 th.
+                   // Kalau jawaban disabilitas belum terisi (mis. admin memindah
+                   // field-nya ke halaman berikutnya), pakai batas longgar dulu —
+                   // biar orang tidak ditolak gara-gara urutan pengisian. Field
+                   // disabilitas sendiri tetap wajib dan akan memunculkan error.
+                   const disabilitasAnswered = answers.disabilitas !== undefined
+                     && String(answers.disabilitas ?? '').trim() !== '';
+                   const isDisabilitas = !disabilitasAnswered
+                     || isDisabilitasValue(answers.disabilitas);
+                   const [minAge, maxAge] = ageRangeFor(isDisabilitas);
+
+                   if (age < minAge || age > maxAge) {
+                     errs[field.name] = `Usia yang diperbolehkan adalah ${minAge}-${maxAge} tahun (Usia saat ini: ${age} tahun)`;
                    }
                 }
               }

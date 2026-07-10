@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { requireAdmin, handleError } from "@/lib/api-helpers";
 import {
   aggregateDashboard,
+  parseAreasFromSearchParams,
   parseFilterFromSearchParams,
   SHEET_HEADERS,
   studentToRow,
@@ -20,15 +21,19 @@ export async function GET(req: NextRequest) {
       | "clean"
       | "raw"
       | "mismatch";
+    // ?areas=jabodetabek,medan — hanya berlaku untuk mode clean.
+    const areas = parseAreasFromSearchParams(req.nextUrl.searchParams);
     const { students, generatedAt } = await aggregateDashboard(filter, {
       includeStudents: true,
-      // Clean: hanya Tersertifikasi, usia ≤29 & Jabodetabek.
+      // Clean: hanya Tersertifikasi, di area terpilih & usia memenuhi syarat
+      //        (≤29 th; ≤35 th untuk penyandang disabilitas).
       // Raw: Selesai + Tersertifikasi, semua daerah & semua usia.
-      // Mismatch: Selesai + Tersertifikasi, non-Jabodetabek ATAU usia >29.
+      // Mismatch: Selesai + Tersertifikasi, di luar area program ATAU usia lewat batas.
       rawExport: mode === "raw",
       mismatchExport: mode === "mismatch",
       exportOnlyCertified: mode === "clean",
       cleanExport: mode === "clean",
+      areas: mode === "clean" ? areas : undefined,
     });
 
     const rows = students.map(studentToRow);
@@ -42,7 +47,9 @@ export async function GET(req: NextRequest) {
     XLSX.utils.book_append_sheet(wb, ws, "Data Dashboard");
 
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    const filename = `dashboard-yourise-${mode}-${generatedAt.replace(/[: ]/g, "-")}.xlsx`;
+    // Sisipkan area di nama file agar beberapa unduhan Clean tidak tertukar.
+    const areaTag = mode === "clean" && areas ? `-${areas.join("_")}` : "";
+    const filename = `dashboard-yourise-${mode}${areaTag}-${generatedAt.replace(/[: ]/g, "-")}.xlsx`;
 
     return new Response(buf as any, {
       status: 200,

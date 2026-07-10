@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       // Channel 3 — Workshop
       workshopData: body.workshopData ?? null,
       workshopConfig: body.workshopConfig ?? null,
+      formId: body.formId || null,
       customProfileFields: body.customProfileFields ?? [],
       beasiswaConfig: body.beasiswaConfig ?? null,
       createdAt: FieldValue.serverTimestamp(),

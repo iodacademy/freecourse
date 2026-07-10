@@ -204,6 +204,7 @@ export interface Event {
     currentRegistrants: number;
     reminderSent: { h3: boolean; h1: boolean; h0: boolean };
   };
+  formId?: string | null;
   customProfileFields?: ProfileField[];
   beasiswaConfig?: {
     type: "vl" | "wpb" | "bootcamp";

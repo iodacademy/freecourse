@@ -62,9 +62,11 @@ export async function GET(req: NextRequest) {
       | "mismatch";
     const { students, generatedAt } = await aggregateDashboard(filter, {
       includeStudents: true,
-      // Clean: hanya Tersertifikasi, usia ≤29 & Jabodetabek.
+      // Clean: hanya Tersertifikasi, di area program (Jabodetabek/Medan/Surabaya)
+      //        & usia memenuhi syarat (≤29 th; ≤35 th untuk penyandang disabilitas).
       // Raw: Selesai + Tersertifikasi, semua daerah & semua usia.
-      // Mismatch: Selesai + Tersertifikasi, non-Jabodetabek ATAU usia >29.
+      // Mismatch: Selesai + Tersertifikasi, di luar area program ATAU usia lewat batas.
+      // Pemilihan area (?areas=) sengaja TIDAK diekspos di dashboard publik.
       rawExport: mode === "raw",
       mismatchExport: mode === "mismatch",
       exportOnlyCertified: mode === "clean",

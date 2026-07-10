@@ -8,7 +8,8 @@
     "build": "next build",
     "postbuild": "node scripts/copy-standalone.js",
     "start": "node start.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:areas": "node --experimental-strip-types scripts/check-regions.mjs && node --experimental-strip-types scripts/check-age-validation.mjs && node --experimental-strip-types scripts/check-dashboard-areas.mjs"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
