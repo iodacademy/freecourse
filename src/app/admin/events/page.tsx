@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import styles from "./page.module.css";
 import { AlertTriangle, Archive, Copy, Check, School, Target, Mic, Search, X, Upload, User, ImageIcon, Calendar, Clock, Monitor, ChevronRight, ArrowLeft } from "lucide-react";
 import { ConfirmDialog } from "@/components/Modal/Dialogs";
-import type { DynamicForm } from "@/lib/types";
+import type { BenefitCategory, DynamicForm } from "@/lib/types";
+import { BENEFIT_CATEGORY_OPTIONS, getExplicitBenefitCategories } from "@/lib/benefit-categories";
 
 interface EventData {
   id: string;
@@ -20,6 +21,7 @@ interface EventData {
   campusName: string | null;
   partnerCode: string | null;
   formId?: string | null;
+  benefitCategories?: BenefitCategory[];
   createdAt: any;
 }
 
@@ -85,6 +87,7 @@ export default function AdminEventsPage() {
     waGroupLink: "",
     topikList: [] as Array<{ judul: string; jadwal: string }>,
   });
+  const [benefitCategories, setBenefitCategories] = useState<BenefitCategory[]>(["vl"]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
@@ -209,6 +212,11 @@ export default function AdminEventsPage() {
       setError("Kode Mitra wajib diisi untuk channel Kemitraan (B2B)");
       return;
     }
+    const usesBenefitCategories = form.channelType === "b2c_ads" || form.channelType === "b2b_campus";
+    if (usesBenefitCategories && benefitCategories.length === 0) {
+      setError("Pilih minimal satu kategori benefit untuk event ini");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -234,6 +242,7 @@ export default function AdminEventsPage() {
         speakerTitle: workshopForm.speakerTitle,
         speakerPhoto: photoUrl,
       } : null;
+      const eventBenefitCategories = usesBenefitCategories ? benefitCategories : [];
 
       const payload = {
         name: form.name,
@@ -245,7 +254,10 @@ export default function AdminEventsPage() {
         audienceLabel: form.channelType === "b2b_campus" ? form.audienceLabel : null,
         formId: form.formId || null,
         workshopData,
-        beasiswaConfig: form.channelType === "b2c_ads" ? beasiswaConfig : null,
+        benefitCategories: eventBenefitCategories,
+        beasiswaConfig: form.channelType === "b2c_ads"
+          ? { ...beasiswaConfig, benefitCategories: eventBenefitCategories }
+          : null,
       };
 
       if (editing) {
@@ -333,6 +345,7 @@ export default function AdminEventsPage() {
     setForm({ name: "", description: "", channelType: "", status: "draft", startDate: "", partnerCode: "", audienceLabel: "", formId: "" });
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
     setBeasiswaConfig({ type: "vl", namaKelas: "", kodeBasis: "", kodeKelas: "", waGroupLink: "", topikList: [] });
+    setBenefitCategories(["vl"]);
     setPhotoFile(null);
     setPhotoPreview("");
     setError("");
@@ -375,6 +388,14 @@ export default function AdminEventsPage() {
     });
     
     const bc = (evt as any).beasiswaConfig;
+    const explicitBenefitCategories = getExplicitBenefitCategories(evt);
+    const savedBenefitCategories: BenefitCategory[] = explicitBenefitCategories.length > 0
+      ? explicitBenefitCategories
+      : bc?.type
+        ? [bc.type as BenefitCategory]
+        : evt.channelType === "b2b_campus"
+          ? BENEFIT_CATEGORY_OPTIONS.map((opt) => opt.value)
+          : ["vl"];
     setBeasiswaConfig({
       type: bc?.type || "vl",
       namaKelas: bc?.namaKelas || "",
@@ -383,12 +404,70 @@ export default function AdminEventsPage() {
       waGroupLink: bc?.waGroupLink || "",
       topikList: bc?.topikList || [],
     });
+    setBenefitCategories(savedBenefitCategories);
 
     setPhotoFile(null);
     setPhotoPreview(wd?.speakerPhoto || "");
     setError("");
     setShowModal(true);
   };
+
+  const toggleBenefitCategory = (category: BenefitCategory) => {
+    setBenefitCategories((prev) => {
+      if (prev.includes(category)) return prev.filter((item) => item !== category);
+      return [...prev, category];
+    });
+  };
+
+  const renderBenefitCategoryPicker = () => (
+    <div className={styles.formGroup}>
+      <label className={styles.formLabel}>Kategori Benefit yang Ditampilkan ke Siswa <span className={styles.required}>*</span></label>
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" }}>
+        {BENEFIT_CATEGORY_OPTIONS.map((option) => {
+          const checked = benefitCategories.includes(option.value);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => toggleBenefitCategory(option.value)}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                textAlign: "left",
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: checked ? "1.5px solid var(--color-primary)" : "1px solid #d8dee8",
+                background: checked ? "rgba(204,0,0,0.06)" : "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                border: checked ? "1px solid var(--color-primary)" : "1px solid #9aa4b2",
+                background: checked ? "var(--color-primary)" : "#fff",
+                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                flex: "0 0 auto",
+              }}>
+                {checked ? "✓" : ""}
+              </span>
+              <span>
+                <strong style={{ display: "block", fontSize: 14 }}>{option.label}</strong>
+                <span style={{ display: "block", fontSize: 12, color: "#64748b", marginTop: 2 }}>{option.description}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <span className={styles.formHint}>Jika memilih 2 kategori, siswa hanya melihat 2 tab itu dan tetap hanya bisa memilih 1 benefit.</span>
+    </div>
+  );
 
   const closeModal = () => {
     setShowModal(false);
@@ -822,13 +901,26 @@ export default function AdminEventsPage() {
                       </div>
                       
                       <div className={styles.formGroup}>
-                        <label className={styles.formLabel}>Jenis Beasiswa</label>
-                        <select className={styles.formInput} value={beasiswaConfig.type} onChange={(e) => setBeasiswaConfig({ ...beasiswaConfig, type: e.target.value as "vl" | "wpb" | "bootcamp" })}>
+                        <label className={styles.formLabel}>Tipe Landing Beasiswa</label>
+                        <select
+                          className={styles.formInput}
+                          value={beasiswaConfig.type}
+                          onChange={(e) => {
+                            const nextType = e.target.value as "vl" | "wpb" | "bootcamp";
+                            setBeasiswaConfig({ ...beasiswaConfig, type: nextType });
+                            setBenefitCategories((prev) => (
+                              prev.includes(nextType as BenefitCategory) ? prev : [...prev, nextType as BenefitCategory]
+                            ));
+                          }}
+                        >
                           <option value="vl">Video Learning (Default)</option>
                           <option value="wpb">WPB (Workshop Praktikal Berproject)</option>
                           <option value="bootcamp">Bootcamp</option>
                         </select>
+                        <span className={styles.formHint}>Dipakai untuk tampilan landing lama. Pilihan benefit siswa diatur dari checklist di bawah.</span>
                       </div>
+
+                      {renderBenefitCategoryPicker()}
 
                       {beasiswaConfig.type !== "vl" && (
                         <>
@@ -948,6 +1040,7 @@ export default function AdminEventsPage() {
                         <input className={styles.formInput} type="text" placeholder="Contoh: Mahasiswa, Karyawan, Member" value={form.audienceLabel} onChange={(e) => setForm({ ...form, audienceLabel: e.target.value })} />
                         <span className={styles.formHint}>Tampil di landing page: "Selamat Datang, <em>[Sapaan]</em> [Nama Event]!"</span>
                       </div>
+                      {renderBenefitCategoryPicker()}
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Deskripsi (opsional)</label>
                         <textarea className={styles.formTextarea} placeholder="Deskripsi singkat..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import { GraduationCap, Trophy, Loader2, AlertCircle } from "lucide-react";
+import type { BenefitCategory } from "@/lib/types";
+import { isBenefitCategoryAllowed, resolveBenefitCategories } from "@/lib/benefit-categories";
 
 interface EnrollmentData {
   id: string;
@@ -57,6 +59,7 @@ export default function CertificatePage() {
 
   // Modal pilih kategori kursus (khusus kemitraan)
   const [catModalOpen, setCatModalOpen] = useState(false);
+  const [allowedBenefitCategories, setAllowedBenefitCategories] = useState<BenefitCategory[] | null>(null);
 
   // Fetch enrollment & course steps
   useEffect(() => {
@@ -94,6 +97,16 @@ export default function CertificatePage() {
         setEnrollment(main);
         setCertId(main.certificateId);
         if (main.certificateDriveUrl) setDriveUrl(main.certificateDriveUrl);
+        if (main.eventId) {
+          try {
+            const eventRes = await fetch(`/api/events/public/${encodeURIComponent(main.eventId)}`, { cache: "no-store" });
+            setAllowedBenefitCategories(eventRes.ok ? resolveBenefitCategories(await eventRes.json()) : null);
+          } catch {
+            setAllowedBenefitCategories(null);
+          }
+        } else {
+          setAllowedBenefitCategories(null);
+        }
 
         // Auto-sync beasiswaType dan generate redeem code jika missing
         if (main.channelSource === "beasiswa" && main.eventId && (!main.beasiswaType || !main.bonusCourseRedeemCode)) {
@@ -309,6 +322,13 @@ export default function CertificatePage() {
   const today = new Date().toLocaleDateString("id-ID", {
     day: "numeric", month: "long", year: "numeric",
   });
+  const benefitModalOptions = [
+    { cat: "workshop", emoji: "🎤", title: "Workshop", desc: "Ikuti workshop online bersama mentor. Detail & link dikirim ke email kamu." },
+    { cat: "bootcamp", emoji: "🚀", title: "Specialized Bootcamp", desc: "Pelatihan intensif dengan mentor. Dapatkan sertifikat kompetensi resmi dari ioda academy." },
+    { cat: "vl", emoji: "🎥", title: "Video Learning", desc: "Akses modul video rekaman yang bisa kamu pelajari kapan saja secara mandiri." },
+    { cat: "review_cv", emoji: "📄", title: "Review CV", desc: "Kirim CV kamu untuk direview oleh tim kami." },
+    { cat: "downloadable", emoji: "🎁", title: "Downloadable", desc: "Akses e-book, template, dan file bonus lainnya." },
+  ].filter((opt) => isBenefitCategoryAllowed(opt.cat, allowedBenefitCategories));
 
   // Beritahu layout bahwa konten siap
   const { signalReady } = useLearnLoading();
@@ -690,12 +710,12 @@ export default function CertificatePage() {
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
+              {(benefitModalOptions.length > 0 ? benefitModalOptions : [
                 { cat: "workshop", emoji: "🎤", title: "Workshop", desc: "Ikuti workshop online bersama mentor. Detail & link dikirim ke email kamu." },
                 { cat: "bootcamp", emoji: "🚀", title: "Specialized Bootcamp", desc: "Pelatihan intensif dengan mentor. Dapatkan sertifikat kompetensi resmi dari ioda academy." },
                 { cat: "vl", emoji: "🎥", title: "Video Learning", desc: "Akses modul video rekaman yang bisa kamu pelajari kapan saja secara mandiri." },
                 { cat: "lainnya", emoji: "🎁", title: "Bonus Lainnya", desc: "Review CV, e-book, template, dan konten bermanfaat lainnya." },
-              ].map((opt) => (
+              ]).map((opt) => (
                 <button
                   key={opt.cat}
                   onClick={() => router.push(`/learn/bonus?cat=${opt.cat}`)}

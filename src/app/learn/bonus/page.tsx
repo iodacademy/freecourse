@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import { Loader2, Check, Copy, ExternalLink, Download, Upload, FileText } from "lucide-react";
+import type { BenefitCategory } from "@/lib/types";
+import { isBenefitCategoryAllowed, resolveBenefitCategories } from "@/lib/benefit-categories";
 
 interface WorkshopData {
   date?: string;
@@ -36,6 +38,7 @@ interface EnrollmentData {
   bonusCourseTopicId?: string;
   bonusCourseRedeemCode?: string;
   beasiswaType?: string;
+  eventId?: string;
 }
 
 // Map query ?cat= ke daftar kategori topik yang cocok.
@@ -47,6 +50,16 @@ function catMatches(cat: string | null, topicCategory: string): boolean {
   if (cat === "bootcamp") return c === "bootcamp";
   if (cat === "lainnya") return c === "review_cv" || c === "downloadable";
   return c === cat;
+}
+
+async function loadAllowedBenefitCategories(eventId: string): Promise<BenefitCategory[] | null> {
+  try {
+    const res = await fetch(`/api/events/public/${encodeURIComponent(eventId)}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return resolveBenefitCategories(await res.json());
+  } catch {
+    return null;
+  }
 }
 
 export default function BonusCoursePage() {
@@ -123,12 +136,18 @@ export default function BonusCoursePage() {
         }
 
         // Belum pilih → tampilkan daftar sesuai ?cat=
-        const topicsRes = await fetch("/api/bonus-courses", {
-          headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store",
-        });
+        const [topicsRes, allowedCategories] = await Promise.all([
+          fetch("/api/bonus-courses", {
+            headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store",
+          }),
+          main.eventId ? loadAllowedBenefitCategories(main.eventId) : Promise.resolve(null),
+        ]);
         if (topicsRes.ok) {
           const tData: BonusTopic[] = await topicsRes.json();
-          setTopics(tData.filter((t) => catMatches(targetCategory, t.category || "vl")));
+          setTopics(tData.filter((t) => (
+            catMatches(targetCategory, t.category || "vl") &&
+            isBenefitCategoryAllowed(t.category || "vl", allowedCategories)
+          )));
         }
       } catch { setError("Gagal memuat data."); }
       finally { setLoading(false); }

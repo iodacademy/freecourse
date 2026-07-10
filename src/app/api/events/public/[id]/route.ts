@@ -33,6 +33,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       landingPageConfig: data.landingPageConfig ?? null,
       workshopData: data.workshopData ?? null,
       beasiswaConfig: data.beasiswaConfig ?? null,
+      benefitCategories: data.benefitCategories ?? data.beasiswaConfig?.benefitCategories ?? null,
     });
   } catch (e) {
     return handleError(e);

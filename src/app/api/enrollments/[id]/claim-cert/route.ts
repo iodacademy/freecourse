@@ -11,6 +11,7 @@ import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { syncStudentIndex } from "@/lib/sync-student-index";
 import { normalizeCertName, validateCertName } from "@/lib/cert-name";
 import { FieldValue } from "firebase-admin/firestore";
+import { getExplicitBenefitCategories } from "@/lib/benefit-categories";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -212,8 +213,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       try {
         const eventDoc = await db.collection("events").doc(enrollData.eventId).get();
         if (eventDoc.exists) {
-          const bc = eventDoc.data()?.beasiswaConfig;
-          if (bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
+          const eventData = eventDoc.data();
+          const bc = eventData?.beasiswaConfig;
+          const hasManualBenefitChoice = getExplicitBenefitCategories(eventData).length > 0;
+          if (!hasManualBenefitChoice && bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
             beasiswaType = bc.type;
             waGroupLink = bc.waGroupLink || "";
             const kodeKelas = bc.kodeKelas || "";

@@ -205,9 +205,11 @@ export interface Event {
     reminderSent: { h3: boolean; h1: boolean; h0: boolean };
   };
   formId?: string | null;
+  benefitCategories?: BenefitCategory[];
   customProfileFields?: ProfileField[];
   beasiswaConfig?: {
     type: "vl" | "wpb" | "bootcamp";
+    benefitCategories?: BenefitCategory[];
     namaKelas?: string;
     kodeBasis?: string;
     kodeKelas?: string;

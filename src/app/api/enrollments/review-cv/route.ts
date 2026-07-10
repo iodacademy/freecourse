@@ -16,6 +16,7 @@ import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
 import { callGAS } from "@/lib/gas-email";
 import { detailChannelFromCategory } from "@/lib/beasiswa-channel";
+import { isBenefitCategoryAllowed, resolveBenefitCategories } from "@/lib/benefit-categories";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -26,11 +27,13 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const enrollmentId = (formData.get("enrollmentId") as string) || "";
+    const topicId = (formData.get("topicId") as string) || "";
     const namaLengkap = ((formData.get("namaLengkap") as string) || "").trim();
     const email = ((formData.get("email") as string) || "").trim();
 
     if (!file) return json({ error: "File CV wajib diupload" }, 400);
     if (!enrollmentId) return json({ error: "enrollmentId wajib diisi" }, 400);
+    if (!topicId) return json({ error: "topicId wajib diisi" }, 400);
     if (!namaLengkap) return json({ error: "Nama lengkap wajib diisi" }, 400);
     if (!email) return json({ error: "Email wajib diisi" }, 400);
 
@@ -53,6 +56,20 @@ export async function POST(req: NextRequest) {
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
     if (enrollData.bonusCourseRedeemCode || enrollData.beasiswaType) {
       return json({ error: "Kamu sudah memilih benefit sebelumnya" }, 400);
+    }
+
+    const topicDoc = await db.collection("bonusCourseTopics").doc(topicId).get();
+    if (!topicDoc.exists || topicDoc.data()?.status !== "active" || topicDoc.data()?.category !== "review_cv") {
+      return json({ error: "Benefit Review CV tidak valid atau tidak aktif" }, 404);
+    }
+    if (enrollData.eventId) {
+      const eventDoc = await db.collection("events").doc(enrollData.eventId).get();
+      if (eventDoc.exists) {
+        const allowedCategories = resolveBenefitCategories(eventDoc.data());
+        if (!isBenefitCategoryAllowed("review_cv", allowedCategories)) {
+          return json({ error: "Benefit ini tidak tersedia untuk event kamu" }, 400);
+        }
+      }
     }
 
     // Baca file → base64
@@ -80,7 +97,7 @@ export async function POST(req: NextRequest) {
     // Tandai enrollment
     await enrollRef.update({
       beasiswaType: "review_cv",
-      bonusCourseTopicId: (formData.get("topicId") as string) || null,
+      bonusCourseTopicId: topicId,
       detailChannel,
       reviewCvName: namaLengkap,
       reviewCvEmail: email,

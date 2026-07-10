@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
+import { getExplicitBenefitCategories } from "@/lib/benefit-categories";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,8 +47,10 @@ export async function GET(req: NextRequest) {
           try {
             const eventDoc = await db.collection("events").doc(e.eventId).get();
             if (eventDoc.exists) {
-              const bc = eventDoc.data()?.beasiswaConfig;
-              if (bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
+              const eventData = eventDoc.data();
+              const bc = eventData?.beasiswaConfig;
+              const hasManualBenefitChoice = getExplicitBenefitCategories(eventData).length > 0;
+              if (!hasManualBenefitChoice && bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
                 e.beasiswaType = bc.type;
                 e.waGroupLink = bc.waGroupLink || "";
                 
