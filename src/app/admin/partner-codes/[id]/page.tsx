@@ -52,6 +52,7 @@ export default function PartnerCodeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "inProgress" | "certified">("all");
+  const [isExporting, setIsExporting] = useState(false);
 
   const getToken = useCallback(async () => {
     if (!user) return "";
@@ -94,6 +95,7 @@ export default function PartnerCodeDetailPage() {
     if (!event || !user) return;
     
     try {
+      setIsExporting(true);
       const token = await (user as any).getIdToken();
       const exportUrl = `/api/partner-codes/${id}/export-excel?status=${filter}`;
       
@@ -116,6 +118,8 @@ export default function PartnerCodeDetailPage() {
       URL.revokeObjectURL(url);
     } catch (e: any) {
       alert("Gagal mengunduh file: " + e.message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -126,6 +130,15 @@ export default function PartnerCodeDetailPage() {
 
   return (
     <ProtectedRoute requireAdmin>
+      {isExporting && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.spinner} style={{ width: 40, height: 40, borderWidth: 4 }}></div>
+            <p style={{ fontWeight: 600, color: "#333", margin: 0 }}>Menyiapkan Data Excel...</p>
+            <p style={{ fontSize: 13, color: "#666", margin: 0 }}>Mohon tunggu sebentar, sedang memproses data.</p>
+          </div>
+        </div>
+      )}
       <div className={styles.page}>
         {/* Back button */}
         <button className={styles.backBtn} onClick={() => router.push("/admin/partner-codes")}>
