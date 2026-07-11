@@ -91,13 +91,32 @@ export default function PartnerCodeDetailPage() {
   });
 
   const exportToExcel = async () => {
-    if (!event) return;
+    if (!event || !user) return;
     
-    // Gunakan filter yang sama dengan yang dipilih di UI
-    const exportUrl = `/api/partner-codes/${id}/export-excel?status=${filter}`;
-    
-    // Buka URL di tab baru atau langsung trigger download
-    window.location.href = exportUrl;
+    try {
+      const token = await (user as any).getIdToken();
+      const exportUrl = `/api/partner-codes/${id}/export-excel?status=${filter}`;
+      
+      const res = await fetch(exportUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (!res.ok) throw new Error("Export gagal, pastikan Anda memiliki akses.");
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const m = disposition.match(/filename="?([^"]+)"?/);
+      a.download = m ? m[1] : `Data_Peserta_${event.partnerCode}.xlsx`;
+      
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert("Gagal mengunduh file: " + e.message);
+    }
   };
 
   const StatusIcon = ({ value }: { value: boolean }) =>
