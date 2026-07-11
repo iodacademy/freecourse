@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { requireAdmin, handleError } from "@/lib/api-helpers";
 import {
-  aggregateDashboard,
+  aggregatePartnerDashboard,
   SHEET_HEADERS,
   studentToRow,
 } from "@/lib/dashboard-aggregator";
@@ -33,7 +33,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const statusFilter = url.searchParams.get("status") || "all";
 
     // Gunakan fungsi aggregasi dari dashboard utama agar format kolom dan perhitungannya SAMA PERSIS
-    const { students, generatedAt } = await aggregateDashboard(
+    const { students, generatedAt } = await aggregatePartnerDashboard(
+      partnerCode,
       { channel: "kemitraan", source: partnerCode },
       { includeStudents: true } // Harus di-set true agar data peserta dimuat (bukan hanya stats)
     );

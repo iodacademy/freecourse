@@ -793,23 +793,41 @@ export async function aggregateDashboard(
   return applyFiltersAndAggregate(raw, filter, options);
 }
 
+export async function aggregatePartnerDashboard(
+  partnerCode: string,
+  filter: DashboardFilter = {},
+  options: AggregateOptions = {}
+): Promise<DashboardResult> {
+  const rawDataset = await buildPartnerRawDataset(partnerCode);
+  return applyFiltersAndAggregate(rawDataset, filter, options);
+}
+
 // ─── Build dataset mentah (mahal: fetch semua collection + bangun students) ──
 
 async function buildRawDataset(): Promise<RawDataset> {
   const db = getAdminDb();
+export interface DashboardLookupsBase {
+  eventsById: Map<string, IodaEvent>;
+  partnerByCode: Map<string, PartnerCode>;
+  topicsById: Map<string, BonusCourseTopic>;
+  quizStepId: string | null;
+  quizStepTitle: string | null;
+  survey1: { id: string | null; text: string | null };
+  feedback: { id: string | null; text: string | null };
+  survey2: { id: string | null; text: string | null };
+  totalSteps: number;
+  targets: any;
+  mainCourseIdActual: string;
+}
 
-  // Fetch paralel — semua collection sekali jalan
+export async function buildDashboardLookups(): Promise<DashboardLookupsBase> {
   const [
-    usersSnap,
-    enrollmentsSnap,
     coursesSnap,
     eventsSnap,
     partnerCodesSnap,
     bonusTopicsSnap,
     settingsDoc,
   ] = await Promise.all([
-    db.collection("users").get(),
-    db.collection("enrollments").get(),
     db.collection("courses").get(),
     db.collection("events").get(),
     db.collection("partnerCodes").get(),
@@ -840,7 +858,6 @@ async function buildRawDataset(): Promise<RawDataset> {
     || coursesSnap.docs.find((d) => (d.data() as any).isMainCourse === true);
   const mainCourseIdActual = mainCourseDoc?.id || mainCourseId;
 
-  // Fetch steps untuk main course (koleksi root "courseSteps")
   let mainSteps: CourseStep[] = [];
   if (mainCourseDoc) {
     const stepsSnap = await db
@@ -849,13 +866,10 @@ async function buildRawDataset(): Promise<RawDataset> {
       .get();
       
     mainSteps = stepsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-    // Sort in memory
     mainSteps.sort((a, b) => (a.order || 0) - (b.order || 0));
   }
-
   const totalSteps = mainSteps.length;
 
-  // Build mapping (Approach 1 admin, fallback Approach 2 text-match)
   const surveys: StepWithSurvey[] = mainSteps
     .filter((s) => s.survey?.questions?.length)
     .map((s) => ({
@@ -882,7 +896,6 @@ async function buildRawDataset(): Promise<RawDataset> {
     detector: () => { id: string; text: string; stepTitle: string } | null
   ): { id: string | null; text: string | null } {
     if (explicitId) {
-      // Cari di mainSteps
       for (const sw of surveys) {
         const q = sw.questions.find((x) => x.id === explicitId);
         if (q) return { id: q.id, text: q.text };
@@ -901,6 +914,24 @@ async function buildRawDataset(): Promise<RawDataset> {
   if (!survey1.id) console.warn("[Dashboard] Pertanyaan Survei 1 tidak ditemukan");
   if (!feedback.id) console.warn("[Dashboard] Pertanyaan Feedback tidak ditemukan");
   if (!survey2.id) console.warn("[Dashboard] Pertanyaan Survei 2 tidak ditemukan");
+
+  return {
+    eventsById, partnerByCode, topicsById, quizStepId, quizStepTitle,
+    survey1, feedback, survey2, totalSteps, targets, mainCourseIdActual
+  };
+}
+
+async function buildRawDataset(): Promise<RawDataset> {
+  const lookupsData = await buildDashboardLookups();
+  const {
+    eventsById, partnerByCode, topicsById, quizStepId, quizStepTitle,
+    survey1, feedback, survey2, totalSteps, targets, mainCourseIdActual
+  } = lookupsData;
+
+  const [usersSnap, enrollmentsSnap] = await Promise.all([
+    db.collection("users").get(),
+    db.collection("enrollments").get(),
+  ]);
 
   // Build map enrollment by userId untuk mainCourse — pilih updatedAt terbaru kalau dobel
   const enrollmentByUser = new Map<string, Enrollment & { _ts: number }>();
@@ -975,6 +1006,108 @@ async function buildRawDataset(): Promise<RawDataset> {
     survey1,
     feedback,
     survey2,
+  };
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const result = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
+export async function buildPartnerRawDataset(partnerCode: string): Promise<RawDataset> {
+  const lookupsData = await buildDashboardLookups();
+  const {
+    eventsById, partnerByCode, topicsById, quizStepId, quizStepTitle,
+    survey1, feedback, survey2, totalSteps, targets, mainCourseIdActual
+  } = lookupsData;
+
+  const usersSnap = await db.collection("users").where("partnerCode", "==", partnerCode).get();
+  
+  type RawUser = UserProfile & { _ts: number };
+  const userByEmail = new Map<string, RawUser>();
+  const uidsToFetch = new Set<string>();
+  const emailsToFetch = new Set<string>();
+
+  for (const d of usersSnap.docs) {
+    const data = d.data() as any;
+    if (data.role === "admin") continue;
+    if (!data.profileCompleted) continue;
+    const email = normalizeEmail(data.email);
+    if (!email) continue;
+    const ts =
+      (data.updatedAt?.toMillis?.() as number) ||
+      (data.createdAt?.toMillis?.() as number) ||
+      0;
+    const prev = userByEmail.get(email);
+    if (!prev || ts > prev._ts) {
+      userByEmail.set(email, { uid: d.id, ...data, email, _ts: ts });
+      uidsToFetch.add(d.id);
+      emailsToFetch.add(email);
+    }
+  }
+
+  const uidsArray = Array.from(uidsToFetch);
+  const emailsArray = Array.from(emailsToFetch);
+  const uidChunks = chunkArray(uidsArray, 30);
+  const emailChunks = chunkArray(emailsArray, 30);
+
+  const enrollmentByUser = new Map<string, Enrollment & { _ts: number }>();
+  
+  const processEnrollmentsSnap = (snap: FirebaseFirestore.QuerySnapshot) => {
+    for (const d of snap.docs) {
+      const data = d.data() as any;
+      if (data.courseId !== mainCourseIdActual) continue;
+      const ts =
+        (data.updatedAt?.toMillis?.() as number) ||
+        (data.createdAt?.toMillis?.() as number) ||
+        0;
+      const enrollment = { id: d.id, ...data, _ts: ts };
+      const keys = new Set(
+        [
+          data.userId,
+          normalizeEmail(data.email),
+          d.id,
+          normalizeEmail(d.id),
+        ].filter((key) => String(key || "").trim()).map((key) => String(key).trim())
+      );
+      for (const key of keys) {
+        const prev = enrollmentByUser.get(key);
+        if (!prev || ts > prev._ts) {
+          enrollmentByUser.set(key, enrollment);
+        }
+      }
+    }
+  };
+
+  for (const chunk of uidChunks) {
+    if (chunk.length === 0) continue;
+    const snap = await db.collection("enrollments").where("userId", "in", chunk).get();
+    processEnrollmentsSnap(snap);
+  }
+  for (const chunk of emailChunks) {
+    if (chunk.length === 0) continue;
+    const snap = await db.collection("enrollments").where("email", "in", chunk).get();
+    processEnrollmentsSnap(snap);
+  }
+
+  const lookups: StudentLookups = {
+    eventsById, partnerByCode, topicsById, quizStepId,
+    survey1, feedback, survey2, totalSteps,
+  };
+
+  const allStudents: FullStudent[] = [];
+  for (const [email, u] of userByEmail) {
+    const enr = enrollmentByUser.get(u.uid) || enrollmentByUser.get(email) || null;
+    allStudents.push(computeStudentRow(u as any, enr as any, lookups));
+  }
+
+  return {
+    allStudents,
+    totalSteps, targets, quizStepId, quizStepTitle,
+    survey1, feedback, survey2,
   };
 }
 
