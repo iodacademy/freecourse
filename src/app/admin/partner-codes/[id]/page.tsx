@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle, ArrowLeft, Check, X, Download } from "lucide-react";
 import styles from "./page.module.css";
+import * as XLSX from "xlsx";
 
 interface Participant {
   uid: string;
@@ -90,6 +91,35 @@ export default function PartnerCodeDetailPage() {
     return true;
   });
 
+  const exportToExcel = () => {
+    if (!event) return;
+
+    const dataToExport = filteredParticipants.map((p, i) => {
+      const row: Record<string, any> = {
+        "No": i + 1,
+        "Nama Lengkap": p.namaLengkap,
+        "Email": p.email,
+        "Nomor WA": p.nomorWA,
+        "Profil Lengkap": p.profileCompleted ? "Ya" : "Belum",
+      };
+
+      courseSteps.forEach(step => {
+        row[step.title] = p.progress[step.id] ? "Ya" : "Belum";
+      });
+
+      row["Sertifikat"] = p.certificateClaimed ? "Ya" : "Belum";
+
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Peserta");
+
+    const fileName = `Data_Peserta_${event.partnerCode}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   const StatusIcon = ({ value }: { value: boolean }) =>
     value
       ? <span className={styles.statusDone}><Check size={12} /></span>
@@ -150,6 +180,9 @@ export default function PartnerCodeDetailPage() {
                 <span className={styles.tableCount}>
                   Menampilkan <strong>{filteredParticipants.length}</strong> peserta
                 </span>
+                <button onClick={exportToExcel} className={styles.exportBtn} disabled={filteredParticipants.length === 0}>
+                  <Download size={14} /> Export Excel
+                </button>
               </div>
               {filteredParticipants.length === 0 ? (
                 <div className={styles.emptyState}>
