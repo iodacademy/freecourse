@@ -6,7 +6,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle, ArrowLeft, Check, X, Download } from "lucide-react";
 import styles from "./page.module.css";
-import * as XLSX from "xlsx";
 
 interface Participant {
   uid: string;
@@ -91,33 +90,14 @@ export default function PartnerCodeDetailPage() {
     return true;
   });
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (!event) return;
-
-    const dataToExport = filteredParticipants.map((p, i) => {
-      const row: Record<string, any> = {
-        "No": i + 1,
-        "Nama Lengkap": p.namaLengkap,
-        "Email": p.email,
-        "Nomor WA": p.nomorWA,
-        "Profil Lengkap": p.profileCompleted ? "Ya" : "Belum",
-      };
-
-      courseSteps.forEach(step => {
-        row[step.title] = p.progress[step.id] ? "Ya" : "Belum";
-      });
-
-      row["Sertifikat"] = p.certificateClaimed ? "Ya" : "Belum";
-
-      return row;
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Peserta");
-
-    const fileName = `Data_Peserta_${event.partnerCode}_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    
+    // Gunakan filter yang sama dengan yang dipilih di UI
+    const exportUrl = `/api/partner-codes/${id}/export-excel?status=${filter}`;
+    
+    // Buka URL di tab baru atau langsung trigger download
+    window.location.href = exportUrl;
   };
 
   const StatusIcon = ({ value }: { value: boolean }) =>
