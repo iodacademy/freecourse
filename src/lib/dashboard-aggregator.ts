@@ -545,24 +545,41 @@ export function computeStudentRow(
   const channelLabel: Record<string, string> = {
     umum: "Umum",
     beasiswa: "Beasiswa",
-    kemitraan: "Mitra",
+    kemitraan: "Kemitraan",
     workshop: "Workshop",
   };
   const channel = channelLabel[rawChannel] || rawChannel;
   let detailChannel = "-";
-  // Prioritaskan detailChannel yang tersimpan langsung di data (mis. peserta
-  // standalone/Meta yang ditandai "All Beasiswa - Facebook Instant Forms").
-  const storedDetail = ((enr as any)?.detailChannel || (u as any).detailChannel || "").toString().trim();
-  if (storedDetail) {
-    detailChannel = toReadableDetailChannel(storedDetail);
-  } else if (rawChannel === "beasiswa" || rawChannel === "workshop") {
-    const evId = enr?.eventId || u.eventId;
-    if (evId) {
-      detailChannel = eventsById.get(evId)?.name || "-";
+  
+  const code = u.partnerCode || "";
+
+  if (rawChannel === "kemitraan" && code) {
+    // Paksa gunakan nama event/mitra, abaikan detailChannel dari enrollments
+    let partnerName = "-";
+    // Cari di collection events
+    for (const ev of Array.from(eventsById.values())) {
+      if ((ev as any).partnerCode === code) {
+        partnerName = ev.name || partnerName;
+        break;
+      }
     }
-  } else if (rawChannel === "kemitraan") {
-    const code = u.partnerCode || "";
-    if (code) detailChannel = partnerByCode.get(code)?.partnerName || "-";
+    // Fallback ke partnerCodes collection bila tidak ada di events
+    if (partnerName === "-" && partnerByCode.has(code)) {
+      partnerName = partnerByCode.get(code)?.partnerName || "-";
+    }
+    detailChannel = partnerName;
+  } else {
+    // Prioritaskan detailChannel yang tersimpan langsung di data (mis. peserta
+    // standalone/Meta yang ditandai "All Beasiswa - Facebook Instant Forms").
+    const storedDetail = ((enr as any)?.detailChannel || (u as any).detailChannel || "").toString().trim();
+    if (storedDetail) {
+      detailChannel = toReadableDetailChannel(storedDetail);
+    } else if (rawChannel === "beasiswa" || rawChannel === "workshop") {
+      const evId = enr?.eventId || u.eventId;
+      if (evId) {
+        detailChannel = eventsById.get(evId)?.name || "-";
+      }
+    }
   }
 
   const namaLengkap =
@@ -1179,7 +1196,7 @@ function applyFiltersAndAggregate(
     if (cnt > 0) {
       sourceList.push({
         key: ch,
-        label: ({ umum: "Umum", beasiswa: "Beasiswa", kemitraan: "Mitra", workshop: "Workshop" } as any)[ch],
+        label: ({ umum: "Umum", beasiswa: "Beasiswa", kemitraan: "Kemitraan", workshop: "Workshop" } as any)[ch],
         share: cnt / totalAll,
       });
     }
