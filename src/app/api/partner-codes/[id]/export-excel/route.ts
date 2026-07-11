@@ -15,17 +15,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     await requireAdmin(req);
     const { id } = await params;
     const db = getAdminDb();
-    const partnerDoc = await db.collection("partnerCodes").doc(id).get();
+    const eventDoc = await db.collection("events").doc(id).get();
     
-    if (!partnerDoc.exists) {
-      throw new Error("Partner not found");
+    if (!eventDoc.exists) {
+      throw new Error("Event not found");
     }
     
-    const partnerData = partnerDoc.data() as any;
-    const partnerCode = partnerData.code;
+    const eventData = eventDoc.data() as any;
+    const partnerCode = eventData.partnerCode;
     
     if (!partnerCode) {
-      throw new Error("Partner code not found for this partner");
+      throw new Error("Partner code not found for this event");
     }
 
     // Ambil parameter filter status dari URL (misal: ?status=inProgress)

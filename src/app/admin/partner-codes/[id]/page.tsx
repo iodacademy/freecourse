@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import Modal from "@/components/Modal";
+import Spinner from "@/components/Spinner";
 import { AlertTriangle, ArrowLeft, Check, X, Download } from "lucide-react";
 import styles from "./page.module.css";
 
@@ -130,15 +132,12 @@ export default function PartnerCodeDetailPage() {
 
   return (
     <ProtectedRoute requireAdmin>
-      {isExporting && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <div className={styles.spinner} style={{ width: 40, height: 40, borderWidth: 4 }}></div>
-            <p style={{ fontWeight: 600, color: "#333", margin: 0 }}>Menyiapkan Data Excel...</p>
-            <p style={{ fontSize: 13, color: "#666", margin: 0 }}>Mohon tunggu sebentar, sedang memproses data.</p>
-          </div>
+      <Modal isOpen={isExporting} onClose={() => {}}>
+        <div style={{ textAlign: "center", padding: "20px 10px" }}>
+          <Spinner size="lg" label="Menyiapkan Data Excel..." />
+          <p style={{ fontSize: 13, color: "#666", marginTop: 12 }}>Mohon tunggu sebentar, sedang memproses data.</p>
         </div>
-      )}
+      </Modal>
       <div className={styles.page}>
         {/* Back button */}
         <button className={styles.backBtn} onClick={() => router.push("/admin/partner-codes")}>
