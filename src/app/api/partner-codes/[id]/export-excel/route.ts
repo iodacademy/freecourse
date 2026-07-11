@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Gunakan fungsi aggregasi dari dashboard utama agar format kolom dan perhitungannya SAMA PERSIS
     const { students, generatedAt } = await aggregateDashboard(
       { channel: "kemitraan", source: partnerCode },
-      { rawExport: true } // Export raw untuk mendapatkan semua data yang sesuai
+      { includeStudents: true } // Harus di-set true agar data peserta dimuat (bukan hanya stats)
     );
 
     // Pastikan kita hanya mengambil siswa dengan partner code yang persis sama
