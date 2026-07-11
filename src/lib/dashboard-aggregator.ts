@@ -11,7 +11,7 @@
  *  - events, partnerCodes, bonusCourseTopics (lookup label)
  *  - settings/app (target + mapping)
  */
-import { getAdminDb } from "./firebase-admin";
+import { getAdminDb, getAdminStorage } from "./firebase-admin";
 import {
   AREAS,
   areaOfCity,
@@ -750,11 +750,28 @@ export function invalidateDashboardCache(): void {
   _rawCache = null;
 }
 
+const STORAGE_CACHE_FILE = "dashboard/raw-dataset-cache.json";
+
+async function saveToStorage(data: RawDataset) {
+  try {
+    const bucket = getAdminStorage().bucket();
+    const file = bucket.file(STORAGE_CACHE_FILE);
+    const content = JSON.stringify({ ts: Date.now(), data });
+    await file.save(content, {
+      contentType: "application/json",
+    });
+  } catch (e) {
+    console.error("[Dashboard] Gagal menyimpan cache ke Storage:", e);
+  }
+}
+
 function rebuildRawDataset(): Promise<RawDataset> {
   if (_rawInflight) return _rawInflight;
   _rawInflight = buildRawDataset()
     .then((data) => {
       _rawCache = { data, ts: Date.now() };
+      // Simpan ke Storage secara asynchronous (fire & forget)
+      saveToStorage(data).catch(console.error);
       return data;
     })
     .finally(() => {
@@ -764,14 +781,17 @@ function rebuildRawDataset(): Promise<RawDataset> {
 }
 
 /**
- * Ambil dataset mentah dengan pola stale-while-revalidate:
+ * Ambil dataset mentah dengan pola stale-while-revalidate + Storage Fallback:
  * - bypass=true → rebuild & tunggu (tombol Refresh).
- * - ada cache & masih segar → kembalikan cache.
- * - ada cache & basi → kembalikan cache (stale) lalu rebuild di background.
- * - belum ada cache (cold) → tunggu rebuild.
+ * - ada memori (RAM) cache & segar → kembalikan cache.
+ * - ada memori cache & basi → kembalikan cache (stale) lalu rebuild di background.
+ * - memori kosong (Cold Start) → cek Storage. Jika ada, gunakan & isi RAM.
+ * - Storage kosong → rebuild penuh.
  */
 async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
   if (bypass) return rebuildRawDataset();
+
+  // 1. Cek Memori (RAM) terlebih dahulu (paling cepat)
   if (_rawCache) {
     const age = Date.now() - _rawCache.ts;
     if (age > RAW_TTL_MS && !_rawInflight) {
@@ -780,6 +800,32 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
     }
     return _rawCache.data;
   }
+
+  // 2. Cold Start (RAM Kosong) -> Coba ambil dari Firebase Storage
+  try {
+    const bucket = getAdminStorage().bucket();
+    const file = bucket.file(STORAGE_CACHE_FILE);
+    const [exists] = await file.exists();
+    if (exists) {
+      console.log("[Dashboard] Menggunakan cache dari Firebase Storage (Cold Start)");
+      const [buffer] = await file.download();
+      const parsed = JSON.parse(buffer.toString("utf-8")) as { ts: number; data: RawDataset };
+      
+      _rawCache = parsed; // Isi memori RAM kembali
+      
+      const age = Date.now() - parsed.ts;
+      if (age > RAW_TTL_MS && !_rawInflight) {
+        // Data di storage sudah basi, revalidate di belakang layar
+        rebuildRawDataset().catch((e) => console.error("[Dashboard] background rebuild gagal (Storage):", e));
+      }
+      return parsed.data;
+    }
+  } catch (e) {
+    console.error("[Dashboard] Gagal membaca cache Storage:", e);
+  }
+
+  // 3. Fallback Utama: Jika memori dan storage kosong (Pertama kali jalan)
+  console.log("[Dashboard] Membangun ulang dataset dari awal (Cold Cache)");
   return rebuildRawDataset();
 }
 
@@ -2163,6 +2209,10 @@ export async function rebuildStudentsIndex(): Promise<{
 }> {
   const db = getAdminDb();
   const raw = await buildRawDataset();
+  
+  // Simpan juga ke Storage Cache agar dashboard tetap super cepat
+  saveToStorage(raw).catch(e => console.error("[Dashboard] Gagal sinkron cron ke Storage:", e));
+
   const rows = raw.allStudents;
 
   // Kumpulkan uid kanonik & dokumen index + agregat detailChannel per channel.
