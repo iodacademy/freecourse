@@ -741,7 +741,7 @@ export function computeStudentRow(
 // ─── Cache mentah (in-memory, stale-while-revalidate) ───────────────────────
 // Server berjalan long-running (node start.js) → cache aman & shared antar request.
 
-const RAW_TTL_MS = 45_000;
+const RAW_TTL_MS = 10_800_000; // 3 Jam (3 * 60 * 60 * 1000)
 let _rawCache: { data: RawDataset; ts: number } | null = null;
 let _rawInflight: Promise<RawDataset> | null = null;
 
