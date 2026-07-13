@@ -850,8 +850,7 @@ export async function aggregatePartnerDashboard(
 
 // ─── Build dataset mentah (mahal: fetch semua collection + bangun students) ──
 
-async function buildRawDataset(): Promise<RawDataset> {
-  const db = getAdminDb();
+
 export interface DashboardLookupsBase {
   eventsById: Map<string, IodaEvent>;
   partnerByCode: Map<string, PartnerCode>;
@@ -867,6 +866,7 @@ export interface DashboardLookupsBase {
 }
 
 export async function buildDashboardLookups(): Promise<DashboardLookupsBase> {
+  const db = getAdminDb();
   const [
     coursesSnap,
     eventsSnap,
@@ -968,6 +968,7 @@ export async function buildDashboardLookups(): Promise<DashboardLookupsBase> {
 }
 
 async function buildRawDataset(): Promise<RawDataset> {
+  const db = getAdminDb();
   const lookupsData = await buildDashboardLookups();
   const {
     eventsById, partnerByCode, topicsById, quizStepId, quizStepTitle,
@@ -1064,6 +1065,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 export async function buildPartnerRawDataset(partnerCode: string): Promise<RawDataset> {
+  const db = getAdminDb();
   const lookupsData = await buildDashboardLookups();
   const {
     eventsById, partnerByCode, topicsById, quizStepId, quizStepTitle,
@@ -1619,11 +1621,7 @@ function isDefaultLatestStudentsPage(q: StudentsQuery = {}): boolean {
   );
 }
 
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
-  return chunks;
-}
+
 
 function rememberLatestEnrollment(
   byKey: Map<string, Enrollment & { id: string; _ts: number }>,
