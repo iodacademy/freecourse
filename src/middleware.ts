@@ -6,6 +6,7 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/admin-login',
   '/api/partner-codes/validate',
   '/api/forms/active',
+  '/api/forms/resolve',           // Resolve form based on eventId atau fallback ke global
   '/api/events/public',           // Landing page workshop/beasiswa — tidak butuh auth
   '/api/health',                  // Diagnostic endpoint
   '/api/profile/update',          // Profile update — auth via body token (Hostinger compat)
