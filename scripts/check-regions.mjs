@@ -42,7 +42,7 @@ for (const prov of loadWilayah()) {
   }
 }
 console.log(`     jabodetabek=${tally.jabodetabek} medan=${tally.medan} surabaya=${tally.surabaya}`);
-eq(tally.jabodetabek, 13, "jumlah kota jabodetabek");
+eq(tally.jabodetabek, 12, "jumlah kota jabodetabek");
 eq(tally.medan, 5, "jumlah kota medan");
 eq(tally.surabaya, 2, "jumlah kota surabaya");
 

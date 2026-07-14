@@ -39,9 +39,19 @@ export const AREAS: AreaDef[] = [
   {
     key: "jabodetabek",
     label: "Jabodetabek",
-    desc: "Jakarta, Bogor, Depok, Tangerang, Bekasi",
+    desc: "Jakarta (Selatan/Timur/Pusat/Barat), Bogor, Depok, Tangerang, Bekasi",
     // "tangerang" ikut menangkap "Tangerang Selatan" & "Kab. Tangerang".
-    patterns: ["jakarta", "bogor", "depok", "tangerang", "bekasi"],
+    // "jakarta" di-spesifikkan agar "Jakarta Utara" / "Kepulauan Seribu" tidak masuk Data Clean.
+    patterns: [
+      "bekasi",
+      "bogor",
+      "jakarta selatan",
+      "jakarta timur",
+      "jakarta pusat",
+      "jakarta barat",
+      "depok",
+      "tangerang",
+    ],
   },
   {
     key: "surabaya",

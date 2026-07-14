@@ -201,7 +201,7 @@ export default function DashboardView({
           <div className={styles.areaGrid}>
             {stats.areaStats!.map((a) => {
               const isLuar = a.key === "luar";
-              if (isLuar) return null;
+              if (isLuar && mode === "public") return null;
               return (
                 <AreaCard
                   key={a.key}

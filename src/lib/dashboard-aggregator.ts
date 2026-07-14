@@ -750,7 +750,7 @@ export function invalidateDashboardCache(): void {
   _rawCache = null;
 }
 
-const STORAGE_CACHE_FILE = "dashboard/raw-dataset-cache.json";
+const STORAGE_CACHE_FILE = "dashboard/raw-dataset-cache-v2.json";
 
 async function saveToStorage(data: RawDataset) {
   try {
@@ -1197,7 +1197,9 @@ function applyFiltersAndAggregate(
   // usianya 18–29 (18–35 untuk penyandang disabilitas).
   const hasDisabilitas = (s: FullStudent) => isDisabilitasValue(s._disabilitas);
   const isCleanEligible = (s: FullStudent) =>
-    s._area !== null && isAgeEligible(s._ageNum, hasDisabilitas(s));
+    s._area !== null && 
+    isAgeEligible(s._ageNum, hasDisabilitas(s)) && 
+    s.status === "Tersertifikasi";
 
   // Subset area yang diminta pemanggil (export Clean per-area). Kosong/undefined
   // = semua area program.
@@ -1352,7 +1354,7 @@ function applyFiltersAndAggregate(
   // Usia 3 bucket
   const usiaCount: Record<string, number> = { "18-23": 0, "24-29": 0, "30+": 0 };
   const usiaSource = options.cleanOnly
-    ? filtered.filter((s) => s.status === "Tersertifikasi" && s._area !== null && inSelectedAreas(s))
+    ? filtered.filter((s) => isCleanEligible(s) && inSelectedAreas(s))
     : certifiedFiltered;
   for (const s of usiaSource) {
     if (s._ageBucket) usiaCount[s._ageBucket]++;
