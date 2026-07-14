@@ -84,8 +84,8 @@ export default function DashboardView({
   cleanOnly, onCleanOnlyChange,
 }: Props) {
   const { stats } = data;
-  // Card Per Area & toggle Clean hanya untuk dashboard internal.
-  const showAreas = mode === "admin" && !!stats.areaStats?.length;
+  // Card Per Area tampil di admin dan public, tapi toggle Clean hanya di admin.
+  const showAreas = !!stats.areaStats?.length;
   const showCleanToggle = mode === "admin" && onCleanOnlyChange != null;
 
   // Active filter chips
@@ -152,7 +152,7 @@ export default function DashboardView({
         <KpiCard
           label="Total Completion"
           value={stats.total}
-          completed={mode === "admin" ? stats.totalCompleted : undefined}
+          completed={stats.totalCompleted}
           target={stats.totalTarget}
           hideTarget={hideTargets}
           icon={<Users size={26} strokeWidth={1.75} />}
@@ -161,7 +161,7 @@ export default function DashboardView({
         <KpiCard
           label="Completion Perempuan"
           value={stats.perempuan}
-          completed={mode === "admin" ? stats.perempuanCompleted : undefined}
+          completed={stats.perempuanCompleted}
           target={stats.perempuanTarget}
           hideTarget={hideTargets}
           icon={<Heart size={26} strokeWidth={1.75} />}
@@ -173,7 +173,7 @@ export default function DashboardView({
         <KpiCard
           label="Completion Disabilitas"
           value={stats.disabilitas}
-          completed={mode === "admin" ? stats.disabilitasCompleted : undefined}
+          completed={stats.disabilitasCompleted}
           target={stats.disabilitasTarget}
           hideTarget={hideTargets}
           icon={<Accessibility size={26} strokeWidth={1.75} />}
@@ -201,6 +201,7 @@ export default function DashboardView({
           <div className={styles.areaGrid}>
             {stats.areaStats!.map((a) => {
               const isLuar = a.key === "luar";
+              if (isLuar) return null;
               return (
                 <AreaCard
                   key={a.key}

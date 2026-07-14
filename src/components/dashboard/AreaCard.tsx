@@ -40,18 +40,12 @@ export default function AreaCard({
 
       <div>
         <span className={styles.areaValue}>{fmtIntID(completed)}</span>
-        <span className={styles.areaValueSub}>tersertifikasi</span>
       </div>
 
       <div className={styles.areaStatRow}>
         <span>
           Pendaftar: <strong>{fmtIntID(registered)}</strong>
         </span>
-        {!hideCleanRow && !muted && (
-          <span>
-            Data Clean: <strong>{fmtIntID(cleanCompleted)}</strong>
-          </span>
-        )}
       </div>
     </div>
   );

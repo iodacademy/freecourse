@@ -811,13 +811,6 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
       const [buffer] = await file.download();
       const parsed = JSON.parse(buffer.toString("utf-8")) as { ts: number; data: RawDataset };
       
-      // Parse _createdAt strings back to Date objects
-      for (const s of parsed.data.allStudents) {
-        if (s._createdAt) {
-          s._createdAt = new Date(s._createdAt);
-        }
-      }
-
       _rawCache = parsed; // Isi memori RAM kembali
       
       const age = Date.now() - parsed.ts;
@@ -1270,24 +1263,25 @@ function applyFiltersAndAggregate(
   // sementara KPI di atasnya sudah tersaring → Jabodetabek bisa terlihat lebih
   // besar daripada Total Completion.
   const areaStats: AreaStat[] = AREAS.map((area) => {
+    const inAreaRaw = filtered.filter((s) => s._area === area.key);
     const inArea = statsBase.filter((s) => s._area === area.key);
     const certified = inArea.filter((s) => s.status === "Tersertifikasi");
     return {
       key: area.key,
       label: area.label,
       desc: area.desc,
-      registered: inArea.length,
+      registered: inAreaRaw.length,
       completed: certified.length,
-      // Dalam mode cleanOnly semua baris sudah clean → sama dengan `completed`.
       cleanCompleted: certified.filter(isCleanEligible).length,
     };
   });
+  const luarAreaRaw = filtered.filter((s) => s._area === null);
   const luarArea = statsBase.filter((s) => s._area === null);
   const outsideArea: AreaStat = {
     key: "luar",
     label: "Daerah Lainnya",
     desc: "Kota di luar Jabodetabek, Surabaya, dan Medan",
-    registered: luarArea.length,
+    registered: luarAreaRaw.length,
     completed: luarArea.filter((s) => s.status === "Tersertifikasi").length,
     cleanCompleted: 0,
   };
@@ -1298,15 +1292,15 @@ function applyFiltersAndAggregate(
   const certifiedFiltered = statsBase.filter((s) => s.status === "Tersertifikasi");
 
   const total = certifiedFiltered.length;
-  const totalCompleted = statsBase.length;
+  const totalCompleted = filtered.length;
 
   const perempuanFiltered = statsBase.filter((s) => s._gender === "Perempuan");
   const perempuan = perempuanFiltered.filter((s) => s.status === "Tersertifikasi").length;
-  const perempuanCompleted = perempuanFiltered.length;
+  const perempuanCompleted = filtered.filter((s) => s._gender === "Perempuan").length;
 
   const disabilitasFiltered = statsBase.filter(hasDisabilitas);
   const disabilitas = disabilitasFiltered.filter((s) => s.status === "Tersertifikasi").length;
-  const disabilitasCompleted = disabilitasFiltered.length;
+  const disabilitasCompleted = filtered.filter(hasDisabilitas).length;
 
   const quizScores = certifiedFiltered.map((s) => s._quizScore).filter((x): x is number => x != null);
   const rerata = quizScores.length
@@ -1350,7 +1344,10 @@ function applyFiltersAndAggregate(
 
   // Usia 3 bucket
   const usiaCount: Record<string, number> = { "18-23": 0, "24-29": 0, "30+": 0 };
-  for (const s of certifiedFiltered) {
+  const usiaSource = options.cleanOnly
+    ? filtered.filter((s) => s.status === "Tersertifikasi" && s._area !== null && inSelectedAreas(s))
+    : certifiedFiltered;
+  for (const s of usiaSource) {
     if (s._ageBucket) usiaCount[s._ageBucket]++;
   }
   const usia: Array<[string, number]> = [

@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     }
 
     const filter = parseFilterFromSearchParams(req.nextUrl.searchParams);
-    const result = await aggregateDashboard(filter, { includeStudents: false });
+    const result = await aggregateDashboard(filter, { includeStudents: false, cleanOnly: true });
 
     // Return tanpa students (privasi)
     return new Response(JSON.stringify(result), {

@@ -146,17 +146,18 @@ console.log("\n== 2. cleanOnly ==");
 const clean = await aggregateDashboard({}, { cleanOnly: true });
 eq(clean.stats.total, 5, "cleanOnly total = 2 jabo + 2 medan + 1 sby");
 eq(clean.stats.cleanOnly, true, "stats.cleanOnly=true");
-eq(clean.stats.totalCompleted, 5, "cleanOnly totalCompleted");
+// Total Pendaftar (totalCompleted) tetap mentah meskipun cleanOnly mode di-on-in
+eq(clean.stats.totalCompleted, 13, "cleanOnly totalCompleted");
 
-// Kartu area IKUT menyusut (regresi bug: dulu tetap pakai populasi mentah)
+// Kartu area completed IKUT menyusut, tapi registered tetap mentah
 eq(areaOf(clean.stats, "jabodetabek").completed, 2, "cleanOnly: jabodetabek.completed menyusut 4->2");
-eq(areaOf(clean.stats, "medan").registered, 2, "cleanOnly: medan.registered menyusut 4->2");
+eq(areaOf(clean.stats, "medan").registered, 4, "cleanOnly: medan.registered tetap mentah 4");
 eq(areaOf(clean.stats, "medan").completed, 2, "cleanOnly: medan.completed");
 eq(areaOf(clean.stats, "surabaya").completed, 1, "cleanOnly: surabaya.completed");
 // Kartu "Daerah Lainnya" tetap ditampilkan (selalu 4 kartu), tapi nilainya 0.
 eq(clean.stats.areaStats.length, 4, "cleanOnly: tetap 4 kartu");
 eq(areaOf(clean.stats, "luar").completed, 0, "cleanOnly: Daerah Lainnya = 0");
-eq(areaOf(clean.stats, "luar").registered, 0, "cleanOnly: Daerah Lainnya pendaftar = 0");
+eq(areaOf(clean.stats, "luar").registered, 2, "cleanOnly: Daerah Lainnya pendaftar tetap mentah 2");
 // Urutan kartu: Jabodetabek, Surabaya, Medan, Daerah Lainnya.
 eq(clean.stats.areaStats.map((a) => a.key).join(","), "jabodetabek,surabaya,medan,luar",
    "urutan kartu area");
