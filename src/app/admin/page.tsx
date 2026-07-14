@@ -44,19 +44,6 @@ function AdminDashboardContent() {
     source: searchParams.get("source"),
   };
 
-  // Mode "Hanya Data Clean" — disimpan di URL agar bertahan saat refresh/share.
-  // Sengaja di luar `filters`: ini opsi tampilan kartu, bukan filter baris, dan
-  // tidak boleh ikut terkirim ke URL export.
-  const cleanOnly = searchParams.get("cleanOnly") === "1";
-
-  function setCleanOnly(next: boolean) {
-    const sp = new URLSearchParams(searchParams.toString());
-    if (next) sp.set("cleanOnly", "1");
-    else sp.delete("cleanOnly");
-    const s = sp.toString();
-    router.replace(`/admin${s ? `?${s}` : ""}`, { scroll: false });
-  }
-
   const fetchData = useCallback(async (bypassCache = false) => {
     if (!user) return;
     setLoading(true);
@@ -64,7 +51,6 @@ function AdminDashboardContent() {
     try {
       const token = await user.getIdToken();
       const sp = new URLSearchParams(buildQuery(filters).replace(/^\?/, ""));
-      if (cleanOnly) sp.set("cleanOnly", "1");
       if (bypassCache) sp.set("refresh", "1"); // paksa rebuild cache di server
       const qs = sp.toString() ? `?${sp.toString()}` : "";
       const res = await fetch(`/api/admin/dashboard/stats${qs}`, {
@@ -199,8 +185,6 @@ function AdminDashboardContent() {
         filters={filters}
         onFilterChange={applyFilters}
         rightActions={rightActions}
-        cleanOnly={cleanOnly}
-        onCleanOnlyChange={setCleanOnly}
       />
       <ExportModal
         isOpen={exportOpen}

@@ -72,21 +72,15 @@ interface Props {
   rightActions?: React.ReactNode; // untuk Export Excel & Salin Link Publik (admin only)
   // Sembunyikan target & persentase completion di KPI (dipakai dashboard mitra).
   hideTargets?: boolean;
-  /** Mode "Hanya Data Clean" aktif (internal saja). Undefined = fitur disembunyikan. */
-  cleanOnly?: boolean;
-  onCleanOnlyChange?: (next: boolean) => void;
 }
 
 const RANK_RAMP = ["#CC0000", "#EC5563", "#F18A93", "#F6B5BB", "#FAD9DC"];
 
 export default function DashboardView({
   data, mode, filters, onFilterChange, rightActions, hideTargets = false,
-  cleanOnly, onCleanOnlyChange,
 }: Props) {
   const { stats } = data;
-  // Card Per Area tampil di admin dan public, tapi toggle Clean hanya di admin.
   const showAreas = !!stats.areaStats?.length;
-  const showCleanToggle = mode === "admin" && onCleanOnlyChange != null;
 
   // Active filter chips
   const activeFilters: ActiveFilter[] = useMemo(() => {
@@ -127,20 +121,6 @@ export default function DashboardView({
         value={filters.source || null}
         onChange={(key) => onFilterChange({ ...filters, source: key })}
       />
-      {showCleanToggle && (
-        <label
-          className={[styles.cleanToggle, cleanOnly ? styles.cleanToggleOn : ""].filter(Boolean).join(" ")}
-          title="Hitung kartu hanya dari peserta di area program dengan usia yang memenuhi syarat (≤29 th; ≤35 th untuk penyandang disabilitas)"
-        >
-          <input
-            type="checkbox"
-            checked={!!cleanOnly}
-            onChange={(e) => onCleanOnlyChange?.(e.target.checked)}
-          />
-          <Sparkles size={14} />
-          Hanya Data Clean
-        </label>
-      )}
       {rightActions}
     </>
   );
@@ -193,9 +173,7 @@ export default function DashboardView({
               Completion per Area
             </h3>
             <span className={styles.sectionNote}>
-              {cleanOnly
-                ? "Hanya Data Clean — jumlah semua area = Total Completion di atas"
-                : "Data Clean = usia ≤29 th (≤35 th untuk penyandang disabilitas)"}
+              Hanya Data Clean — jumlah semua area = Total Completion di atas
             </span>
           </div>
           <div className={mode === "public" ? styles.areaGridPublic : styles.areaGrid}>
@@ -211,7 +189,7 @@ export default function DashboardView({
                   registered={a.registered}
                   cleanCompleted={a.cleanCompleted}
                   muted={isLuar}
-                  hideCleanRow={!!cleanOnly}
+                  hideCleanRow={true}
                   hideRegistered={mode === "public"}
                   icon={isLuar ? <Globe2 size={20} strokeWidth={1.75} /> : <MapPin size={20} strokeWidth={1.75} />}
                 />
