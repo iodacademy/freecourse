@@ -152,7 +152,7 @@ export default function DashboardView({
         <KpiCard
           label="Total Completion"
           value={stats.total}
-          completed={stats.totalCompleted}
+          completed={mode === "public" ? undefined : stats.totalCompleted}
           target={stats.totalTarget}
           hideTarget={hideTargets}
           icon={<Users size={26} strokeWidth={1.75} />}
@@ -161,7 +161,7 @@ export default function DashboardView({
         <KpiCard
           label="Completion Perempuan"
           value={stats.perempuan}
-          completed={stats.perempuanCompleted}
+          completed={mode === "public" ? undefined : stats.perempuanCompleted}
           target={stats.perempuanTarget}
           hideTarget={hideTargets}
           icon={<Heart size={26} strokeWidth={1.75} />}
@@ -173,7 +173,7 @@ export default function DashboardView({
         <KpiCard
           label="Completion Disabilitas"
           value={stats.disabilitas}
-          completed={stats.disabilitasCompleted}
+          completed={mode === "public" ? undefined : stats.disabilitasCompleted}
           target={stats.disabilitasTarget}
           hideTarget={hideTargets}
           icon={<Accessibility size={26} strokeWidth={1.75} />}
@@ -198,7 +198,7 @@ export default function DashboardView({
                 : "Data Clean = usia ≤29 th (≤35 th untuk penyandang disabilitas)"}
             </span>
           </div>
-          <div className={styles.areaGrid}>
+          <div className={mode === "public" ? styles.areaGridPublic : styles.areaGrid}>
             {stats.areaStats!.map((a) => {
               const isLuar = a.key === "luar";
               if (isLuar && mode === "public") return null;
@@ -212,6 +212,7 @@ export default function DashboardView({
                   cleanCompleted={a.cleanCompleted}
                   muted={isLuar}
                   hideCleanRow={!!cleanOnly}
+                  hideRegistered={mode === "public"}
                   icon={isLuar ? <Globe2 size={20} strokeWidth={1.75} /> : <MapPin size={20} strokeWidth={1.75} />}
                 />
               );

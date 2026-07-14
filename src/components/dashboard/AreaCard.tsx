@@ -22,11 +22,12 @@ interface Props {
    * jadi menampilkannya lagi cuma mengulang angka yang sama.
    */
   hideCleanRow?: boolean;
+  hideRegistered?: boolean;
 }
 
 export default function AreaCard({
   label, desc, completed, registered, cleanCompleted, icon,
-  muted = false, hideCleanRow = false,
+  muted = false, hideCleanRow = false, hideRegistered = false,
 }: Props) {
   return (
     <div className={[styles.area, muted ? styles.areaMuted : ""].filter(Boolean).join(" ")}>
@@ -42,11 +43,13 @@ export default function AreaCard({
         <span className={styles.areaValue}>{fmtIntID(completed)}</span>
       </div>
 
-      <div className={styles.areaStatRow}>
-        <span>
-          Pendaftar: <strong>{fmtIntID(registered)}</strong>
-        </span>
-      </div>
+      {!hideRegistered && (
+        <div className={styles.areaStatRow}>
+          <span>
+            Pendaftar: <strong>{fmtIntID(registered)}</strong>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

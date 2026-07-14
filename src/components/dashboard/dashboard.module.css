@@ -783,12 +783,19 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-4);
 }
+.areaGridPublic {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
 /* Baru pecah 2 kolom saat benar-benar sempit; di ~1100px 4 kartu masih muat. */
 @media (max-width: 900px) {
   .areaGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .areaGridPublic { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .areaGrid { grid-template-columns: 1fr; }
+  .areaGridPublic { grid-template-columns: 1fr; }
 }
 
 .area {
