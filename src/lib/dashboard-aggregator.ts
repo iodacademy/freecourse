@@ -811,6 +811,13 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
       const [buffer] = await file.download();
       const parsed = JSON.parse(buffer.toString("utf-8")) as { ts: number; data: RawDataset };
       
+      // Parse _createdAt strings back to Date objects
+      for (const s of parsed.data.allStudents) {
+        if (s._createdAt) {
+          s._createdAt = new Date(s._createdAt);
+        }
+      }
+
       _rawCache = parsed; // Isi memori RAM kembali
       
       const age = Date.now() - parsed.ts;
