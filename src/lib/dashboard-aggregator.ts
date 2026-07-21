@@ -756,7 +756,7 @@ export function computeStudentRow(
 // ─── Cache mentah (in-memory, stale-while-revalidate) ───────────────────────
 // Server berjalan long-running (node start.js) → cache aman & shared antar request.
 
-const RAW_TTL_MS = 10_800_000; // 3 Jam (3 * 60 * 60 * 1000)
+const RAW_TTL_MS = 7_200_000; // 2 Jam (2 * 60 * 60 * 1000)
 let _rawCache: { data: RawDataset; ts: number } | null = null;
 let _rawInflight: Promise<RawDataset> | null = null;
 
@@ -809,11 +809,18 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
   // 1. Cek Memori (RAM) terlebih dahulu (paling cepat)
   if (_rawCache) {
     const age = Date.now() - _rawCache.ts;
-    if (age > RAW_TTL_MS && !_rawInflight) {
-      // refresh background — jangan await, error tidak menghapus cache lama
-      rebuildRawDataset().catch((e) => console.error("[Dashboard] background rebuild gagal:", e));
+    if (age > RAW_TTL_MS) {
+      // Basi (>2 jam) → WAJIB bangun ulang & TUNGGU. Jangan sajikan data basi;
+      // itu yang dulu membuat tabel "beku" berhari-hari saat rebuild background
+      // gagal (mis. cron mati). Kalau rebuild error, fallback ke cache lama.
+      try {
+        return await rebuildRawDataset();
+      } catch (e) {
+        console.error("[Dashboard] rebuild synchronous gagal, pakai cache lama:", e);
+        return _rawCache.data;
+      }
     }
-    return _rawCache.data;
+    return _rawCache.data; // masih segar
   }
 
   // 2. Cold Start (RAM Kosong) -> Coba ambil dari Firebase Storage
@@ -833,13 +840,20 @@ async function getRawDatasetCached(bypass = false): Promise<RawDataset> {
         }
       }
 
-      _rawCache = parsed; // Isi memori RAM kembali
-      
       const age = Date.now() - parsed.ts;
-      if (age > RAW_TTL_MS && !_rawInflight) {
-        // Data di storage sudah basi, revalidate di belakang layar
-        rebuildRawDataset().catch((e) => console.error("[Dashboard] background rebuild gagal (Storage):", e));
+      if (age > RAW_TTL_MS) {
+        // Snapshot Storage sudah basi (>2 jam) → bangun ulang & TUNGGU saat halaman
+        // dibuka. Jangan isi RAM dengan data basi lalu menyajikannya (itu yang bikin
+        // tabel "beku" berhari-hari saat cron mati). Kalau rebuild error → fallback.
+        try {
+          return await rebuildRawDataset();
+        } catch (e) {
+          console.error("[Dashboard] rebuild synchronous (Storage) gagal, pakai snapshot lama:", e);
+          _rawCache = parsed;
+          return parsed.data;
+        }
       }
+      _rawCache = parsed; // segar → isi memori RAM kembali
       return parsed.data;
     }
   } catch (e) {

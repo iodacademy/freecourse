@@ -1,33 +1,21 @@
 /**
- * Wrapper non-fatal untuk sinkronisasi studentsIndex dari write path.
- * Kegagalan sync TIDAK boleh menggagalkan request utama (cuma di-log) —
- * drift yang lolos akan ditambal oleh worker internal.
+ * DINONAKTIFKAN. `studentsIndex` sudah tidak dibaca lagi untuk menampilkan data
+ * (tabel /admin/students membaca langsung users + enrollments via cache snapshot).
+ * Dulu fungsi ini menulis/menghapus dokumen index tiap ada mutasi siswa, tapi
+ * karena index tak dipakai, itu hanya biaya write yang sia-sia.
  *
- * Pakai di sebelah invalidateDashboardCache() di tiap titik mutasi.
+ * Fungsi dibuat NO-OP agar pemanggil di write path tidak perlu diubah dan tetap
+ * aman. `invalidateDashboardCache()` yang biasa dipanggil bersamaan TETAP berjalan
+ * (modul terpisah), jadi cache snapshot tetap ter-refresh.
  */
-import {
-  upsertStudentIndex,
-  upsertStudentIndexByEmail,
-  deleteStudentIndex,
-} from "./dashboard-aggregator";
-
-export function syncStudentIndex(uid: string | null | undefined): void {
-  if (!uid) return;
-  upsertStudentIndex(uid).catch((e) =>
-    console.error("[studentsIndex] gagal upsert uid:", uid, e)
-  );
+export function syncStudentIndex(_uid?: string | null): void {
+  // no-op (lihat catatan di atas)
 }
 
-export function syncStudentIndexByEmail(email: string | null | undefined): void {
-  if (!email) return;
-  upsertStudentIndexByEmail(email).catch((e) =>
-    console.error("[studentsIndex] gagal upsert email:", email, e)
-  );
+export function syncStudentIndexByEmail(_email?: string | null): void {
+  // no-op (lihat catatan di atas)
 }
 
-export function removeStudentIndex(uid: string | null | undefined): void {
-  if (!uid) return;
-  deleteStudentIndex(uid).catch((e) =>
-    console.error("[studentsIndex] gagal hapus uid:", uid, e)
-  );
+export function removeStudentIndex(_uid?: string | null): void {
+  // no-op (lihat catatan di atas)
 }
