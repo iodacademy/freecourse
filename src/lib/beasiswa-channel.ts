@@ -7,11 +7,11 @@
  *    default = "All Beasiswa - Facebook Instant Forms" (belum pilih kategori).
  *  - Begitu peserta MEMILIH kategori bonus (saat redeem di akhir journey),
  *    detailChannel di-update sesuai kategori yang dipilih.
- *  - Untuk peserta yang diselesaikan otomatis/manual (auto-complete), kategori
- *    di-RANDOM dari ketiga pilihan agar distribusinya natural.
+ *  - Kategori fallback dapat dipilih deterministik dari ketiga pilihan agar
+ *    distribusi tetap stabil untuk seed yang sama.
  */
 
-// Pool kategori untuk auto-complete acak (HANYA kategori "course" klasik).
+// Pool kategori fallback (HANYA kategori "course" klasik).
 // review_cv & downloadable TIDAK ikut di-random.
 export const BEASISWA_CATEGORIES = ["vl", "wpb", "bootcamp"] as const;
 export type BeasiswaCategory = (typeof BEASISWA_CATEGORIES)[number];
@@ -39,7 +39,7 @@ export function detailChannelFromCategory(category?: string | null): string {
 
 /**
  * Pilih kategori "acak" secara DETERMINISTIK berbasis seed (mis. email),
- * agar hasilnya stabil bila proses auto-complete diulang untuk peserta sama.
+ * agar hasilnya stabil untuk peserta yang sama.
  */
 export function pickRandomCategory(seed: string): BeasiswaCategory {
   let h = 0;

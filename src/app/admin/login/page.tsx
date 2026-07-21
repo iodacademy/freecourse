@@ -8,7 +8,7 @@ import { AlertTriangle } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { loginAsAdmin, profile, loading } = useAuth();
+  const { profile, loading } = useAuth();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -39,8 +39,18 @@ export default function AdminLoginPage() {
     setSubmitting(true);
     setError("");
     try {
-      await loginAsAdmin(code.trim());
-      router.push("/admin");
+      const normalizedCode = code.trim().toUpperCase();
+      const res = await fetch("/api/auth/admin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessCode: normalizedCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Kode akses salah");
+      }
+      localStorage.setItem("admin_code", normalizedCode);
+      window.location.href = "/admin";
     } catch (err: unknown) {
       const e = err as { message?: string };
       setError(e.message || "Kode akses salah");

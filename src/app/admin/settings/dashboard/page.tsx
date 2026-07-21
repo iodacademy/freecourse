@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Copy, RefreshCw, CheckCircle2, Sparkles, ChevronDown, ChevronRight, Wrench } from "lucide-react";
+import { Copy, RefreshCw, CheckCircle2, Sparkles } from "lucide-react";
 
 interface MappingOptions {
   steps: Array<{ id: string; order: number; title: string; label: string; hasAssessment: boolean; kkm: number | null; questionCount: number }>;
@@ -52,42 +52,13 @@ function getOrigin(): string {
   return typeof window !== "undefined" ? window.location.origin : "";
 }
 
-const GAS_CODE = `function syncDashboardSheet() {
-  const props = PropertiesService.getScriptProperties();
-  const url = props.getProperty('NEXTJS_URL') + '/api/sync/sheet-data';
-  const syncKey = props.getProperty('SYNC_KEY');
-  const sheetId = props.getProperty('SHEET_ID');
-  const sheetName = props.getProperty('SHEET_NAME') || 'Data Dashboard';
-
-  const res = UrlFetchApp.fetch(url, {
-    headers: { 'X-Sync-Key': syncKey },
-    muteHttpExceptions: true
-  });
-  if (res.getResponseCode() !== 200) throw new Error('Sync gagal: ' + res.getContentText());
-
-  const data = JSON.parse(res.getContentText());
-  const ss = SpreadsheetApp.openById(sheetId);
-  let sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
-  sheet.clear();
-  sheet.getRange(1, 1, data.rows.length + 1, data.headers.length)
-       .setValues([data.headers, ...data.rows]);
-  sheet.getRange('A1:Z1').setFontWeight('bold').setBackground('#FFE5E5');
-  sheet.getRange(1, data.headers.length + 2).setValue('Last Sync: ' + data.generatedAt);
-}`;
-
 function DashboardSettingsContent() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<Settings>({});
   const [options, setOptions] = useState<MappingOptions>({ steps: [], questions: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [injecting, setInjecting] = useState(false);
-  const [missingUsers, setMissingUsers] = useState<Array<{id: string, name: string, email: string}> | null>(null);
-  const [fetchingMissing, setFetchingMissing] = useState(false);
-  const [selectedMissing, setSelectedMissing] = useState<Set<string>>(new Set());
-  const [showDobModal, setShowDobModal] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  const [showGasTutorial, setShowGasTutorial] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
@@ -173,13 +144,6 @@ function DashboardSettingsContent() {
     return options.questions.find((q) => q.id === id);
   }
 
-  async function generateSyncKey() {
-    if (confirm("Generate Sync Key baru? Trigger GAS lama akan berhenti bekerja sampai key di-update.")) {
-      const k = randomToken(32);
-      await save({ syncKey: k });
-    }
-  }
-
   async function generatePublicToken() {
     if (settings.publicDashboardToken) {
       if (!confirm("Token baru akan menonaktifkan link lama. Lanjutkan?")) return;
@@ -203,68 +167,6 @@ function DashboardSettingsContent() {
       alert(`${label} berhasil disalin`);
     } catch {
       alert("Gagal menyalin");
-    }
-  }
-
-  async function fetchMissingDob() {
-    if (!user) return;
-    setShowDobModal(true);
-    setFetchingMissing(true);
-    setMissingUsers(null);
-    setSelectedMissing(new Set());
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/admin/students/missing-dob", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal fetch data");
-      setMissingUsers(data.data || []);
-      // default select all
-      setSelectedMissing(new Set((data.data || []).map((u: any) => u.id)));
-    } catch (e: any) {
-      alert("Error: " + e.message);
-    } finally {
-      setFetchingMissing(false);
-    }
-  }
-
-  const toggleSelectAllMissing = (checked: boolean) => {
-    if (!missingUsers) return;
-    if (checked) setSelectedMissing(new Set(missingUsers.map(u => u.id)));
-    else setSelectedMissing(new Set());
-  };
-
-  const toggleSelectMissing = (id: string, checked: boolean) => {
-    const next = new Set(selectedMissing);
-    if (checked) next.add(id);
-    else next.delete(id);
-    setSelectedMissing(next);
-  };
-
-  async function injectRandomDob() {
-    if (selectedMissing.size === 0) return alert("Belum ada peserta yang dipilih.");
-    if (!confirm(`Anda akan menyuntikkan tanggal lahir ke ${selectedMissing.size} peserta terpilih. Lanjutkan?`)) return;
-    
-    if (!user) return;
-    setInjecting(true);
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/admin/students/inject-dob", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ userIds: Array.from(selectedMissing) })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal menyuntikkan data");
-      
-      alert(data.message || "Berhasil disuntikkan!");
-      setMissingUsers(null);
-      setShowDobModal(false);
-    } catch (e: any) {
-      alert("Error: " + e.message);
-    } finally {
-      setInjecting(false);
     }
   }
 
@@ -400,209 +302,6 @@ function DashboardSettingsContent() {
         )}
       </Section>
 
-      {/* ── Section 4: Sync Google Sheet ──────────────────────────── */}
-      <Section title="Sinkron Google Sheet (Otomatis via GAS Cron)" desc="Data Bagian 1 + Bagian 2 di-push ke Google Sheet berkala. GAS yang pull dari aplikasi.">
-        <div style={{ marginBottom: 16 }}>
-          <Label>Google Sheets ID</Label>
-          <input
-            className="form-input"
-            placeholder="Ambil dari URL: https://docs.google.com/spreadsheets/d/{ID}/edit"
-            value={settings.googleSheetsId || ""}
-            onChange={(e) => setSettings({ ...settings, googleSheetsId: e.target.value })}
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <Label>Nama Sheet (Tab)</Label>
-          <input
-            className="form-input"
-            placeholder="Data Dashboard"
-            value={settings.googleSheetName || ""}
-            onChange={(e) => setSettings({ ...settings, googleSheetName: e.target.value })}
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <Label>Sync Key (untuk header X-Sync-Key di GAS)</Label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input className="form-input" value={settings.syncKey || ""} readOnly placeholder="(belum di-generate)" style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }} />
-            <button className="btn btn-secondary" onClick={() => copyToClipboard(settings.syncKey || "", "Sync Key")} disabled={!settings.syncKey}>
-              <Copy size={14} /> Salin
-            </button>
-            <button className="btn btn-secondary" onClick={generateSyncKey}>
-              <RefreshCw size={14} /> Generate
-            </button>
-          </div>
-        </div>
-
-        <button className="btn btn-primary" disabled={saving} onClick={() => save({
-          googleSheetsId: settings.googleSheetsId,
-          googleSheetName: settings.googleSheetName,
-        })}>
-          {saving ? "Menyimpan..." : "Simpan Konfigurasi Sheet"}
-        </button>
-
-        <div style={{ marginTop: 24, padding: 16, background: "var(--color-gray-50)", borderRadius: 8 }}>
-          <button className="btn btn-secondary" type="button" onClick={() => setShowGasTutorial((v) => !v)}>
-            {showGasTutorial ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            Cara Setup di GAS (klik untuk buka)
-          </button>
-          {showGasTutorial && (
-            <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.7 }}>
-              <p><strong>Langkah-langkah deploy ke Google Apps Script:</strong></p>
-              <ol style={{ paddingLeft: 20 }}>
-                <li>Buka <a href="https://script.google.com" target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)" }}>script.google.com</a> → New Project</li>
-                <li>Paste kode di bawah (klik tombol "Salin Code GAS")</li>
-                <li>Buka menu <strong>Project Settings</strong> (icon roda gigi kiri) → scroll ke <strong>Script Properties</strong> → Add property:
-                  <ul>
-                    <li><code>NEXTJS_URL</code> = <code>{getOrigin()}</code></li>
-                    <li><code>SYNC_KEY</code> = isi dengan Sync Key dari atas</li>
-                    <li><code>SHEET_ID</code> = isi dengan Sheets ID dari atas</li>
-                    <li><code>SHEET_NAME</code> = isi dengan Nama Sheet (atau biarkan kosong = "Data Dashboard")</li>
-                  </ul>
-                </li>
-                <li>Buka menu <strong>Triggers</strong> (icon jam tangan kiri) → Add Trigger:
-                  <ul>
-                    <li>Function: <code>syncDashboardSheet</code></li>
-                    <li>Event source: <strong>Time-driven</strong></li>
-                    <li>Type: <strong>Hour timer</strong> → Every hour</li>
-                  </ul>
-                </li>
-                <li>Test "Run" manual sekali → cek di Google Sheet → harus terisi data</li>
-              </ol>
-              <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={() => copyToClipboard(GAS_CODE, "Code GAS")}>
-                <Copy size={14} /> Salin Code GAS
-              </button>
-              <pre style={{ marginTop: 12, padding: 12, background: "#1e1e1e", color: "#e6e6e6", borderRadius: 6, overflowX: "auto", fontSize: 11, lineHeight: 1.5 }}>{GAS_CODE}</pre>
-            </div>
-          )}
-        </div>
-      </Section>
-
-      {/* ── Section 5: Alat Perbaikan Data ──────────────────────────── */}
-      <Section title="Alat Perbaikan Data (Maintenance)" desc="Fitur khusus untuk mengatasi anomali data di database.">
-        <div style={{ padding: 16, border: "1px solid var(--color-gray-200)", borderRadius: 8, background: "var(--color-gray-50)" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-            <div style={{ padding: 8, background: "var(--color-primary-light)", color: "var(--color-primary)", borderRadius: 8 }}>
-              <Wrench size={20} />
-            </div>
-            <div>
-              <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600 }}>Suntik Tanggal Lahir (Usia 18-29)</h3>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--color-gray-500)", lineHeight: 1.5, marginBottom: 12 }}>
-                Gunakan ini jika ada peserta yang berhasil lolos tanpa mengisi tanggal lahir. 
-                Sistem akan mencari seluruh pengguna dengan status <b>Profile Completed</b> yang tanggal lahirnya kosong, 
-                dan mengisinya dengan tanggal lahir acak yang menghasilkan umur di antara <b>18 - 29 tahun</b>.
-              </p>
-              <button 
-                className="btn btn-secondary" 
-                onClick={fetchMissingDob} 
-              >
-                Cari Data Kosong
-              </button>
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      {/* ── Modal Pop-up: Suntik Data Tanggal Lahir ────────────────── */}
-      {showDobModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.5)", zIndex: 9999,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "white", borderRadius: 12, width: "100%", maxWidth: 600,
-            maxHeight: "90vh", display: "flex", flexDirection: "column",
-            boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
-          }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--color-gray-200)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Cari Data Tanggal Lahir Kosong</h3>
-              <button 
-                onClick={() => setShowDobModal(false)}
-                style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--color-gray-500)", lineHeight: 1 }}
-              >
-                &times;
-              </button>
-            </div>
-
-            <div style={{ padding: 20, overflowY: "auto", flex: 1, minHeight: 200 }}>
-              {fetchingMissing ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--color-gray-500)" }}>
-                  <RefreshCw size={24} className="animate-spin" style={{ marginBottom: 12 }} />
-                  <p style={{ margin: 0 }}>Sedang memindai database peserta...</p>
-                </div>
-              ) : missingUsers !== null ? (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--color-gray-200)" }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      Ditemukan {missingUsers.length} peserta
-                    </div>
-                    {missingUsers.length > 0 && (
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedMissing.size === missingUsers.length}
-                          onChange={(e) => toggleSelectAllMissing(e.target.checked)}
-                          style={{ width: 16, height: 16 }}
-                        />
-                        Pilih Semua
-                      </label>
-                    )}
-                  </div>
-
-                  {missingUsers.length > 0 ? (
-                    <div style={{ border: "1px solid var(--color-gray-200)", borderRadius: 8, overflow: "hidden" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                        <tbody>
-                          {missingUsers.map(u => (
-                            <tr key={u.id} style={{ borderBottom: "1px solid var(--color-gray-100)" }}>
-                              <td style={{ padding: "10px 14px", width: 40, textAlign: "center" }}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedMissing.has(u.id)}
-                                  onChange={(e) => toggleSelectMissing(u.id, e.target.checked)}
-                                  style={{ width: 16, height: 16 }}
-                                />
-                              </td>
-                              <td style={{ padding: "10px 14px" }}>
-                                <div style={{ fontWeight: 600 }}>{u.name}</div>
-                                <div style={{ color: "var(--color-gray-500)", fontSize: 12, marginTop: 2 }}>{u.email}</div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div style={{ padding: 40, textAlign: "center", color: "var(--color-gray-500)" }}>
-                      <CheckCircle2 size={40} style={{ color: "var(--color-success)", margin: "0 auto 16px" }} />
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Semua peserta sudah memiliki data tanggal lahir!</p>
-                    </div>
-                  )}
-                </>
-              ) : null}
-            </div>
-
-            {missingUsers !== null && missingUsers.length > 0 && (
-              <div style={{ padding: "16px 20px", borderTop: "1px solid var(--color-gray-200)", background: "#f8fafc", textAlign: "right", borderRadius: "0 0 12px 12px" }}>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => setShowDobModal(false)} 
-                  style={{ marginRight: 12 }}
-                >
-                  Batal
-                </button>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={injectRandomDob} 
-                  disabled={injecting || selectedMissing.size === 0}
-                >
-                  {injecting ? "Menyuntikkan..." : `Suntik ${selectedMissing.size} Data Terpilih`}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

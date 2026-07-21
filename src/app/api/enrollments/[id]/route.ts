@@ -4,7 +4,7 @@
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { requireAuth, requireAdmin, json, handleError } from "@/lib/api-helpers";
+import { requireAuth, json, handleError } from "@/lib/api-helpers";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -19,8 +19,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const data = doc.data()!;
     
     // Validasi kepemilikan
-    if (data.email !== decoded.email) {
-      await requireAdmin(req); // throw jika bukan admin
+    if (data.email !== decoded.email && data.userId !== decoded.uid) {
+      return json({ error: "Enrollment not found" }, 404);
     }
     
     return json({ id: doc.id, ...data });

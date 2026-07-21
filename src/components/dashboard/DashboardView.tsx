@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import {
   Users, Heart, Accessibility, GraduationCap, Smile, ShieldCheck,
   MapPin, TrendingUp, Cake, BookOpen, Building2, Globe2, Sparkles,
@@ -42,7 +42,6 @@ interface DashboardData {
     }>;
     cleanOnly?: boolean;
   };
-  students?: any[];
   generatedAt: string;
   mapping: {
     quizStepTitle: string | null;
@@ -66,18 +65,18 @@ export interface DashboardFilterState {
 
 interface Props {
   data: DashboardData;
-  mode: "admin" | "public";
   filters: DashboardFilterState;
   onFilterChange: (next: DashboardFilterState) => void;
-  rightActions?: React.ReactNode; // untuk Export Excel & Salin Link Publik (admin only)
+  rightActions?: React.ReactNode;
   // Sembunyikan target & persentase completion di KPI (dipakai dashboard mitra).
   hideTargets?: boolean;
+  showLogoBar?: boolean;
 }
 
 const RANK_RAMP = ["#CC0000", "#EC5563", "#F18A93", "#F6B5BB", "#FAD9DC"];
 
 export default function DashboardView({
-  data, mode, filters, onFilterChange, rightActions, hideTargets = false,
+  data, filters, onFilterChange, rightActions, hideTargets = false, showLogoBar = false,
 }: Props) {
   const { stats } = data;
   const showAreas = !!stats.areaStats?.length;
@@ -126,13 +125,13 @@ export default function DashboardView({
   );
 
   return (
-    <DashboardShell mode={mode} toolbarRight={toolbarRight} generatedAt={mode === "public" ? data.generatedAt : undefined}>
+    <DashboardShell toolbarRight={toolbarRight} generatedAt={data.generatedAt} showLogoBar={showLogoBar}>
       {/* Row A — KPI */}
       <div className={styles.row3}>
         <KpiCard
           label="Total Completion"
           value={stats.total}
-          completed={mode === "public" ? undefined : stats.totalCompleted}
+          completed={undefined}
           target={stats.totalTarget}
           hideTarget={hideTargets}
           icon={<Users size={26} strokeWidth={1.75} />}
@@ -141,7 +140,7 @@ export default function DashboardView({
         <KpiCard
           label="Completion Perempuan"
           value={stats.perempuan}
-          completed={mode === "public" ? undefined : stats.perempuanCompleted}
+          completed={undefined}
           target={stats.perempuanTarget}
           hideTarget={hideTargets}
           icon={<Heart size={26} strokeWidth={1.75} />}
@@ -153,7 +152,7 @@ export default function DashboardView({
         <KpiCard
           label="Completion Disabilitas"
           value={stats.disabilitas}
-          completed={mode === "public" ? undefined : stats.disabilitasCompleted}
+          completed={undefined}
           target={stats.disabilitasTarget}
           hideTarget={hideTargets}
           icon={<Accessibility size={26} strokeWidth={1.75} />}
@@ -176,10 +175,10 @@ export default function DashboardView({
               Hanya Data Clean — jumlah semua area = Total Completion di atas
             </span>
           </div>
-          <div className={mode === "public" ? styles.areaGridPublic : styles.areaGrid}>
+          <div className={styles.areaGridPublic}>
             {stats.areaStats!.map((a) => {
               const isLuar = a.key === "luar";
-              if (isLuar && mode === "public") return null;
+              if (isLuar) return null;
               return (
                 <AreaCard
                   key={a.key}
@@ -190,7 +189,7 @@ export default function DashboardView({
                   cleanCompleted={a.cleanCompleted}
                   muted={isLuar}
                   hideCleanRow={true}
-                  hideRegistered={mode === "public"}
+                  hideRegistered
                   icon={isLuar ? <Globe2 size={20} strokeWidth={1.75} /> : <MapPin size={20} strokeWidth={1.75} />}
                 />
               );

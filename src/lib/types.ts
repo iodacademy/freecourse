@@ -19,7 +19,7 @@ export interface UserProfile {
   emailUsername: string; // bagian sebelum @
   displayName: string;
   photoURL: string | null;
-  role: "student" | "admin" | "admin_public" | "mitra";
+  role: "student" | "admin" | "mitra";
   isSuperAdmin?: boolean; // hanya true untuk akun admin doc id "superadmin"
   profileCompleted: boolean;
   profileData: ProfileFormData;

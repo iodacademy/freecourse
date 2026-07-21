@@ -176,7 +176,9 @@ export async function POST(request: NextRequest) {
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || enrollmentData.channelSource),
         detailChannel: payload.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        beasiswaType: payload.beasiswaType || enrollmentData.beasiswaType || 'bootcamp',
+        // Jangan default ke 'bootcamp': field ini menandai benefit yang sudah dipilih.
+        // Default itu membuat peserta yang belum memilih benefit terlihat "sudah klaim".
+        beasiswaType: payload.beasiswaType || enrollmentData.beasiswaType || null,
         bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
         certificateClaimed: enrollmentData.certificateClaimed ?? false,
         certificateClaimedAt: enrollmentData.certificateClaimedAt ?? null,
@@ -190,7 +192,7 @@ export async function POST(request: NextRequest) {
       }, { merge: true });
 
       // Tandai lead INI sudah verifikasi (mengisi identitas). Dipakai tombol
-      // "Auto Complete — Instant Form" untuk MELEWATI peserta yang sudah jadi
+      // "status verifier — Instant Form" untuk MELEWATI peserta yang sudah jadi
       // siswa, agar tidak memproses ulang ratusan lead lama. Pakai update agar
       // tidak membuat dokumen leads baru bila lead-nya tidak ada.
       try {
@@ -316,7 +318,8 @@ export async function POST(request: NextRequest) {
         courseId: payload.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource),
         detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || 'bootcamp',
+        // Jangan default ke 'bootcamp': field ini menandai benefit yang sudah dipilih.
+        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || null,
         bulkEnrolled: true,
         currentStep: 3,
         updatedAt: FieldValue.serverTimestamp(),
@@ -456,7 +459,8 @@ export async function POST(request: NextRequest) {
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource || enrollmentData.channelSource),
         detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || enrollmentData.beasiswaType || 'bootcamp',
+        // Jangan default ke 'bootcamp': field ini menandai benefit yang sudah dipilih.
+        beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || enrollmentData.beasiswaType || null,
         bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
         currentStep: Math.max(Number(enrollmentData.currentStep || 1), 3),
         updatedAt: FieldValue.serverTimestamp(),

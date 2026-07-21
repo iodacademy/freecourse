@@ -6,46 +6,33 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/admin-login',
   '/api/partner-codes/validate',
   '/api/forms/active',
-  '/api/forms/resolve',           // Resolve form based on eventId atau fallback ke global
-  '/api/events/public',           // Landing page workshop/beasiswa — tidak butuh auth
-  '/api/health',                  // Diagnostic endpoint
-  '/api/profile/update',          // Profile update — auth via body token (Hostinger compat)
-  '/api/verify',                  // Verifikasi sertifikat — publik
-  '/api/cron',                    // Cron jobs (workshop reminder) — auth via query key
-  '/api/public/dashboard',        // Dashboard public view — auth via URL token
-  '/api/public/mitra',            // Dashboard per-mitra — auth via URL token (dashboardToken)
-  '/api/sync/sheet-data',         // GAS cron sync — auth via X-Sync-Key header
-  '/api/public/standalone',       // Standalone freecourse submit
-  '/api/public/leads',            // Ingest leads Meta Instant Form (GAS) — auth via X-Sync-Key header
-  '/api/public/meta',             // Gerbang verifikasi peserta Meta (search & verify) — publik
+  '/api/forms/resolve',
+  '/api/events/public',
+  '/api/profile/update',
+  '/api/verify',
+  '/api/public/dashboard',
+  '/api/public/mitra',
+  '/api/public/standalone',
+  '/api/public/meta',
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Proteksi Dasar untuk Rute API
   if (pathname.startsWith('/api/')) {
-    // Lewati rute publik
-    if (PUBLIC_API_ROUTES.some(route => pathname.startsWith(route))) {
+    if (PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route))) {
       return NextResponse.next();
     }
 
-    // Cek keberadaan header Authorization ATAU X-Firebase-Token (fallback)
-    // Hostinger strip header Authorization, jadi kita juga cek X-Firebase-Token
     const authHeader = request.headers.get('Authorization');
     const fallbackToken = request.headers.get('X-Firebase-Token');
-    
+
     if ((!authHeader || !authHeader.startsWith('Bearer ')) && !fallbackToken) {
       return new NextResponse(
         JSON.stringify({ error: 'Missing or invalid Authorization header' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    
-    // Note: Validasi token JWT Firebase (termasuk Role check) dilakukan di 
-    // masing-masing route handler menggunakan Admin SDK (lib/api-helpers.ts) 
-    // karena middleware berjalan di Edge Runtime yang tidak mendukung 
-    // modul Node.js yang dipakai Firebase Admin SDK.
   }
 
   return NextResponse.next();
@@ -53,12 +40,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

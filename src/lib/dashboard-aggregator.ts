@@ -1571,7 +1571,7 @@ export function studentToRow(s: DashboardStudent): (string | number)[] {
   ];
 }
 
-// ─── Query siswa untuk halaman /admin/students (server-side filter+paginate) ─
+// ─── Query siswa untuk halaman student dataset (server-side filter+paginate) ─
 
 export type StudentsQuery = {
   page?: number;

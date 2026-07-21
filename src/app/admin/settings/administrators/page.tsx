@@ -189,7 +189,6 @@ export default function AdministratorsSettingsPage() {
                     style={{ fontSize: 13 }}
                   >
                     <option value="admin">Admin</option>
-                    <option value="admin_public">Admin Public</option>
                     <option value="mitra">Mitra</option>
                   </select>
                 </td>

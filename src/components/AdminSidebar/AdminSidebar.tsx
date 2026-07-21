@@ -21,7 +21,7 @@ const menuItems = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout, profile } = useAuth();
+  const { logout } = useAuth();
   
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -69,16 +69,7 @@ export default function AdminSidebar() {
       </div>
 
       <nav className={styles.nav}>
-        {menuItems
-          .filter((item) => {
-            const role = profile?.role?.toLowerCase() || "";
-            if (role.includes("public")) {
-              const hiddenLabels = ["Modul Financial Literacy", "Benefit", "Pengaturan"];
-              if (hiddenLabels.includes(item.label)) return false;
-            }
-            return true;
-          })
-          .map((item) => {
+        {menuItems.map((item) => {
           const isActive =
             item.href === "/admin"
               ? pathname === "/admin"

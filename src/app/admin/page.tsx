@@ -181,7 +181,6 @@ function AdminDashboardContent() {
     <>
       <DashboardView
         data={data}
-        mode="admin"
         filters={filters}
         onFilterChange={applyFilters}
         rightActions={rightActions}

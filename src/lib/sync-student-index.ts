@@ -1,7 +1,7 @@
 /**
  * Wrapper non-fatal untuk sinkronisasi studentsIndex dari write path.
  * Kegagalan sync TIDAK boleh menggagalkan request utama (cuma di-log) —
- * drift yang lolos akan ditambal oleh cron rebuild-students-index.
+ * drift yang lolos akan ditambal oleh worker internal.
  *
  * Pakai di sebelah invalidateDashboardCache() di tiap titik mutasi.
  */

@@ -5,6 +5,18 @@
 import { getAdminAuth } from "./firebase-admin";
 import type { DecodedIdToken } from "firebase-admin/auth";
 
+function normalizeAdminCode(value: unknown): string {
+  return String(value || "").trim().toUpperCase();
+}
+
+async function findAdminByCode(rawCode: string) {
+  const code = normalizeAdminCode(rawCode);
+  if (!code) return null;
+  const { getAdminDb } = await import("./firebase-admin");
+  const snap = await getAdminDb().collection("admin").get();
+  return snap.docs.find((doc) => normalizeAdminCode(doc.data().code) === code) || null;
+}
+
 export async function verifyToken(
   authHeader: string | null
 ): Promise<DecodedIdToken | null> {
@@ -37,11 +49,9 @@ export async function requireAuth(req: Request): Promise<DecodedIdToken> {
   if (decoded) return decoded;
 
   // Fallback: Cek apakah token ini adalah kode admin
-  const { getAdminDb } = await import("./firebase-admin");
-  const adminDocs = await getAdminDb().collection("admin").where("code", "==", rawToken).get();
-  
-  if (!adminDocs.empty) {
-    return { uid: "admin", role: adminDocs.docs[0].data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
+  const adminDoc = await findAdminByCode(rawToken);
+  if (adminDoc) {
+    return { uid: "admin", role: adminDoc.data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
   }
 
   console.error("[requireAuth] Token not valid as Firebase ID token or admin code");
@@ -62,12 +72,9 @@ export async function requireAdmin(req: Request): Promise<DecodedIdToken> {
   }
   
   const token = authHeader.slice(7);
-  const { getAdminDb } = await import("./firebase-admin");
-  const db = getAdminDb();
+  const adminDoc = await findAdminByCode(token);
 
-  const adminDocs = await db.collection("admin").where("code", "==", token).get();
-  
-  if (adminDocs.empty) {
+  if (!adminDoc) {
     throw new Response(
       JSON.stringify({ error: "Forbidden: Admin only" }),
       { status: 403, headers: { "Content-Type": "application/json" } }
@@ -75,7 +82,7 @@ export async function requireAdmin(req: Request): Promise<DecodedIdToken> {
   }
 
   // Mengembalikan mock DecodedIdToken agar API tidak error (uid="admin")
-  return { uid: "admin", role: adminDocs.docs[0].data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
+  return { uid: "admin", role: adminDoc.data().role || "admin", email: "admin@ioda.id" } as unknown as DecodedIdToken;
 }
 
 /**
@@ -93,12 +100,9 @@ export async function requireSuperAdmin(req: Request): Promise<DecodedIdToken> {
   }
 
   const token = authHeader.slice(7);
-  const { getAdminDb } = await import("./firebase-admin");
-  const db = getAdminDb();
+  const adminDoc = await findAdminByCode(token);
 
-  const adminDocs = await db.collection("admin").where("code", "==", token).get();
-
-  if (adminDocs.empty || adminDocs.docs[0].id !== "superadmin") {
+  if (!adminDoc || adminDoc.id !== "superadmin") {
     throw new Response(
       JSON.stringify({ error: "Forbidden: Super Admin only" }),
       { status: 403, headers: { "Content-Type": "application/json" } }

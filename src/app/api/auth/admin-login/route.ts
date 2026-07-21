@@ -11,22 +11,27 @@ import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { json, handleError } from "@/lib/api-helpers";
 
+function normalizeCode(value: unknown): string {
+  return String(value || "").trim().toUpperCase();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { accessCode } = await req.json();
+    const normalizedCode = normalizeCode(accessCode);
 
-    if (!accessCode) {
+    if (!normalizedCode) {
       return json({ error: "Kode akses wajib diisi" }, 400);
     }
 
     const db = getAdminDb();
-    const adminDocs = await db.collection("admin").where("code", "==", accessCode).get();
+    const adminDocs = await db.collection("admin").get();
+    const adminDoc = adminDocs.docs.find((doc) => normalizeCode(doc.data().code) === normalizedCode);
 
-    if (adminDocs.empty) {
+    if (!adminDoc) {
       return json({ error: "Kode akses salah" }, 401);
     }
 
-    const adminDoc = adminDocs.docs[0];
     const adminData = adminDoc.data();
 
     // Super Admin diidentifikasi lewat doc id "superadmin" di collection `admin`.

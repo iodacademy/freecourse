@@ -2,13 +2,13 @@
  * regions.ts — Definisi Area program YouRise (satu sumber kebenaran).
  *
  * Dipakai bersama oleh:
- *  - Card Per Area di dashboard internal
- *  - Filter "Data Clean" saat export
+ *  - Card Per Area di dashboard publik
+ *  - Filter "Data Clean" untuk agregasi
  *  - Penentuan "Data Tidak Sesuai" (komplemen Clean)
  *
  * Kenapa satu file: sebelumnya daftar Jabodetabek ditulis inline di
- * dashboard-aggregator dan deskripsinya ditulis ulang di ExportModal. Begitu
- * area bertambah, keduanya gampang lepas sinkron.
+ * dashboard-aggregator dan tampilan publik. Begitu area bertambah, keduanya
+ * gampang lepas sinkron.
  *
  * Pencocokan kota memakai pola KATA UTUH (word boundary), bukan substring
  * mentah, karena data tersimpan bervariasi ("Bogor" vs "Kab. Bogor",
@@ -24,7 +24,7 @@ export type AreaKey = "jabodetabek" | "medan" | "surabaya";
 
 export type AreaDef = {
   key: AreaKey;
-  /** Label yang tampil di card & ExportModal. */
+  /** Label yang tampil di card dashboard. */
   label: string;
   /** Keterangan singkat cakupan wilayah. */
   desc: string;

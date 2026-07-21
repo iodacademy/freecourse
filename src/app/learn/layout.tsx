@@ -18,7 +18,6 @@ function LearnLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
-    if (profile?.role === "admin") { router.push("/admin"); return; }
     if (profile && !profile.profileCompleted) { router.push("/profile"); return; }
   }, [loading, user, profile, router]);
 

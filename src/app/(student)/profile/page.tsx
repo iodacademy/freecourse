@@ -96,12 +96,7 @@ function ProfileContent() {
       }
     }
     if (!authLoading && user && profile) {
-      if (profile.role === "admin") {
-        if (!redirectingRef.current) {
-          redirectingRef.current = true;
-          router.push("/admin");
-        }
-      } else if (profile.profileCompleted && profile.channelSource && !isEditMode && !saved) {
+      if (profile.profileCompleted && profile.channelSource && !isEditMode && !saved) {
         if (!redirectingRef.current) {
           redirectingRef.current = true;
           router.push("/learn");
@@ -300,7 +295,7 @@ function ProfileContent() {
                    if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
 
                    // Penyandang disabilitas boleh sampai 35 th; selain itu 29 th.
-                   // Kalau jawaban disabilitas belum terisi (mis. admin memindah
+                   // Kalau jawaban disabilitas belum terisi (mis. data dipindah
                    // field-nya ke halaman berikutnya), pakai batas longgar dulu —
                    // biar orang tidak ditolak gara-gara urutan pengisian. Field
                    // disabilitas sendiri tetap wajib dan akan memunculkan error.
@@ -864,7 +859,7 @@ function ProfileContent() {
       <div className="pf-page">
         <div style={{ textAlign: "center", marginTop: "100px", color: "#666" }}>
            <h2>Mohon Maaf</h2>
-           <p>Formulir pendaftaran sedang tidak tersedia atau belum dikonfigurasi oleh Admin.</p>
+           <p>Formulir pendaftaran sedang tidak tersedia atau belum dikonfigurasi oleh tim IODA.</p>
         </div>
       </div>
     );

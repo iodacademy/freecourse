@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Tandai lead (jika peserta ini berasal dari Instant Form) sudah
-      // verifikasi — dipakai tombol "Auto Complete — Instant Form" untuk
+      // verifikasi — dipakai tombol "status verifier — Instant Form" untuk
       // melewati peserta yang sudah jadi siswa. Lead doc id = email lowercase.
       if (email) {
         try {

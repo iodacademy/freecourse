@@ -24,9 +24,7 @@ function LoginContent() {
         return;
       }
       // Default redirect
-      if (profile.role === "admin") {
-        router.push("/admin");
-      } else if (!profile.profileCompleted) {
+      if (!profile.profileCompleted) {
         router.push("/profile");
       } else {
         router.push("/learn");

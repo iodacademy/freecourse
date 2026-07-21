@@ -4,16 +4,16 @@ import { ReactNode } from "react";
 import styles from "./dashboard.module.css";
 
 interface Props {
-  mode: "admin" | "public";
   toolbarRight?: ReactNode; // Filter chips + action buttons
   children: ReactNode;
   generatedAt?: string; // untuk watermark public
+  showLogoBar?: boolean;
 }
 
-export default function DashboardShell({ mode, toolbarRight, children, generatedAt }: Props) {
+export default function DashboardShell({ toolbarRight, children, generatedAt, showLogoBar = false }: Props) {
   return (
     <div className={styles.dashboard}>
-      {mode === "public" && (
+      {showLogoBar && (
         <div className={styles.logoBar}>
           <div className={styles.logoBarPartners}>
             <img src="/dashboard/logo-dbs.png" alt="DBS Foundation" className={styles.logoPartner} />
@@ -38,7 +38,7 @@ export default function DashboardShell({ mode, toolbarRight, children, generated
         {children}
       </div>
 
-      {mode === "public" && generatedAt && (
+      {showLogoBar && generatedAt && (
         <div className={styles.watermark}>
           Public View — diperbarui {generatedAt} WIB
         </div>

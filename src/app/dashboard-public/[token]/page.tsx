@@ -3,9 +3,7 @@
 import { useEffect, useState, useCallback, Suspense, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { notFound } from "next/navigation";
-import { Download } from "lucide-react";
 import DashboardView, { DashboardFilterState } from "@/components/dashboard/DashboardView";
-import ExportModal, { ExportMode } from "@/components/dashboard/ExportModal";
 import styles from "@/components/dashboard/dashboard.module.css";
 
 function buildQuery(token: string, filters: DashboardFilterState): string {
@@ -23,7 +21,6 @@ function PublicDashboardContent({ token }: { token: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [is404, setIs404] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
 
   const filters: DashboardFilterState = {
     channel: searchParams.get("channel"),
@@ -69,22 +66,6 @@ function PublicDashboardContent({ token }: { token: string }) {
     router.replace(`/dashboard-public/${token}${qs ? `?${qs}` : ""}`, { scroll: false });
   }
 
-  async function handleExport(mode: ExportMode) {
-    const base = buildQuery(token, filters);
-    const qs = mode !== "clean" ? `${base}&mode=${mode}` : base;
-    const res = await fetch(`/api/public/dashboard/export-excel${qs}`);
-    if (!res.ok) throw new Error("Export gagal");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const disposition = res.headers.get("Content-Disposition") || "";
-    const m = disposition.match(/filename="?([^"]+)"?/);
-    a.download = m ? m[1] : "dashboard.xlsx";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   if (is404) {
     notFound();
   }
@@ -100,24 +81,12 @@ function PublicDashboardContent({ token }: { token: string }) {
   if (!data) return null;
 
   return (
-    <>
-      <DashboardView
-        data={data}
-        mode="public"
-        filters={filters}
-        onFilterChange={applyFilters}
-        rightActions={
-          <button className="btn outline" onClick={() => setExportOpen(true)}>
-            <Download size={16} /> Export Data
-          </button>
-        }
-      />
-      <ExportModal
-        isOpen={exportOpen}
-        onClose={() => setExportOpen(false)}
-        onExport={handleExport}
-      />
-    </>
+    <DashboardView
+      data={data}
+      filters={filters}
+      onFilterChange={applyFilters}
+      showLogoBar
+    />
   );
 }
 

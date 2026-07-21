@@ -126,9 +126,7 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
     // Untuk halaman beasiswa/workshop/kemitraan, biarkan user membaca landing page
     // dan secara eksplisit menekan tombol agar tercatat jalur masuknya.
     if (!loading && user && profile && type === "umum") {
-      if (profile.role === "admin") {
-        router.push("/admin");
-      } else if (profile.profileCompleted) {
+      if (profile.profileCompleted) {
         router.push("/learn");
       }
     }
@@ -449,10 +447,10 @@ export default function LandingTemplate({ type, eventId, partnerCode, heroTitle,
             href={`https://wa.me/6289529109313?text=${waText}`}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Hubungi Admin via WhatsApp"
+            aria-label="Hubungi Tim IODA via WhatsApp"
           >
             <WhatsAppIcon />
-            Hubungi Admin
+            Hubungi Tim IODA
           </a>
         );
       })()}

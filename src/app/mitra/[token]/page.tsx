@@ -88,7 +88,6 @@ function MitraDashboardContent({ token }: { token: string }) {
       )}
       <DashboardView
         data={data}
-        mode="public"
         hideTargets
         filters={filters}
         onFilterChange={applyFilters}

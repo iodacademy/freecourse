@@ -128,11 +128,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loginAsAdmin(accessCode: string) {
     try {
       setError(null);
+      const normalizedCode = accessCode.trim().toUpperCase();
       
       const res = await fetch("/api/auth/admin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessCode }),
+        body: JSON.stringify({ accessCode: normalizedCode }),
       });
 
       const data = await res.json();
@@ -141,10 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (typeof window !== "undefined") {
-        localStorage.setItem("admin_code", accessCode);
+        localStorage.setItem("admin_code", normalizedCode);
       }
 
-      const mockUser = { uid: "admin", getIdToken: async () => accessCode } as any;
+      const mockUser = { uid: "admin", getIdToken: async () => normalizedCode } as any;
       setUser(mockUser);
       setProfile(data.user as UserProfile);
     } catch (err: unknown) {
@@ -157,7 +158,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Logout
   async function logout() {
-    if (!auth) return;
     try {
       if (typeof window !== "undefined") {
         localStorage.removeItem("admin_code");

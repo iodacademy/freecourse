@@ -139,7 +139,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         certificateIssuer: issuerName,
         status: "certified",
         // Tandai PDF sedang diproses. Dibersihkan saat URL tersimpan di bawah;
-        // jika GAS gagal, penanda ini bikin cron generate-pending-pdf menjemputnya.
+        // jika generator gagal, worker internal bisa menjemputnya.
         pdfPending: true,
         updatedAt: FieldValue.serverTimestamp()
       });
