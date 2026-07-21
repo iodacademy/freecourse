@@ -1800,10 +1800,13 @@ async function queryStudentsLatestDirect(q: StudentsQuery = {}): Promise<Student
 }
 
 export async function queryStudents(q: StudentsQuery = {}): Promise<StudentsPage> {
-  if (isDefaultLatestStudentsPage(q)) {
-    return queryStudentsLatestDirect(q);
-  }
-
+  // Catatan: dulu halaman "default" (tanpa filter) memakai jalur cepat
+  // queryStudentsLatestDirect yang membaca users `orderBy createdAt desc` lalu
+  // mengambil 50 teratas. Itu BISA menenggelamkan peserta baru bila createdAt
+  // mereka bukan waktu-verifikasi (mis. beda tipe/null/lama), sehingga tabel
+  // tampak "beku" saat load pertama padahal Refresh (dataset penuh) benar.
+  // Sekarang SEMUA view memakai dataset penuh (via cache anti-beku 2 jam),
+  // jadi urutan & kelengkapannya konsisten dengan hasil Refresh.
   const raw = await getRawDatasetCached(q.bypassCache);
   const all = raw.allStudents;
 

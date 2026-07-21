@@ -1075,18 +1075,8 @@ export default function AdminStudentsPage() {
           </div>
         </header>
 
-        {/* Ringkasan Channel Pendaftar */}
-        <div style={{ display: "flex", gap: "16px", marginBottom: "24px", flexWrap: "wrap" }}>
-          {["Umum", "Kemitraan", "Beasiswa", "Workshop"].map(ch => {
-            const count = channelSummary[ch.toLowerCase()] || 0;
-            return (
-              <div key={ch} style={{ background: "#fff", padding: "16px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", flex: "1 1 200px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
-                <div style={{ fontSize: "14px", color: "#64748b", marginBottom: "6px", fontWeight: 500 }}>{ch}</div>
-                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#0f172a" }}>{count}</div>
-              </div>
-            );
-          })}
-        </div>
+        {/* KPI ringkasan channel dihapus: dihitung dari cache & bisa tidak akurat.
+            Statistik agregat tersedia di halaman Dashboard. */}
 
         <div className={styles.filterBar}>
           <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
