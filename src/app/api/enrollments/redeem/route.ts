@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
     const enrollData = enrollDoc.data()!;
     if (enrollData.userId !== decoded.uid) return json({ error: "Forbidden" }, 403);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
-    if (enrollData.bonusCourseRedeemCode || enrollData.beasiswaType) {
+    // Sudah klaim benefit? Cek flag eksplisit benefitClaimed ATAU jejak klaim lama
+    // (bonusCourseRedeemCode). beasiswaType TIDAK dipakai sebagai bukti klaim — itu
+    // hanya penanda kategori yang bisa diisi auto-complete admin tanpa peserta mengklaim.
+    if (enrollData.benefitClaimed || enrollData.bonusCourseRedeemCode) {
       return json({ error: "Kamu sudah memilih benefit sebelumnya" }, 400);
     }
 
@@ -80,6 +83,8 @@ export async function POST(req: NextRequest) {
       await enrollRef.update({
         bonusCourseTopicId: topicId,
         beasiswaType: "workshop",
+        benefitClaimed: true,
+        benefitClaimedAt: FieldValue.serverTimestamp(),
         waGroupLink,
         detailChannel,
         updatedAt: FieldValue.serverTimestamp(),
@@ -115,6 +120,8 @@ export async function POST(req: NextRequest) {
       await enrollRef.update({
         bonusCourseTopicId: topicId,
         beasiswaType: "downloadable",
+        benefitClaimed: true,
+        benefitClaimedAt: FieldValue.serverTimestamp(),
         detailChannel,
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -147,6 +154,8 @@ export async function POST(req: NextRequest) {
       bonusCourseTopicId: topicId,
       bonusCourseRedeemCode: redeemCode,
       beasiswaType: category,
+      benefitClaimed: true,
+      benefitClaimedAt: FieldValue.serverTimestamp(),
       waGroupLink: waGroupLink,
       detailChannel,
       updatedAt: FieldValue.serverTimestamp(),

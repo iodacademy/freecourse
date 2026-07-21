@@ -176,8 +176,8 @@ export async function POST(request: NextRequest) {
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || enrollmentData.channelSource),
         detailChannel: payload.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        // Jangan default ke 'bootcamp': field ini menandai benefit yang sudah dipilih.
-        // Default itu membuat peserta yang belum memilih benefit terlihat "sudah klaim".
+        // Jangan default ke 'bootcamp'. beasiswaType hanya penanda kategori; membiarkannya
+        // kosong saat peserta belum memilih. (Bukti klaim benefit = benefitClaimed.)
         beasiswaType: payload.beasiswaType || enrollmentData.beasiswaType || null,
         bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
         certificateClaimed: enrollmentData.certificateClaimed ?? false,
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
         courseId: payload.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource),
         detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        // Jangan default ke 'bootcamp': field ini menandai benefit yang sudah dipilih.
+        // Jangan default ke 'bootcamp' (lihat catatan di action 'identity').
         beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || null,
         bulkEnrolled: true,
         currentStep: 3,
@@ -459,7 +459,7 @@ export async function POST(request: NextRequest) {
         courseId: payload.courseId || enrollmentData.courseId || 'course-main',
         channelSource: normalizeChannelSource(payload.channelSource || userDoc.data()?.channelSource || enrollmentData.channelSource),
         detailChannel: payload.detailChannel || userDoc.data()?.detailChannel || enrollmentData.detailChannel || 'All Beasiswa - Facebook Instant Forms',
-        // Jangan default ke 'bootcamp': field ini menandai benefit yang sudah dipilih.
+        // Jangan default ke 'bootcamp' (lihat catatan di action 'identity').
         beasiswaType: payload.beasiswaType || userDoc.data()?.beasiswaType || enrollmentData.beasiswaType || null,
         bulkEnrolled: enrollmentData.bulkEnrolled ?? true,
         currentStep: Math.max(Number(enrollmentData.currentStep || 1), 3),

@@ -35,6 +35,7 @@ interface EnrollmentData {
   courseId: string;
   channelSource?: string;
   certificateClaimed: boolean;
+  benefitClaimed?: boolean;
   bonusCourseTopicId?: string;
   bonusCourseRedeemCode?: string;
   beasiswaType?: string;
@@ -108,8 +109,11 @@ export default function BonusCoursePage() {
         if (!main.certificateClaimed) { router.push("/learn/certificate"); return; }
         setEnrollment(main);
 
-        // Sudah pernah pilih benefit → tampilkan status yang sesuai.
-        if (main.bonusCourseRedeemCode || main.beasiswaType) {
+        // Sudah pernah KLAIM benefit → tampilkan status yang sesuai.
+        // Bukti klaim: flag benefitClaimed (baru) ATAU bonusCourseRedeemCode (jejak data lama).
+        // beasiswaType TIDAK dipakai sebagai bukti klaim — itu hanya penanda kategori yang
+        // bisa terisi oleh auto-complete admin tanpa peserta pernah mengklaim benefit.
+        if (main.benefitClaimed || main.bonusCourseRedeemCode) {
           const topicsRes = await fetch("/api/bonus-courses", {
             headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store",
           });

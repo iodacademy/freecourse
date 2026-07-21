@@ -152,7 +152,14 @@ export interface Enrollment {
   bonusCourseTopicId: string | null;
   bonusCourseRedeemCode: string | null;
   waGroupLink?: string;
+  // Bukti peserta SUDAH mengklaim benefit secara mandiri. Hanya di-set true oleh
+  // endpoint klaim benefit (redeem / standalone-redeem / review-cv). Ini satu-satunya
+  // penanda "sudah klaim" — beasiswaType di bawah HANYA penanda kategori, bukan bukti klaim
+  // (auto-complete admin mengisi beasiswaType acak tanpa peserta mengklaim benefit).
+  benefitClaimed?: boolean;
+  benefitClaimedAt?: Date | null;
   // "wpb" = data lama (dibiarkan). "workshop"/"review_cv"/"downloadable" = kategori benefit baru.
+  // Penanda KATEGORI saja — jangan pakai sebagai bukti klaim (lihat benefitClaimed).
   beasiswaType?: "vl" | "wpb" | "bootcamp" | "workshop" | "review_cv" | "downloadable";
   detailChannel?: string;
   createdAt: Date;

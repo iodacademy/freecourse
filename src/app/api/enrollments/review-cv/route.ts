@@ -54,7 +54,9 @@ export async function POST(req: NextRequest) {
     const enrollData = enrollDoc.data()!;
     if (enrollData.userId !== decoded.uid) return json({ error: "Forbidden" }, 403);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
-    if (enrollData.bonusCourseRedeemCode || enrollData.beasiswaType) {
+    // Bukti klaim = benefitClaimed (flag baru) ATAU bonusCourseRedeemCode (jejak lama).
+    // beasiswaType TIDAK dipakai — itu hanya penanda kategori (bisa diisi auto-complete admin).
+    if (enrollData.benefitClaimed || enrollData.bonusCourseRedeemCode) {
       return json({ error: "Kamu sudah memilih benefit sebelumnya" }, 400);
     }
 
@@ -97,6 +99,8 @@ export async function POST(req: NextRequest) {
     // Tandai enrollment
     await enrollRef.update({
       beasiswaType: "review_cv",
+      benefitClaimed: true,
+      benefitClaimedAt: FieldValue.serverTimestamp(),
       bonusCourseTopicId: topicId,
       detailChannel,
       reviewCvName: namaLengkap,

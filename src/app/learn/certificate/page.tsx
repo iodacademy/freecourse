@@ -14,6 +14,7 @@ interface EnrollmentData {
   courseId: string;
   channelSource?: string;
   certificateClaimed: boolean;
+  benefitClaimed?: boolean;
   certificateId?: string;
   certificateClaimedAt?: any;
   certificateDriveUrl?: string;
@@ -203,14 +204,12 @@ export default function CertificatePage() {
       }
 
       setCertId(data.certId);
+      // Klaim sertifikat tidak lagi mengklaim benefit — benefit dipilih sendiri di /learn/bonus.
       setEnrollment((prev) =>
-        prev ? { 
-          ...prev, 
-          certificateClaimed: true, 
+        prev ? {
+          ...prev,
+          certificateClaimed: true,
           certificateId: data.certId,
-          bonusCourseRedeemCode: data.redeemCode || prev.bonusCourseRedeemCode,
-          waGroupLink: data.waGroupLink || prev.waGroupLink,
-          beasiswaType: data.beasiswaType || prev.beasiswaType
         } : prev
       );
     } catch {
@@ -249,13 +248,10 @@ export default function CertificatePage() {
       setCertId(data.certId);
       if (data.driveUrl) setDriveUrl(data.driveUrl);
       setCertName(editNameInput.trim());
-      setEnrollment((prev: any) => prev ? { 
-        ...prev, 
-        certificateId: data.certId, 
+      setEnrollment((prev: any) => prev ? {
+        ...prev,
+        certificateId: data.certId,
         certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl,
-        bonusCourseRedeemCode: data.redeemCode || prev.bonusCourseRedeemCode,
-        waGroupLink: data.waGroupLink || prev.waGroupLink,
-        beasiswaType: data.beasiswaType || prev.beasiswaType
       } : prev);
       setEditNameOpen(false);
       setEditNameInput("");
@@ -296,13 +292,10 @@ export default function CertificatePage() {
 
       setCertId(data.certId);
       if (data.driveUrl) setDriveUrl(data.driveUrl);
-      setEnrollment((prev: any) => prev ? { 
-        ...prev, 
-        certificateId: data.certId, 
+      setEnrollment((prev: any) => prev ? {
+        ...prev,
+        certificateId: data.certId,
         certificateDriveUrl: data.driveUrl || prev.certificateDriveUrl,
-        bonusCourseRedeemCode: data.redeemCode || prev.bonusCourseRedeemCode,
-        waGroupLink: data.waGroupLink || prev.waGroupLink,
-        beasiswaType: data.beasiswaType || prev.beasiswaType
       } : prev);
 
       setReclaimStep(2);
@@ -522,8 +515,9 @@ export default function CertificatePage() {
                 </button>
 
                 {/* Tombol Pilih Benefit — untuk SEMUA jalur yang punya enrollment
-                    dan belum memilih benefit apa pun (redeem code / beasiswaType). */}
-                {!!enrollment?.channelSource && !enrollment?.beasiswaType && !enrollment?.bonusCourseRedeemCode && (
+                    dan belum MENGKLAIM benefit. Gate pakai benefitClaimed / bonusCourseRedeemCode,
+                    BUKAN beasiswaType (yang bisa terisi acak oleh auto-complete admin). */}
+                {!!enrollment?.channelSource && !enrollment?.benefitClaimed && !enrollment?.bonusCourseRedeemCode && (
                   <button
                     className="btn btn-secondary w-full"
                     onClick={() => setCatModalOpen(true)}

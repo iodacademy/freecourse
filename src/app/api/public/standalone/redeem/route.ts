@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Enrollment not found" }, { status: 404 });
     }
     const enrollData = enrollDoc.data()!;
-    if (enrollData.bonusCourseRedeemCode || enrollData.beasiswaType) {
+    // Bukti klaim = benefitClaimed (flag baru) ATAU bonusCourseRedeemCode (jejak lama).
+    // beasiswaType TIDAK dipakai — itu hanya penanda kategori (bisa diisi auto-complete admin).
+    if (enrollData.benefitClaimed || enrollData.bonusCourseRedeemCode) {
       return NextResponse.json({ error: "Kamu sudah memilih benefit sebelumnya" }, { status: 400 });
     }
 
@@ -64,6 +66,8 @@ export async function POST(req: NextRequest) {
       await enrollRef.update({
         bonusCourseTopicId: topicId,
         beasiswaType: "workshop",
+        benefitClaimed: true,
+        benefitClaimedAt: FieldValue.serverTimestamp(),
         waGroupLink,
         detailChannel,
         updatedAt: FieldValue.serverTimestamp(),
@@ -99,6 +103,8 @@ export async function POST(req: NextRequest) {
       await enrollRef.update({
         bonusCourseTopicId: topicId,
         beasiswaType: "downloadable",
+        benefitClaimed: true,
+        benefitClaimedAt: FieldValue.serverTimestamp(),
         detailChannel,
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -129,6 +135,8 @@ export async function POST(req: NextRequest) {
       bonusCourseTopicId: topicId,
       bonusCourseRedeemCode: redeemCode,
       beasiswaType: category,
+      benefitClaimed: true,
+      benefitClaimedAt: FieldValue.serverTimestamp(),
       waGroupLink: waGroupLink,
       detailChannel,
       updatedAt: FieldValue.serverTimestamp(),

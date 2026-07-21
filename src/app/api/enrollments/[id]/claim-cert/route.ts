@@ -5,13 +5,11 @@
  */
 import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { getScDb } from "@/lib/firebase-admin-sc";
 import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { invalidateDashboardCache } from "@/lib/dashboard-aggregator";
 import { syncStudentIndex } from "@/lib/sync-student-index";
 import { normalizeCertName, validateCertName } from "@/lib/cert-name";
 import { FieldValue } from "firebase-admin/firestore";
-import { getExplicitBenefitCategories } from "@/lib/benefit-categories";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -203,75 +201,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       }
     }
 
-    // ── Logika Khusus WPB & Bootcamp Beasiswa ──
-    // Generate kode redeem secara otomatis saat sertifikat diklaim perdana (atau reclaim jika belum tergenerate)
-    let redeemCode: string | null = enrollData.bonusCourseRedeemCode || null;
-    let waGroupLink: string | null = enrollData.waGroupLink || null;
-    let beasiswaType: string | null = enrollData.beasiswaType || null;
-
-    if (enrollData.channelSource === "beasiswa" && enrollData.eventId && !enrollData.bonusCourseRedeemCode) {
-      try {
-        const eventDoc = await db.collection("events").doc(enrollData.eventId).get();
-        if (eventDoc.exists) {
-          const eventData = eventDoc.data();
-          const bc = eventData?.beasiswaConfig;
-          const hasManualBenefitChoice = getExplicitBenefitCategories(eventData).length > 0;
-          if (!hasManualBenefitChoice && bc && (bc.type === "wpb" || bc.type === "bootcamp")) {
-            beasiswaType = bc.type;
-            waGroupLink = bc.waGroupLink || "";
-            const kodeKelas = bc.kodeKelas || "";
-            const kodeBasis = bc.kodeBasis || "";
-            const emailUsername = userDoc.data()?.emailUsername || decoded.email?.split("@")[0] || "user";
-            
-            const emailUsernameClean = emailUsername.toLowerCase().replace(/[^a-z0-9.]/g, "");
-            const classCodeClean = kodeKelas.replace(/[^a-zA-Z0-9]/g, "");
-            const newRedeemCode = `${emailUsernameClean}${classCodeClean}`;
-            const redeemCodeUpper = newRedeemCode.toUpperCase();
-            
-            redeemCode = newRedeemCode;
-
-            // Simpan ke student-center-ioda
-            const scDb = getScDb();
-            const docId = `LITERASI_FINANSIAL_${redeemCodeUpper}`;
-            const collectionName = bc.type === "wpb" ? "users_wpb" : "users_bootcamp";
-            
-            const nowStr = new Date().toISOString();
-            const userEmail = decoded.email || userDoc.data()?.email || "";
-            const userWa = userDoc.data()?.no_wa || userDoc.data()?.phone || userDoc.data()?.phoneNumber || "";
-
-            await scDb.collection(collectionName).doc(docId).set({
-              Created_By_Admin: false,
-              Data_Source: "free course literasi digital",
-              Email: userEmail,
-              Kode_Basis: kodeBasis.toUpperCase(),
-              Kode_Kelas: kodeKelas.toUpperCase(),
-              Kode_Redeem: redeemCodeUpper,
-              Kode_Redeem_Lower: newRedeemCode,
-              Nama_Kelas: bc.namaKelas || courseName,
-              Nama_Kelas_Sertif: bc.namaKelas || courseName,
-              Nama_Lower: userName.toLowerCase(),
-              Nama_Peserta: userName,
-              No_WA: userWa,
-              Program: bc.type === "wpb" ? "WPB" : "Bootcamp",
-              Role: "participant",
-              Tanggal_Daftar: nowStr,
-              _syncedAt: nowStr,
-              _syncedBy: "Literacy Financial",
-            });
-
-            // Update ke enrollment
-            await enrollRef.update({
-              bonusCourseTopicId: enrollData.eventId,
-              bonusCourseRedeemCode: newRedeemCode,
-              waGroupLink: waGroupLink,
-              beasiswaType: beasiswaType,
-            });
-          }
-        }
-      } catch (err) {
-        console.error("[claim-cert] Error generating WPB/Bootcamp code:", err);
-      }
-    }
+    // Catatan: klaim sertifikat TIDAK lagi mengklaim benefit kelas secara otomatis.
+    // Benefit (WPB/Bootcamp/VL/Workshop/Review CV/Downloadable) harus dipilih & diklaim
+    // sendiri oleh peserta lewat /learn/bonus (endpoint /api/enrollments/redeem dsb).
+    // Blok auto-generate redeem code yang dulu ada di sini sengaja dihapus.
 
     invalidateDashboardCache();
     syncStudentIndex(enrollData.userId);
@@ -283,9 +216,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         : "Sertifikat berhasil diklaim",
       certId,
       driveUrl,
-      redeemCode,
-      waGroupLink,
-      beasiswaType,
     });
   } catch (e) {
     return handleError(e);
