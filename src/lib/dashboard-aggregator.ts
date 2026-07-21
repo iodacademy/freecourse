@@ -615,16 +615,31 @@ export function computeStudentRow(
 
   const kota = getCityFromProfile(profileData);
 
-  const disabilitas =
+  const disabilitasRaw =
     getProfileString(profileData, "disabilitas") ||
     getProfileString(profileData, "isDisabilitas") || "";
+  const isDisabilitasStatusYa =
+    disabilitasRaw === "Ya" || disabilitasRaw === "Penyandang Disabilitas";
+  // Kategori/jenis disabilitas mentah (hanya relevan bila status "Ya").
+  const jenisDisabilitasRaw = isDisabilitasStatusYa
+    ? getProfileString(profileData, "jenis_disabilitas") ||
+      getProfileString(profileData, "jenisDisabilitas") ||
+      getProfileString(profileData, "kategori_disabilitas_yang_anda_miliki") ||
+      getProfileString(profileData, "kategori_disabilitas") ||
+      getProfileString(profileData, "kategoriDisabilitas") || ""
+    : "";
+  // Normalisasi: status "Ya" tapi jenisnya kosong / "-" / "Tidak Ada" / "Lainnya"
+  // dianggap BUKAN penyandang disabilitas (status → "Tidak"). Data form kadang
+  // salah isi (pilih "Ya" lalu jenisnya tidak ada). Ini men-sinkronkan status.
+  const jenisKosongAtauNone = (() => {
+    const v = jenisDisabilitasRaw.trim().toLowerCase();
+    return v === "" || v === "-" || v === "tidak ada" || v === "tidak" || v === "lainnya";
+  })();
+  const disabilitas =
+    isDisabilitasStatusYa && jenisKosongAtauNone ? "Tidak" : disabilitasRaw;
   const jenisDisabilitas =
-    (disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas")
-      ? getProfileString(profileData, "jenis_disabilitas") ||
-        getProfileString(profileData, "jenisDisabilitas") ||
-        getProfileString(profileData, "kategori_disabilitas_yang_anda_miliki") ||
-        getProfileString(profileData, "kategori_disabilitas") ||
-        getProfileString(profileData, "kategoriDisabilitas") || "-"
+    disabilitas === "Ya" || disabilitas === "Penyandang Disabilitas"
+      ? jenisDisabilitasRaw || "-"
       : "-";
 
   let minatArray: string[] = [];
