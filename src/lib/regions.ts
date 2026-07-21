@@ -39,9 +39,10 @@ export const AREAS: AreaDef[] = [
   {
     key: "jabodetabek",
     label: "Jabodetabek",
-    desc: "Jakarta (Selatan/Timur/Pusat/Barat), Bogor, Depok, Tangerang, Bekasi",
+    desc: "Jakarta (Selatan/Timur/Pusat/Barat/Utara), Bogor, Depok, Tangerang, Bekasi",
     // "tangerang" ikut menangkap "Tangerang Selatan" & "Kab. Tangerang".
-    // "jakarta" di-spesifikkan agar "Jakarta Utara" / "Kepulauan Seribu" tidak masuk Data Clean.
+    // Jakarta di-spesifikkan per sub-wilayah (Sel/Tim/Pus/Bar/Utara). Kepulauan
+    // Seribu tetap TIDAK masuk Data Clean (tidak ada pola "kepulauan seribu").
     patterns: [
       "bekasi",
       "bogor",
@@ -49,6 +50,7 @@ export const AREAS: AreaDef[] = [
       "jakarta timur",
       "jakarta pusat",
       "jakarta barat",
+      "jakarta utara",
       "depok",
       "tangerang",
     ],
@@ -119,11 +121,11 @@ export function areaOfCity(kota: string | null | undefined): AreaKey | null {
 
 // ─── Aturan kelayakan usia ("Data Clean") ──────────────────────────────────
 //
-// Program menyasar usia 18–29. Penyandang disabilitas diberi kelonggaran
+// Program menyasar usia 17–29. Penyandang disabilitas diberi kelonggaran
 // batas atas sampai 35 tahun (keputusan program, bukan turunan dari data).
-// Batas bawah 18 berlaku untuk SEMUA peserta, termasuk disabilitas.
+// Batas bawah 17 berlaku untuk SEMUA peserta, termasuk disabilitas.
 
-export const MIN_AGE = 18;
+export const MIN_AGE = 17;
 export const MAX_AGE_DEFAULT = 29;
 export const MAX_AGE_DISABILITAS = 35;
 

@@ -50,8 +50,8 @@ export default function StandaloneIdentityForm({ onSubmit, isLoading }: Standalo
         const md = now.getMonth() - birth.getMonth();
         if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
         
-        if (age < 18 || age > 29) {
-          errs.tanggal_lahir = `Usia yang diperbolehkan adalah 18-29 tahun (Usia saat ini: ${age} tahun)`;
+        if (age < 17 || age > 29) {
+          errs.tanggal_lahir = `Usia yang diperbolehkan adalah 17-29 tahun (Usia saat ini: ${age} tahun)`;
         }
       }
     }
