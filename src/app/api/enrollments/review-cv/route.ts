@@ -52,7 +52,13 @@ export async function POST(req: NextRequest) {
     const enrollDoc = await enrollRef.get();
     if (!enrollDoc.exists) return json({ error: "Enrollment not found" }, 404);
     const enrollData = enrollDoc.data()!;
-    if (enrollData.userId !== decoded.uid) return json({ error: "Forbidden" }, 403);
+    // Kepemilikan via uid ATAU email (peserta jalur Meta punya userId = email).
+    const enrollEmail = String(enrollData.email || "").toLowerCase();
+    const authEmail = String(decoded.email || "").toLowerCase();
+    if (enrollData.userId !== decoded.uid && (!authEmail || enrollEmail !== authEmail)) {
+      return json({ error: "Forbidden" }, 403);
+    }
+    const userDocId = enrollData.userId === decoded.uid ? decoded.uid : (enrollData.userId || authEmail);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
     // Bukti klaim = benefitClaimed (flag baru) ATAU bonusCourseRedeemCode (jejak lama).
     // beasiswaType TIDAK dipakai — itu hanya penanda kategori (bisa diisi auto-complete admin).
@@ -110,7 +116,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Samakan di dokumen users untuk konsistensi dashboard.
-    await db.collection("users").doc(decoded.uid).set(
+    await db.collection("users").doc(userDocId).set(
       { detailChannel, updatedAt: FieldValue.serverTimestamp() },
       { merge: true }
     );

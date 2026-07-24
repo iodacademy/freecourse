@@ -42,7 +42,15 @@ export async function POST(req: NextRequest) {
     const enrollDoc = await enrollRef.get();
     if (!enrollDoc.exists) return json({ error: "Enrollment not found" }, 404);
     const enrollData = enrollDoc.data()!;
-    if (enrollData.userId !== decoded.uid) return json({ error: "Forbidden" }, 403);
+    // Kepemilikan dicek lewat uid ATAU email: peserta jalur Meta/instant-form
+    // punya users/enrollments ber-id EMAIL (userId = email), bukan Firebase uid.
+    const enrollEmail = String(enrollData.email || "").toLowerCase();
+    const authEmail = String(decoded.email || "").toLowerCase();
+    if (enrollData.userId !== decoded.uid && (!authEmail || enrollEmail !== authEmail)) {
+      return json({ error: "Forbidden" }, 403);
+    }
+    // Dokumen users bisa ber-id uid (jalur login biasa) atau email (jalur Meta).
+    const userDocId = enrollData.userId === decoded.uid ? decoded.uid : (enrollData.userId || authEmail);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
     // Sudah klaim benefit? Cek flag eksplisit benefitClaimed ATAU jejak klaim lama
     // (bonusCourseRedeemCode). beasiswaType TIDAK dipakai sebagai bukti klaim — itu
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Ambil data user
-    const userDoc = await db.collection("users").doc(decoded.uid).get();
+    const userDoc = await db.collection("users").doc(userDocId).get();
     const userData = userDoc.data() || {};
     const emailUsername = (userData.emailUsername as string) || "user";
     const namaLengkap =
@@ -89,7 +97,7 @@ export async function POST(req: NextRequest) {
         detailChannel,
         updatedAt: FieldValue.serverTimestamp(),
       });
-      await db.collection("users").doc(decoded.uid).set(
+      await db.collection("users").doc(userDocId).set(
         { detailChannel, updatedAt: FieldValue.serverTimestamp() },
         { merge: true }
       );
@@ -125,7 +133,7 @@ export async function POST(req: NextRequest) {
         detailChannel,
         updatedAt: FieldValue.serverTimestamp(),
       });
-      await db.collection("users").doc(decoded.uid).set(
+      await db.collection("users").doc(userDocId).set(
         { detailChannel, updatedAt: FieldValue.serverTimestamp() },
         { merge: true }
       );
@@ -161,7 +169,7 @@ export async function POST(req: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     };
     // Samakan juga di dokumen users agar konsisten di dashboard.
-    await db.collection("users").doc(decoded.uid).set(
+    await db.collection("users").doc(userDocId).set(
       { detailChannel, updatedAt: FieldValue.serverTimestamp() },
       { merge: true }
     );
