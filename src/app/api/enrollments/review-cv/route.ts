@@ -55,10 +55,18 @@ export async function POST(req: NextRequest) {
     // Kepemilikan via uid ATAU email (peserta jalur Meta punya userId = email).
     const enrollEmail = String(enrollData.email || "").toLowerCase();
     const authEmail = String(decoded.email || "").toLowerCase();
-    if (enrollData.userId !== decoded.uid && (!authEmail || enrollEmail !== authEmail)) {
+    // Jalur email HANYA untuk record Meta (userId disimpan sebagai email) dan
+    // wajib email terverifikasi — tanpa itu enrollment uid-owned bisa dibajak
+    // oleh siapa pun yang punya token dengan email yang sama.
+    const isMetaOwned =
+      !!enrollEmail && String(enrollData.userId || "").toLowerCase() === enrollEmail;
+    const ownedByEmail =
+      isMetaOwned && decoded.email_verified === true && authEmail === enrollEmail;
+    if (enrollData.userId !== decoded.uid && !ownedByEmail) {
       return json({ error: "Forbidden" }, 403);
     }
-    const userDocId = enrollData.userId === decoded.uid ? decoded.uid : (enrollData.userId || authEmail);
+    // Lolos guard → userId pasti uid pemilik atau email pemilik (record Meta).
+    const userDocId = String(enrollData.userId);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
     // Bukti klaim = benefitClaimed (flag baru) ATAU bonusCourseRedeemCode (jejak lama).
     // beasiswaType TIDAK dipakai — itu hanya penanda kategori (bisa diisi auto-complete admin).

@@ -46,11 +46,19 @@ export async function POST(req: NextRequest) {
     // punya users/enrollments ber-id EMAIL (userId = email), bukan Firebase uid.
     const enrollEmail = String(enrollData.email || "").toLowerCase();
     const authEmail = String(decoded.email || "").toLowerCase();
-    if (enrollData.userId !== decoded.uid && (!authEmail || enrollEmail !== authEmail)) {
+    // Jalur email HANYA untuk record Meta (userId disimpan sebagai email) dan
+    // wajib email terverifikasi — tanpa itu enrollment uid-owned bisa dibajak
+    // oleh siapa pun yang punya token dengan email yang sama.
+    const isMetaOwned =
+      !!enrollEmail && String(enrollData.userId || "").toLowerCase() === enrollEmail;
+    const ownedByEmail =
+      isMetaOwned && decoded.email_verified === true && authEmail === enrollEmail;
+    if (enrollData.userId !== decoded.uid && !ownedByEmail) {
       return json({ error: "Forbidden" }, 403);
     }
     // Dokumen users bisa ber-id uid (jalur login biasa) atau email (jalur Meta).
-    const userDocId = enrollData.userId === decoded.uid ? decoded.uid : (enrollData.userId || authEmail);
+    // Lolos guard → userId pasti uid pemilik atau email pemilik (record Meta).
+    const userDocId = String(enrollData.userId);
     if (!enrollData.certificateClaimed) return json({ error: "Sertifikat harus diklaim dulu" }, 400);
     // Sudah klaim benefit? Cek flag eksplisit benefitClaimed ATAU jejak klaim lama
     // (bonusCourseRedeemCode). beasiswaType TIDAK dipakai sebagai bukti klaim — itu
