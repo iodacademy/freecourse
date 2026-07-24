@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
-import { getExplicitBenefitCategories } from "@/lib/benefit-categories";
+import { getExplicitBenefitCategories, resolveBenefitTopicIds } from "@/lib/benefit-categories";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -35,17 +35,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       "name","description","channelType","courseId","status",
       "startDate","endDate","campusName","partnerCode","bulkImportedEmails",
       "landingPageConfig","utmTracking","workshopConfig","workshopData","customProfileFields",
-      "audienceLabel","beasiswaConfig","formId","benefitCategories"
+      "audienceLabel","beasiswaConfig","formId","benefitCategories","benefitTopicIds"
     ];
     const update: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
     for (const k of allowed) {
       if (body[k] !== undefined) update[k] = body[k];
     }
-    if (body.benefitCategories !== undefined || body.beasiswaConfig?.benefitCategories !== undefined) {
+    if (body.benefitCategories !== undefined || body.beasiswaConfig?.benefitCategories !== undefined ||
+        body.benefitTopicIds !== undefined) {
       const benefitCategories = getExplicitBenefitCategories(body);
+      const benefitTopicIds = resolveBenefitTopicIds(body) ?? [];
       update.benefitCategories = benefitCategories;
+      update.benefitTopicIds = benefitTopicIds;
       if (body.beasiswaConfig !== undefined && body.beasiswaConfig !== null) {
-        update.beasiswaConfig = { ...body.beasiswaConfig, benefitCategories };
+        update.beasiswaConfig = { ...body.beasiswaConfig, benefitCategories, benefitTopicIds };
       }
     }
     if (update.partnerCode !== undefined) {

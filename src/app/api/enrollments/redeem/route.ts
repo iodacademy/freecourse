@@ -13,7 +13,7 @@ import { sendEmailViaGAS } from "@/lib/gas-email";
 import { bonusRedeemEmail } from "@/lib/email-templates/bonus-redeem-email";
 import { workshopConfirmationEmail } from "@/lib/email-templates/workshop-emails";
 import { detailChannelFromCategory } from "@/lib/beasiswa-channel";
-import { isBenefitCategoryAllowed, resolveBenefitCategories } from "@/lib/benefit-categories";
+import { isBenefitCategoryAllowed, isBenefitTopicAllowed, resolveBenefitCategories, resolveBenefitTopicIds } from "@/lib/benefit-categories";
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,7 +84,9 @@ export async function POST(req: NextRequest) {
       const eventDoc = await db.collection("events").doc(enrollData.eventId).get();
       if (eventDoc.exists) {
         const allowedCategories = resolveBenefitCategories(eventDoc.data());
-        if (!isBenefitCategoryAllowed(category, allowedCategories)) {
+        const allowedTopicIds = resolveBenefitTopicIds(eventDoc.data());
+        if (!isBenefitCategoryAllowed(category, allowedCategories) ||
+            !isBenefitTopicAllowed(topicId, allowedTopicIds)) {
           return json({ error: "Benefit ini tidak tersedia untuk event kamu" }, 400);
         }
       }

@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLearnLoading } from "@/contexts/LearnLoadingContext";
 import { Loader2, Check, Copy, ExternalLink, Download, Upload, FileText } from "lucide-react";
 import type { BenefitCategory } from "@/lib/types";
-import { isBenefitCategoryAllowed, resolveBenefitCategories } from "@/lib/benefit-categories";
+import { isBenefitCategoryAllowed, isBenefitTopicAllowed, resolveBenefitCategories, resolveBenefitTopicIds } from "@/lib/benefit-categories";
 
 interface WorkshopData {
   date?: string;
@@ -53,13 +53,16 @@ function catMatches(cat: string | null, topicCategory: string): boolean {
   return c === cat;
 }
 
-async function loadAllowedBenefitCategories(eventId: string): Promise<BenefitCategory[] | null> {
+async function loadAllowedBenefit(
+  eventId: string
+): Promise<{ categories: BenefitCategory[] | null; topicIds: string[] | null }> {
   try {
     const res = await fetch(`/api/events/public/${encodeURIComponent(eventId)}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return resolveBenefitCategories(await res.json());
+    if (!res.ok) return { categories: null, topicIds: null };
+    const data = await res.json();
+    return { categories: resolveBenefitCategories(data), topicIds: resolveBenefitTopicIds(data) };
   } catch {
-    return null;
+    return { categories: null, topicIds: null };
   }
 }
 
@@ -140,17 +143,18 @@ export default function BonusCoursePage() {
         }
 
         // Belum pilih → tampilkan daftar sesuai ?cat=
-        const [topicsRes, allowedCategories] = await Promise.all([
+        const [topicsRes, allowed] = await Promise.all([
           fetch("/api/bonus-courses", {
             headers: { Authorization: `Bearer ${idToken}` }, cache: "no-store",
           }),
-          main.eventId ? loadAllowedBenefitCategories(main.eventId) : Promise.resolve(null),
+          main.eventId ? loadAllowedBenefit(main.eventId) : Promise.resolve({ categories: null, topicIds: null }),
         ]);
         if (topicsRes.ok) {
           const tData: BonusTopic[] = await topicsRes.json();
           setTopics(tData.filter((t) => (
             catMatches(targetCategory, t.category || "vl") &&
-            isBenefitCategoryAllowed(t.category || "vl", allowedCategories)
+            isBenefitCategoryAllowed(t.category || "vl", allowed.categories) &&
+            isBenefitTopicAllowed(t.id, allowed.topicIds)
           )));
         }
       } catch { setError("Gagal memuat data."); }

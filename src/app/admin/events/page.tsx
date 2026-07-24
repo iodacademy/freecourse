@@ -7,7 +7,7 @@ import styles from "./page.module.css";
 import { AlertTriangle, Archive, Copy, Check, School, Target, Mic, Search, X, Upload, User, ImageIcon, Calendar, Clock, Monitor, ChevronRight, ArrowLeft } from "lucide-react";
 import { ConfirmDialog } from "@/components/Modal/Dialogs";
 import type { BenefitCategory, DynamicForm } from "@/lib/types";
-import { BENEFIT_CATEGORY_OPTIONS, getExplicitBenefitCategories } from "@/lib/benefit-categories";
+import { BENEFIT_CATEGORY_OPTIONS, getExplicitBenefitCategories, isBenefitCategoryAllowed } from "@/lib/benefit-categories";
 
 interface EventData {
   id: string;
@@ -88,6 +88,9 @@ export default function AdminEventsPage() {
     topikList: [] as Array<{ judul: string; jadwal: string }>,
   });
   const [benefitCategories, setBenefitCategories] = useState<BenefitCategory[]>(["vl"]);
+  // Judul benefit spesifik. Kosong = semua judul dalam kategori terpilih.
+  const [benefitTopicIds, setBenefitTopicIds] = useState<string[]>([]);
+  const [benefitTopics, setBenefitTopics] = useState<Array<{ id: string; name: string; category?: string }>>([]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
@@ -137,6 +140,20 @@ export default function AdminEventsPage() {
   }, [getToken]);
 
   useEffect(() => { fetchForms(); }, [fetchForms]);
+
+  const fetchBenefitTopics = useCallback(async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/bonus-courses?all=1", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+      setBenefitTopics(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("[AdminEvents] Gagal memuat daftar benefit:", e);
+    }
+  }, [getToken]);
+
+  useEffect(() => { fetchBenefitTopics(); }, [fetchBenefitTopics]);
 
   // Filtered — channel + search lokal
   const filtered = events.filter((e) => {
@@ -243,6 +260,13 @@ export default function AdminEventsPage() {
         speakerPhoto: photoUrl,
       } : null;
       const eventBenefitCategories = usesBenefitCategories ? benefitCategories : [];
+      // Hanya kirim judul yang masih relevan dengan kategori terpilih.
+      const eventBenefitTopicIds = usesBenefitCategories
+        ? benefitTopicIds.filter((id) => {
+            const t = benefitTopics.find((x) => x.id === id);
+            return t ? isBenefitCategoryAllowed(t.category || "vl", eventBenefitCategories.length ? eventBenefitCategories : null) : false;
+          })
+        : [];
 
       const payload = {
         name: form.name,
@@ -255,6 +279,7 @@ export default function AdminEventsPage() {
         formId: form.formId || null,
         workshopData,
         benefitCategories: eventBenefitCategories,
+        benefitTopicIds: eventBenefitTopicIds,
         beasiswaConfig: form.channelType === "b2c_ads"
           ? { ...beasiswaConfig, benefitCategories: eventBenefitCategories }
           : null,
@@ -346,6 +371,7 @@ export default function AdminEventsPage() {
     setWorkshopForm({ date: "", dayLabel: "", time: "", platform: "Zoom Online", meetingLink: "", waGroupLink: "", speakerName: "", speakerTitle: "", speakerPhoto: "" });
     setBeasiswaConfig({ type: "vl", namaKelas: "", kodeBasis: "", kodeKelas: "", waGroupLink: "", topikList: [] });
     setBenefitCategories(["vl"]);
+    setBenefitTopicIds([]);
     setPhotoFile(null);
     setPhotoPreview("");
     setError("");
@@ -405,6 +431,10 @@ export default function AdminEventsPage() {
       topikList: bc?.topikList || [],
     });
     setBenefitCategories(savedBenefitCategories);
+    setBenefitTopicIds(
+      Array.isArray((evt as any).benefitTopicIds) ? (evt as any).benefitTopicIds
+        : Array.isArray((bc as any)?.benefitTopicIds) ? (bc as any).benefitTopicIds : []
+    );
 
     setPhotoFile(null);
     setPhotoPreview(wd?.speakerPhoto || "");
@@ -466,6 +496,43 @@ export default function AdminEventsPage() {
         })}
       </div>
       <span className={styles.formHint}>Jika memilih 2 kategori, siswa hanya melihat 2 tab itu dan tetap hanya bisa memilih 1 benefit.</span>
+
+      {/* Pilih judul spesifik (opsional). Kosong = semua judul di kategori terpilih. */}
+      {(() => {
+        const inCategory = benefitTopics.filter((t) =>
+          isBenefitCategoryAllowed(t.category || "vl", benefitCategories.length ? benefitCategories : null)
+        );
+        if (inCategory.length === 0) return null;
+        return (
+          <div style={{ marginTop: 16 }}>
+            <label className={styles.formLabel}>Judul Benefit Tertentu (opsional)</label>
+            <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, padding: 10 }}>
+              {inCategory.map((t) => {
+                const checked = benefitTopicIds.includes(t.id);
+                return (
+                  <label key={t.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => setBenefitTopicIds((prev) =>
+                        prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
+                      )}
+                      style={{ marginTop: 2 }}
+                    />
+                    <span>
+                      {t.name}
+                      <span style={{ color: "#94a3b8", marginLeft: 6 }}>({t.category || "vl"})</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <span className={styles.formHint}>
+              Biarkan kosong agar SEMUA judul di kategori terpilih tampil. Centang untuk membatasi ke judul tertentu saja.
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 

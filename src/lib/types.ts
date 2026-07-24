@@ -213,6 +213,8 @@ export interface Event {
   };
   formId?: string | null;
   benefitCategories?: BenefitCategory[];
+  /** Judul benefit tertentu yang boleh tampil. Kosong = semua judul di kategori terpilih. */
+  benefitTopicIds?: string[];
   customProfileFields?: ProfileField[];
   beasiswaConfig?: {
     type: "vl" | "wpb" | "bootcamp";

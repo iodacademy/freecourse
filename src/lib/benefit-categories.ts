@@ -49,6 +49,23 @@ export function resolveBenefitCategories(eventData: any): BenefitCategory[] | nu
   return null;
 }
 
+/**
+ * Daftar id topik/judul benefit yang dipilih admin untuk event ini.
+ * Kosong/null = semua judul dalam kategori terpilih boleh (perilaku default).
+ */
+export function resolveBenefitTopicIds(eventData: any): string[] | null {
+  const raw = eventData?.benefitTopicIds ?? eventData?.beasiswaConfig?.benefitTopicIds;
+  if (!Array.isArray(raw)) return null;
+  const ids = raw.filter((x: unknown): x is string => typeof x === "string" && !!x.trim());
+  return ids.length > 0 ? ids : null;
+}
+
+/** Topik lolos filter judul? Dipakai bersama isBenefitCategoryAllowed. */
+export function isBenefitTopicAllowed(topicId: string | undefined | null, allowedIds: string[] | null): boolean {
+  if (!allowedIds || allowedIds.length === 0) return true;
+  return !!topicId && allowedIds.includes(topicId);
+}
+
 export function isBenefitCategoryAllowed(topicCategory: string | undefined | null, allowed: BenefitCategory[] | null): boolean {
   if (!allowed || allowed.length === 0) return true;
   const category = (topicCategory || "vl") as BenefitCategory;

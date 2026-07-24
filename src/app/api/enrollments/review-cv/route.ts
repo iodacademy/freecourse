@@ -16,7 +16,7 @@ import { requireAuth, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
 import { callGAS } from "@/lib/gas-email";
 import { detailChannelFromCategory } from "@/lib/beasiswa-channel";
-import { isBenefitCategoryAllowed, resolveBenefitCategories } from "@/lib/benefit-categories";
+import { isBenefitCategoryAllowed, isBenefitTopicAllowed, resolveBenefitCategories, resolveBenefitTopicIds } from "@/lib/benefit-categories";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
       const eventDoc = await db.collection("events").doc(enrollData.eventId).get();
       if (eventDoc.exists) {
         const allowedCategories = resolveBenefitCategories(eventDoc.data());
-        if (!isBenefitCategoryAllowed("review_cv", allowedCategories)) {
+        const allowedTopicIds = resolveBenefitTopicIds(eventDoc.data());
+        if (!isBenefitCategoryAllowed("review_cv", allowedCategories) ||
+            !isBenefitTopicAllowed(topicId, allowedTopicIds)) {
           return json({ error: "Benefit ini tidak tersedia untuk event kamu" }, 400);
         }
       }

@@ -34,6 +34,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       workshopData: data.workshopData ?? null,
       beasiswaConfig: data.beasiswaConfig ?? null,
       benefitCategories: data.benefitCategories ?? data.beasiswaConfig?.benefitCategories ?? null,
+      benefitTopicIds: data.benefitTopicIds ?? data.beasiswaConfig?.benefitTopicIds ?? null,
     });
   } catch (e) {
     return handleError(e);

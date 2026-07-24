@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireAdmin, json, handleError } from "@/lib/api-helpers";
 import { FieldValue } from "firebase-admin/firestore";
-import { getExplicitBenefitCategories } from "@/lib/benefit-categories";
+import { getExplicitBenefitCategories, resolveBenefitTopicIds } from "@/lib/benefit-categories";
 
 /** Buat slug dari string: "Workshop Literasi Gen-Z" → "workshop-literasi-gen-z" */
 function toSlug(str: string): string {
@@ -44,8 +44,9 @@ export async function POST(req: NextRequest) {
     const channelType = body.channelType ?? "b2c_ads";
     const isWorkshop = channelType === "b2c_workshop";
     const benefitCategories = getExplicitBenefitCategories(body);
+    const benefitTopicIds = resolveBenefitTopicIds(body) ?? [];
     const beasiswaConfig = body.beasiswaConfig
-      ? { ...body.beasiswaConfig, benefitCategories }
+      ? { ...body.beasiswaConfig, benefitCategories, benefitTopicIds }
       : null;
 
     const data: Record<string, any> = {
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
       workshopConfig: body.workshopConfig ?? null,
       formId: body.formId || null,
       benefitCategories,
+      benefitTopicIds,
       customProfileFields: body.customProfileFields ?? [],
       beasiswaConfig,
       createdAt: FieldValue.serverTimestamp(),
