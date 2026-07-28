@@ -77,13 +77,21 @@ function MitraDashboardContent({ token }: { token: string }) {
   return (
     <>
       {data.mitra?.name && (
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 0" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>
-            Dashboard {data.mitra.name}
-          </h1>
-          <p style={{ color: "#64748b", fontSize: 14, margin: "4px 0 0" }}>
-            Metrik pendaftaran & progres peserta mitra ini.
-          </p>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+              Dashboard {data.mitra.name}
+            </h1>
+            <p style={{ color: "#64748b", fontSize: 14, margin: "4px 0 0" }}>
+              Metrik pendaftaran & progres peserta mitra ini.
+            </p>
+          </div>
+          <a
+            href={`/api/public/mitra/export-excel?token=${encodeURIComponent(token)}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#CC0000", color: "#fff", textDecoration: "none", padding: "10px 18px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}
+          >
+            ⬇ Export ke Excel
+          </a>
         </div>
       )}
       <DashboardView
