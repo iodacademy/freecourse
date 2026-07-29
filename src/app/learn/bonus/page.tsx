@@ -39,6 +39,7 @@ interface EnrollmentData {
   bonusCourseTopicId?: string;
   bonusCourseRedeemCode?: string;
   beasiswaType?: string;
+  waGroupLink?: string;
   eventId?: string;
 }
 
@@ -128,10 +129,12 @@ export default function BonusCoursePage() {
           if (main.bonusCourseRedeemCode) {
             setRedeemCode(main.bonusCourseRedeemCode);
             setPortalUrl(topic?.portalUrl || "https://app.iodacademy.id/portal-belajar/");
-            setGroupLink(topic?.groupLink || "");
+            // Utamakan grup WA yang tersimpan di enrollment saat klaim (bootcamp/wpb),
+            // baru fallback ke data topic. topic.groupLink sering kosong.
+            setGroupLink(main.waGroupLink || topic?.groupLink || topic?.workshopData?.waGroupLink || "");
             setResultKind("code");
           } else if (bType === "workshop") {
-            setGroupLink(topic?.workshopData?.waGroupLink || topic?.groupLink || "");
+            setGroupLink(main.waGroupLink || topic?.workshopData?.waGroupLink || topic?.groupLink || "");
             setResultKind("workshop");
           } else if (bType === "downloadable") {
             setDownloadUrl(topic?.downloadUrl || "");
@@ -198,7 +201,7 @@ export default function BonusCoursePage() {
         setResultKind("downloadable");
       } else {
         setRedeemCode(data.redeemCode);
-        setGroupLink(selected.groupLink || "");
+        setGroupLink(selected.groupLink || selected.workshopData?.waGroupLink || "");
         setPortalUrl(selected.portalUrl || "https://app.iodacademy.id/portal-belajar/");
         setResultKind("code");
       }
