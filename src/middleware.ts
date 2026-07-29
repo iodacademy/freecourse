@@ -14,6 +14,7 @@ const PUBLIC_API_ROUTES = [
   '/api/public/mitra',
   '/api/public/standalone',
   '/api/public/meta',
+  '/api/public/cert-events',
 ];
 
 export function middleware(request: NextRequest) {
