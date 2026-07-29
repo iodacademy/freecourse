@@ -18,6 +18,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
     if (body.title !== undefined) updateData.title = body.title;
     if (body.sections !== undefined) updateData.sections = body.sections;
+    if (body.batasiUsia !== undefined) updateData.batasiUsia = body.batasiUsia !== false;
     
     // If setting to active, we might need to deactivate others first
     if (body.isActive === true) {

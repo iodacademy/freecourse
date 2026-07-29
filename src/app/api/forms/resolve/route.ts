@@ -15,6 +15,7 @@ function toPublicForm(doc: FirebaseFirestore.DocumentSnapshot) {
   return {
     id: doc.id,
     title: data.title,
+    batasiUsia: data.batasiUsia !== false,
     sections: data.sections || [],
   };
 }

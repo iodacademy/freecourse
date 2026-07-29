@@ -285,7 +285,7 @@ function ProfileContent() {
             } else if (field.type === 'date') {
               if (typeof val === 'string' && val.startsWith('__display:')) {
                 errs[field.name] = `Format ${field.label} belum lengkap (DD/MM/YYYY)`;
-              } else if (field.name === 'tanggal_lahir' || field.label.toLowerCase().includes('lahir')) {
+              } else if ((field.name === 'tanggal_lahir' || field.label.toLowerCase().includes('lahir')) && activeForm?.batasiUsia !== false) {
                 const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
                 if (m) {
                    const birth = new Date(`${m[1]}-${m[2]}-${m[3]}`);

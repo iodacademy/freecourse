@@ -41,20 +41,8 @@ export default function StandaloneIdentityForm({ onSubmit, isLoading }: Standalo
       }
     });
 
-    if (answers.tanggal_lahir) {
-      const m = String(answers.tanggal_lahir).match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (m) {
-        const birth = new Date(`${m[1]}-${m[2]}-${m[3]}`);
-        const now = new Date();
-        let age = now.getFullYear() - birth.getFullYear();
-        const md = now.getMonth() - birth.getMonth();
-        if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--;
-        
-        if (age < 17 || age > 29) {
-          errs.tanggal_lahir = `Usia yang diperbolehkan adalah 17-29 tahun (Usia saat ini: ${age} tahun)`;
-        }
-      }
-    }
+    // Batasan usia tidak lagi hardcoded di sini. Pembatasan usia dikendalikan
+    // per-form lewat Form Builder (opsi "Batasi usia"). Form default = bebas.
 
     if (answers.disabilitas === "Ya") {
       if (!answers.kategori_disabilitas_yang_anda_miliki) {

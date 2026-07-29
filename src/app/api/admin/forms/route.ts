@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
     const newForm = {
       title: body.title || "Form Baru",
       isActive: false,
+      // Batasi usia peserta (default true = perilaku lama). Bisa dimatikan admin.
+      batasiUsia: body.batasiUsia !== false,
       sections: body.sections || [],
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

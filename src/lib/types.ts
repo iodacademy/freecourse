@@ -361,6 +361,8 @@ export interface DynamicForm {
   id: string;
   title: string;
   isActive: boolean;
+  /** Batasi usia peserta sesuai aturan program. Default true. */
+  batasiUsia?: boolean;
   sections: DynamicFormSection[];
   createdAt: Date;
   updatedAt: Date;

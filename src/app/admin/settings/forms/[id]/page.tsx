@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Trash2, GripVertical, Settings2, Save, Circle, Chevron
 import RichTextEditor from "@/components/RichTextEditor/RichTextEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import type { DynamicForm, DynamicFormSection, DynamicFormField, SkipRule } from "@/lib/types";
+import { MIN_AGE, MAX_AGE_DEFAULT, MAX_AGE_DISABILITAS } from "@/lib/regions";
 import Link from "next/link";
 import { ConfirmDialog, AlertDialog } from "@/components/Modal/Dialogs";
 
@@ -211,6 +212,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
         },
         body: JSON.stringify({
           title: form.title,
+          batasiUsia: form.batasiUsia !== false,
           sections: form.sections
         })
       });
@@ -330,6 +332,14 @@ export default function FormBuilderPage({ params }: { params: Promise<{ id: stri
               <p className={styles.subtitle}>
                 ID: {form.id} {form.isActive && " • Aktif"}
               </p>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 14, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={form.batasiUsia !== false}
+                  onChange={e => setForm({ ...form, batasiUsia: e.target.checked })}
+                />
+                Batasi usia peserta ({MIN_AGE}-{MAX_AGE_DEFAULT} th, {MAX_AGE_DISABILITAS} th untuk disabilitas)
+              </label>
             </div>
           </div>
         </header>

@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     return json({
       id: doc.id,
       title: data.title,
+      batasiUsia: data.batasiUsia !== false,
       sections: data.sections || [],
     });
   } catch (e) {
