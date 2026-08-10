@@ -104,16 +104,30 @@ export function resolveProgram(
   const detailMap = (data?.detail ?? {}) as Record<string, unknown>;
   const raw = detailMap[program] as Record<string, unknown> | undefined;
 
+  // Kelegasian ditentukan oleh BENTUK dokumen (tak ada `programs` yang sah),
+  // bukan oleh ada-tidaknya `raw` — sebab rute klaim menulis
+  // `detail.workshop.claimCount` lewat dotted-path update, yang membuat
+  // Firestore memunculkan stub map itu pada dokumen lama begitu diklaim
+  // sekali. Kalau kelegasian dites lewat `!raw`, klaim kedua akan lolos ke
+  // cabang di bawah dan mengembalikan sertifikat kosong.
+  //
+  // Legacy-ness is decided by the document's SHAPE (no valid `programs`),
+  // not by whether `raw` happens to exist — because the claim route writes
+  // `detail.workshop.claimCount` via a dotted-path update, which makes
+  // Firestore materialise that stub map on a legacy document as soon as it's
+  // claimed once. If legacy-ness were tested via `!raw`, the second claim
+  // would fall through to the branch below and return a blank certificate.
+  const isLegacy = !Array.isArray(data?.programs);
+  if (isLegacy && program === "workshop") {
+    const legacy = legacyDetail(data);
+    // Stub sudah ada -> claimCount per-program itu yang benar, bukan total
+    // dokumen dari legacyDetail(). Stub exists -> that per-program count is
+    // correct, not legacyDetail()'s document total.
+    if (raw) return { program, detail: { ...legacy, claimCount: num(raw.claimCount) } };
+    return { program, detail: legacy };
+  }
+
   if (!raw) {
-    // Dokumen lama menyimpan detail workshop-nya sebagai field datar di akar.
-    // Untuk kasus lain (mis. `programs` menyebut program yang detailnya belum
-    // ditulis) hanya judul event yang bisa dipercaya.
-    //
-    // Legacy documents keep their workshop detail as flat root fields. For any
-    // other case (e.g. `programs` lists a program whose detail was never
-    // written) only the event title can be trusted.
-    const isLegacy = !Array.isArray(data?.programs);
-    if (isLegacy && program === "workshop") return { program, detail: legacyDetail(data) };
     return {
       program,
       detail: {
