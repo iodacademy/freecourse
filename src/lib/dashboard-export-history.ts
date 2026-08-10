@@ -37,7 +37,7 @@ export function buildExportRecord(input: {
   const n = Number(input.rowCount);
   return {
     mode,
-    filter: input.filter && typeof input.filter === "object" ? input.filter : {},
+    filter: input.filter && typeof input.filter === "object" && !Array.isArray(input.filter) ? input.filter : {},
     rowCount: Number.isFinite(n) && n > 0 ? Math.floor(n) : 0,
     filename: String(input.filename || ""),
     driveFileId: String(input.driveFileId || ""),
