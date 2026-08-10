@@ -1,6 +1,6 @@
 /**
- * GET  /api/public/cert-events/[slug]  → info cert event (judul, tanggal) untuk halaman klaim.
- * POST /api/public/cert-events/[slug]  → klaim sertifikat: { name } → generate PDF via GAS.
+ * GET  /api/public/cert-events/[slug]  → info event + daftar program untuk halaman klaim.
+ * POST /api/public/cert-events/[slug]  → klaim: { name, program? } → generate PDF via GAS.
  * Publik, tanpa login. Nama diisi peserta.
  */
 import { NextRequest } from "next/server";
@@ -8,6 +8,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { json, handleError } from "@/lib/api-helpers";
 import { normalizeCertName, validateCertName } from "@/lib/cert-name";
 import { FieldValue } from "firebase-admin/firestore";
+import { resolveProgram, listPrograms } from "@/lib/cert-programs";
 
 type Ctx = { params: Promise<{ slug: string }> };
 
@@ -33,13 +34,24 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const { slug } = await params;
     const ev = await findEvent(slug);
     if (!ev || ev.data.active === false) return json({ error: "Not found" }, 404);
-    return json({
-      title: ev.data.title,
-      workshopDate: ev.data.workshopDate || "",
-      workshopDay: ev.data.workshopDay || "",
-      workshopTime: ev.data.workshopTime || "",
-      speakerName: ev.data.speakerName || "",
-    });
+
+    const programs = listPrograms(ev.data);
+    // `templateId` sengaja tidak dikirim — itu urusan server.
+    // `templateId` is deliberately withheld — it is the server's business.
+    const detail: Record<string, unknown> = {};
+    for (const p of programs) {
+      const r = resolveProgram(ev.data, p);
+      if (!r) continue;
+      detail[p] = {
+        title: r.detail.title,
+        date: r.detail.date,
+        day: r.detail.day,
+        time: r.detail.time,
+        speakerName: r.detail.speakerName,
+      };
+    }
+
+    return json({ title: ev.data.title || "", programs, detail });
   } catch (e) {
     return handleError(e);
   }
@@ -66,10 +78,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const ev = await findEvent(slug);
     if (!ev || ev.data.active === false) return json({ error: "Not found" }, 404);
 
+    const requested = typeof body.program === "string" ? body.program : undefined;
+    const picked = resolveProgram(ev.data, requested);
+    if (!picked) return json({ error: "Program tidak tersedia untuk link ini." }, 400);
+    const { program, detail } = picked;
+
     const db = getAdminDb();
     const settings = (await db.collection("settings").doc("app").get()).data() || {};
     const gasWebAppUrl: string = settings.gasWebAppUrl || "";
-    const templateId: string = settings.workshopCertSlideTemplateId || "";
+    // Template per program; kosong berarti pakai template global lama.
+    // Per-program template; empty means fall back to the old global template.
+    const templateId: string = detail.templateId || settings.workshopCertSlideTemplateId || "";
     if (!gasWebAppUrl) return json({ error: "Sertifikat belum bisa dibuat (GAS belum dikonfigurasi)." }, 500);
 
     const year = new Date().getFullYear();
@@ -85,12 +104,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         templateId,
         certId,
         userName,
-        workshopTitle: ev.data.title,
-        workshopDate: formatDateID(ev.data.workshopDate || ""),
-        workshopDay: ev.data.workshopDay || "",
-        workshopTime: ev.data.workshopTime || "",
-        speakerName: ev.data.speakerName || "",
-        speakerTitle: ev.data.speakerTitle || "",
+        workshopTitle: detail.title,
+        workshopDate: formatDateID(detail.date),
+        workshopDay: detail.day,
+        workshopTime: detail.time,
+        speakerName: detail.speakerName,
+        speakerTitle: detail.speakerTitle,
         claimDate,
       }),
     });
@@ -102,11 +121,21 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     // Catat klaim (audit) + hitung.
     await db.collection("certEvents").doc(ev.ref.id).collection("claims").add({
-      name: userName, certId, downloadUrl, createdAt: FieldValue.serverTimestamp(),
+      name: userName, program, certId, downloadUrl, createdAt: FieldValue.serverTimestamp(),
     });
-    await ev.ref.update({ claimCount: FieldValue.increment(1) });
+    // Untuk event lama `detail` belum ada; increment membuat map bersarangnya
+    // dari nol, sehingga angka per-program hanya menghitung sejak fitur ini aktif.
+    // Total `claimCount` tetap utuh sejak awal.
+    //
+    // Legacy events have no `detail` yet; the increment creates the nested map
+    // from zero, so per-program counts only cover claims since this feature
+    // shipped. The `claimCount` total stays intact from the start.
+    await ev.ref.update({
+      claimCount: FieldValue.increment(1),
+      [`detail.${program}.claimCount`]: FieldValue.increment(1),
+    });
 
-    return json({ success: true, certId, downloadUrl, name: userName });
+    return json({ success: true, certId, downloadUrl, name: userName, program });
   } catch (e) {
     return handleError(e);
   }
