@@ -116,6 +116,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const gasData = await gasRes.json().catch(() => ({}));
     const downloadUrl = gasData.downloadUrl || gasData.pdfUrl || "";
     if (!gasRes.ok || !downloadUrl) {
+      // Alasan asli dari GAS dicatat ke log server, bukan dikirim ke siswa:
+      // pesannya teknis ("This request cannot be applied." saat templateId
+      // bukan Google Slides atau tak bisa diakses akun Apps Script) dan bisa
+      // membocorkan ID template. Tanpa log ini kegagalan hanya terlihat
+      // sebagai "Coba lagi" dan penyebabnya harus ditebak.
+      //
+      // The real reason from GAS goes to the server log, not to the student:
+      // it is technical ("This request cannot be applied." when templateId is
+      // not a Google Slides file or is unreachable by the Apps Script account)
+      // and could leak the template ID. Without this log a failure only shows
+      // as "try again" and the cause has to be guessed.
+      console.error("[cert-claim] gagal generate sertifikat", {
+        slug, program, certId, templateId,
+        httpStatus: gasRes.status,
+        gasError: gasData?.error || "(GAS tidak mengirim error)",
+      });
       return json({ error: "Gagal membuat sertifikat. Coba lagi." }, 502);
     }
 
