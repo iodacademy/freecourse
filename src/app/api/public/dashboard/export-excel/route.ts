@@ -8,6 +8,8 @@ import {
   SHEET_HEADERS,
   studentToRow,
 } from "@/lib/dashboard-aggregator";
+import { buildExportRecord } from "@/lib/dashboard-export-history";
+import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +88,50 @@ export async function GET(req: NextRequest) {
 
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     const filename = `dashboard-publik-${mode}-${generatedAt.replace(/[: ]/g, "-")}.xlsx`;
+
+    // Simpan berkas ke Drive & catat riwayat. Seluruhnya ditelan bila gagal:
+    // riwayat itu fitur sekunder, tidak boleh menjatuhkan unduhan pengunjung.
+    // Sengaja di-`await` — pada serverless, pekerjaan yang belum selesai saat
+    // respons dikirim bisa dimatikan, dan riwayat justru hilang pada ekspor
+    // besar yang paling ingin dicatat.
+    //
+    // Store the file to Drive and record the history. Fully swallowed on
+    // failure: history is a secondary feature and must never break a
+    // visitor's download. Deliberately awaited — on serverless, work still
+    // pending when the response is sent can be killed, losing exactly the
+    // large exports most worth recording.
+    try {
+      let driveFileId = "";
+      let storeError = "";
+      const gasWebAppUrl: string = (settings.gasWebAppUrl as string) || "";
+
+      if (!gasWebAppUrl) {
+        storeError = "gasWebAppUrl belum dikonfigurasi";
+      } else {
+        const gasRes = await fetch(gasWebAppUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "store_dashboard_export",
+            // Wajib: GAS menolak dua action ekspor tanpa secret yang cocok.
+            // Required: GAS rejects the two export actions without a matching secret.
+            secret: (settings.dashboardExportSecret as string) || "",
+            fileBase64: Buffer.from(buf as Uint8Array).toString("base64"),
+            filename,
+          }),
+        });
+        const gasData = await gasRes.json().catch(() => ({}));
+        if (gasData?.success && gasData.fileId) driveFileId = String(gasData.fileId);
+        else storeError = String(gasData?.error || `GAS HTTP ${gasRes.status}`);
+      }
+
+      await db.collection("dashboardExports").add({
+        ...buildExportRecord({ mode, filter: filter as unknown as Record<string, unknown>, rowCount: rows.length, filename, driveFileId, storeError }),
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch {
+      // Diabaikan dengan sengaja / Deliberately ignored
+    }
 
     return new Response(buf as any, {
       status: 200,
