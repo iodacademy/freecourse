@@ -151,3 +151,54 @@ export function resolveProgram(
     },
   };
 }
+
+/**
+ * Susun payload update untuk mengedit sebuah cert event.
+ *
+ * Bahaya utamanya: form admin tidak membawa `claimCount`, sedangkan dokumen
+ * tersimpan sudah punya hitungan klaim yang terkumpul. Menulis `detail` mentah
+ * dari form akan menghapusnya. Fungsi ini menambalkan kembali hitungan lama
+ * per program, dan sengaja TIDAK menyentuh `slug` (link sudah beredar) maupun
+ * total `claimCount` di akar.
+ *
+ * Build the update payload for editing a cert event.
+ *
+ * The main hazard: the admin form does not carry `claimCount`, while the
+ * stored document already holds accumulated claims. Writing the form's
+ * `detail` verbatim would wipe them. This re-attaches each program's existing
+ * count, and deliberately leaves `slug` (links are already circulating) and
+ * the root `claimCount` total untouched.
+ *
+ * @returns payload siap `update()`, atau null bila input tak sah.
+ */
+export function buildEventUpdate(
+  stored: EventData,
+  form: { title?: unknown; programs?: unknown; detail?: unknown },
+): { title: string; programs: CertProgram[]; detail: Record<string, ProgramDetail> } | null {
+  const title = str(form?.title).trim();
+  if (!title) return null;
+
+  const rawPrograms = Array.isArray(form?.programs) ? form.programs : [];
+  const programs = CERT_PROGRAMS.filter((p) => rawPrograms.includes(p));
+  if (programs.length === 0) return null;
+
+  const storedDetail = (stored?.detail ?? {}) as Record<string, Record<string, unknown> | undefined>;
+  const formDetail = (form?.detail ?? {}) as Record<string, Record<string, unknown> | undefined>;
+
+  const detail: Record<string, ProgramDetail> = {};
+  for (const p of programs) {
+    const d = formDetail[p] || {};
+    detail[p] = {
+      title: str(d.title).trim() || title,
+      date: str(d.date).trim(),
+      day: str(d.day).trim(),
+      time: str(d.time).trim(),
+      speakerName: str(d.speakerName).trim(),
+      speakerTitle: str(d.speakerTitle).trim(),
+      templateId: str(d.templateId).trim(),
+      claimCount: num(storedDetail[p]?.claimCount),
+    };
+  }
+
+  return { title, programs, detail };
+}
