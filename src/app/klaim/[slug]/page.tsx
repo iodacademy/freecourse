@@ -57,7 +57,7 @@ export default function KlaimSertifikatPage({ params }: { params: Promise<{ slug
   }, [slug]);
 
   async function claim() {
-    if (!program) return;
+    if (!program || loading) return;
     if (!name.trim()) { setError("Isi nama dulu ya."); return; }
     setLoading(true); setError("");
     try {
