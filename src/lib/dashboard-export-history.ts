@@ -25,6 +25,26 @@ export interface ExportRecord {
 
 const MODES: readonly ExportMode[] = ["clean", "raw", "mismatch"];
 
+/**
+ * Menentukan mode ekspor dari query string secara aman.
+ * `mode` mengalir sampai ke header Content-Disposition, jadi ia wajib
+ * divalidasi di sini, bukan sekadar di-cast — string sembarang (termasuk
+ * yang mengandung CRLF) akan membuat `new Response()` melempar error
+ * SETELAH berkas terlanjur diunggah ke Drive.
+ *
+ * Safely determines export mode from the query string.
+ * `mode` flows all the way to the Content-Disposition header, so it must be
+ * validated here, not merely cast — an arbitrary string (including one
+ * containing CRLF) would make `new Response()` throw AFTER the file has
+ * already been uploaded to Drive.
+ */
+export function resolveExportMode(input: { modeParam: string | null; rawParam: boolean }): ExportMode {
+  if (input.modeParam && MODES.includes(input.modeParam as ExportMode)) {
+    return input.modeParam as ExportMode;
+  }
+  return input.rawParam ? "raw" : "clean";
+}
+
 export function buildExportRecord(input: {
   mode: string;
   filter?: Record<string, unknown> | null;

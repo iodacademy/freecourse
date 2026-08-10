@@ -8,7 +8,7 @@ import {
   SHEET_HEADERS,
   studentToRow,
 } from "@/lib/dashboard-aggregator";
-import { buildExportRecord } from "@/lib/dashboard-export-history";
+import { buildExportRecord, resolveExportMode } from "@/lib/dashboard-export-history";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -57,11 +57,17 @@ export async function GET(req: NextRequest) {
     // Terapkan filter dan generate data (termasuk students list karena disetel ke true)
     const filter = parseFilterFromSearchParams(req.nextUrl.searchParams);
     // mode: clean (default) | raw | mismatch. Param lama ?raw=1 tetap didukung.
+    // Divalidasi lewat resolveExportMode, bukan sekadar di-cast — nilai ini
+    // mengalir sampai ke header Content-Disposition, dan string sembarang
+    // (termasuk yang mengandung CRLF) akan membuat Response melempar error
+    // SETELAH berkas terlanjur diunggah ke Drive.
+    //
+    // Validated via resolveExportMode, not merely cast — this value flows
+    // all the way to the Content-Disposition header, and an arbitrary
+    // string (including one containing CRLF) would make Response throw
+    // AFTER the file has already been uploaded to Drive.
     const rawParam = req.nextUrl.searchParams.get("raw") === "1";
-    const mode = (req.nextUrl.searchParams.get("mode") || (rawParam ? "raw" : "clean")) as
-      | "clean"
-      | "raw"
-      | "mismatch";
+    const mode = resolveExportMode({ modeParam: req.nextUrl.searchParams.get("mode"), rawParam });
     const { students, generatedAt } = await aggregateDashboard(filter, {
       includeStudents: true,
       // Clean: hanya Tersertifikasi, di area program (Jabodetabek/Medan/Surabaya)
